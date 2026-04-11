@@ -103,6 +103,15 @@ const fetchUserRepos = async () => {
   for (const repo of repos) {
     console.log(`[GitHub] 正在抓取語言統計: ${repo.name}...`);
     const languages = await fetchRepoLanguages(repo.name);
+    
+    // 如果 GitHub 沒回傳主語言，從統計資料中找出佔比最高的作為主語言
+    let primaryLanguage = repo.language;
+    if (!primaryLanguage && languages && Object.keys(languages).length > 0) {
+      primaryLanguage = Object.entries(languages).reduce((prev, curr) => 
+        (curr[1] > prev[1] ? curr : prev)
+      )[0];
+    }
+
     formatted.push({
       github_id: repo.id,
       name: repo.name,
@@ -110,7 +119,7 @@ const fetchUserRepos = async () => {
       url: repo.html_url,
       homepage: repo.homepage || null,
       image_url: `https://opengraph.githubassets.com/1/${repo.owner?.login || 'WayneLY-Chen'}/${repo.name}`,
-      language: repo.language || null,
+      language: primaryLanguage || null,
       stars: repo.stargazers_count || 0,
       forks: repo.forks_count || 0,
       topics: repo.topics || [],
