@@ -260,13 +260,14 @@ export const HoverEffect = ({ items, className }) => {
                 <p className="hce-desc">{item.description || "暫無描述"}</p>
 
                 <div className="hce-footer">
-                  {item.topics && item.topics.length > 0 ? (
-                    <span className="hce-tag">
-                      {item.topics[0]}
-                    </span>
-                  ) : (
-                    <div />
-                  )}
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', overflow: 'hidden' }}>
+                    {(item.topics || []).slice(0, 3).map(t => (
+                      <span key={t} className="hce-tag">
+                        {t}
+                      </span>
+                    ))}
+                    {(!item.topics || item.topics.length === 0) && <div />}
+                  </div>
                   
                   {item.stars > 0 && (
                     <span className="hce-stars">
