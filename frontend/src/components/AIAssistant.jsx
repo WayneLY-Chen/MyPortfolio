@@ -413,7 +413,7 @@ export default function AIAssistant() {
     }
   }, [isMinimized])
 
-  // ── Scroll to bottom ───────────────────────────────────────────────────────────
+  // Auto-scroll logic
   // 記錄上一次對話紀錄長度，用來判斷是否滾動
   const prevHistoryLenRef = useRef(0)
   useEffect(() => {
@@ -432,7 +432,7 @@ export default function AIAssistant() {
     }
   }, [chatHistory])
 
-  // ── STT setup ─────────────────────────────────────────────────────────────────
+  // STT setup
   useEffect(() => {
     if (typeof window === 'undefined') return
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
@@ -479,7 +479,7 @@ export default function AIAssistant() {
     }
   }, [])
 
-  // ── TTS ───────────────────────────────────────────────────────────────────────
+  // TTS Functionality
   const speakText = async (text) => {
     if (!autoRead || typeof window === 'undefined') return
     
@@ -522,7 +522,7 @@ export default function AIAssistant() {
     })
   }
 
-  // ── STT toggle ────────────────────────────────────────────────────────────────
+  // Speech-to-Text Toggle
   const toggleListeningSTT = () => {
     if (!recognitionRef.current) {
       alert('抱歉，您的瀏覽器不支援 Web Speech API 語音辨識功能。')
@@ -543,7 +543,7 @@ export default function AIAssistant() {
 
   // ── Send / Ask ────────────────────────────────────────────────────────────────
   const handleAsk = async (questionOverride) => {
-    // 🛑 立即中斷所有正在進行的行為 (語音與打字)
+    // Interrupt current actions
     if ('speechSynthesis' in window) window.speechSynthesis.cancel()
     if (audioRef.current) {
       audioRef.current.pause()
@@ -574,7 +574,7 @@ export default function AIAssistant() {
     ])
 
     try {
-      // Build Gemini-format history from last 6 messages (skip welcome & placeholders)
+      // History construction for AI
       const apiHistory = chatHistory
         .filter(m => m.content && !m.content.includes('Wobot 正在思考') && !m.content.includes('你可以點擊下方快捷鍵'))
         .slice(-6)

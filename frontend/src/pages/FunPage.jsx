@@ -610,7 +610,7 @@ function Game2048() {
   )
 }
 
-// Boss Raid (Single Player, local session)
+// Boss Raid Game
 const CARD_POOL = [
   { id: 'c1', name: '基礎斬擊', type: 'melee', cost: 0, power: 15, desc: '無消耗的輕盈一擊' },
   { id: 'c2', name: '重劍無鋒', type: 'melee', cost: 10, power: 35, desc: '沉重的物理打擊' },
@@ -644,7 +644,6 @@ function BossRaidGame() {
   const [bossState, setBossState] = useState({ hp: BOSS_MAX, max_hp: BOSS_MAX, is_alive: true, killed_by: null })
   const [victory, setVictory] = useState(false)
   
-  // 為了支援多個獨立視窗進行對戰測試，必須生成並保存一個唯一的 sessionId
   const [sessionId] = useState(() => {
     let id = sessionStorage.getItem('boss_raid_session')
     if (!id) {
@@ -693,7 +692,7 @@ function BossRaidGame() {
   useEffect(() => {
     if (!entered) return;
     
-    // 初始化 Socket 連線 (透過 Vite Proxy 自動指向後端)
+    // Socket Initialization
     const socket = io(SOCKET_URL, {
       query: { sessionId, name: playerName }
     });
@@ -1310,7 +1309,7 @@ function PortalWarGame({ onBack }) {
   )
 }
 
-// ── AI Image Tab ─────────────────────────────────────────────────────────────
+// AI Image Generation
 const ASPECT_RATIOS = [
   { label: '1:1',  value: '1:1',  width: 1024, height: 1024 },
   { label: '16:9', value: '16:9', width: 1344, height: 768  },
@@ -1435,7 +1434,7 @@ function AiImageTab() {
   )
 }
 
-// ── Game definitions ──────────────────────────────────────────────────────────
+// Game Configurations
 const GAMES = [
   { id: 'snake',   emoji: '🐍', name: '貪食蛇',    desc: '方向鍵控制蛇吃食物，別撞牆！', color: '#d4f029' },
   { id: 'dino',    emoji: '🦖', name: '恐龍避障',   desc: '空白鍵跳躍，躲開所有障礙物！', color: '#f97316' },
@@ -1444,7 +1443,7 @@ const GAMES = [
   { id: 'portal',  emoji: '🔵', name: '陣營大戰',   desc: '雙人同台搶佔格子領土。',       color: '#00a2ff' },
 ]
 
-// ── Main FunPage ─────────────────────────────────────────────────────────────
+// FunPage Component
 export default function FunPage() {
   useLenis()
   const [activeTab, setActiveTab] = useState('games')
