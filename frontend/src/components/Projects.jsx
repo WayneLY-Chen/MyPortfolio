@@ -289,11 +289,22 @@ export default function Projects({ limit = 3 }) {
   const detectLanguages = (p) => {
     const langs = []
     if (p.language) langs.push(p.language)
+    
+    // 如果有語言統計，將佔比超過 1% 的語言也加入標籤
+    if (p.language_stats) {
+      Object.entries(p.language_stats).forEach(([lang, pct]) => {
+        if (pct > 1) langs.push(lang)
+      })
+    }
+
     const n = p.name.toLowerCase()
     if (n.includes('react')) langs.push('React')
     if (n.includes('node')) langs.push('Node.js')
     if (n.includes('typescript')) langs.push('TypeScript')
     if (n.includes('tailwind')) langs.push('Tailwind')
+    if (n.includes('vite')) langs.push('Vite')
+    if (n.includes('next')) langs.push('Next.js')
+    
     return [...new Set(langs)]
   }
 
