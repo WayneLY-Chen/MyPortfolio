@@ -25,21 +25,19 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 
-// CORS 定義
+// CORS
 const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
-app.use(
-  cors({
-    origin: allowedOrigins,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id'],
-    credentials: true,
-  })
-);
+app.use(cors({
+  origin: allowedOrigins,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-session-id'],
+  credentials: true,
+}));
 
 // 解析 JSON 請求 body
 app.use(express.json());
@@ -47,7 +45,6 @@ app.use(express.json());
 // 解析 Cookie
 app.use(cookieParser());
 
-// Session（僅用於 OAuth state 交換，不做持久 session）
 app.use(session({
   secret: process.env.SESSION_SECRET || process.env.JWT_ACCESS_SECRET,
   resave: false,
@@ -55,18 +52,19 @@ app.use(session({
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
-    maxAge: 10 * 60 * 1000  // 10 分鐘，只用於 OAuth state 交換
+    maxAge: 10 * 60 * 1000
   }
 }));
 
 // 初始化 Passport
 app.use(passport.initialize());
 
-// 請求 logging（開發用）
-app.use((req, _res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  next();
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.use((req, _res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+  });
+}
 
 // Health Check
 

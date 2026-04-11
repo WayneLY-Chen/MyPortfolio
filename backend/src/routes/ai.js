@@ -8,10 +8,8 @@ const os = require('os')
 const path = require('path')
 const fs = require('fs')
 
-// --- 智庫快取機制 ---
-let cachedProfile = null;
-let lastFetchTime = 0;
-const CACHE_TTL = 5 * 60 * 1000; // 5 分鐘快取
+// Profile data cache mechanism
+const CACHE_TTL = 5 * 60 * 1000;
 
 async function getProfileContext() {
   const now = Date.now();
@@ -55,7 +53,7 @@ function buildSystemPrompt(mode, p) {
 - 證照：${certificates}
 - 技術棧：React, Vite, Node.js, Express, PostgreSQL, Supabase, GSAP, Python, TypeScript。
 
-【實務經歷】
+// Experience
 - 工作經歷：${experience}
 
 【⚠️ 專利 (Patents) — 請與專案嚴格區分】
@@ -119,7 +117,7 @@ router.post('/generate-image', async (req, res) => {
   width = Number(width); height = Number(height)
   if (!SDXL_VALID.has(`${width}x${height}`)) { width = 1024; height = 1024 }
 
-  // 1. 自動翻譯 (不再使用 Gemini，改用免費 Google Translate API 節省額度)
+  // Automatic translation for image prompts
   let englishPrompt = prompt
   const hasChinese = /[\u4e00-\u9fff]/.test(prompt)
   if (hasChinese) {
