@@ -13,6 +13,7 @@ import * as Tooltip from '@radix-ui/react-tooltip'
 import { Button } from './ui/button'
 import { useToast } from './ui/Toast'
 import fetchBlogCached from '../utils/fetchBlog'
+import { API_URL } from '../config/api'
 
 function TiltCard({ children, onClick }) {
   const x = useMotionValue(0)
@@ -51,7 +52,7 @@ function AiSummaryButton({ type, title, content }) {
     if (loading) return
     setLoading(true); setShown(true)
     try {
-      const res = await fetch('/api/ai/summarize', {
+      const res = await fetch(`${API_URL}/ai/summarize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type, title, content })
@@ -138,7 +139,7 @@ export default function Blog({ limit = 3 }) {
     if (!accessToken) return toast.error('請先登入')
     setSaving(true)
     try {
-      const res = await fetch(`/api/blog/${modal.id}`, {
+      const res = await fetch(`${API_URL}/blog/${modal.id}`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
@@ -170,7 +171,7 @@ export default function Blog({ limit = 3 }) {
     if (!editTitle || !editSlug || !editContent) return toast.error('標題、路徑與內容為必填')
     setSaving(true)
     try {
-      const res = await fetch('/api/blog', {
+      const res = await fetch(`${API_URL}/blog`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -205,7 +206,7 @@ export default function Blog({ limit = 3 }) {
   const handleDeleteBlog = async (id) => {
     if (!window.confirm('確定要刪除這篇文章嗎？')) return
     try {
-      const res = await fetch(`/api/blog/${id}`, {
+      const res = await fetch(`${API_URL}/blog/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${accessToken}` }
       })

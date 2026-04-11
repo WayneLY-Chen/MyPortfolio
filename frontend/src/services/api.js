@@ -1,4 +1,5 @@
-const BASE_URL = '/api'
+import { API_URL } from '../config/api'
+const BASE_URL = API_URL
 
 export async function fetchProjects() {
   const res = await fetch(`${BASE_URL}/projects`)

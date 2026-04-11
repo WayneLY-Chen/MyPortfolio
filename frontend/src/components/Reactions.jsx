@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import useAuthStore from '../store/authStore'
+import { API_URL } from '../config/api'
 
 const EMOJIS = ['👍', '❤️', '😂', '🔥', '🚀']
 
@@ -22,7 +23,7 @@ export default function Reactions({ targetType, targetId }) {
   const load = useCallback(async () => {
     try {
       const sessionId = getSessionId()
-      const res = await fetch(`/api/reactions?targetType=${targetType}&targetId=${targetId}`, {
+      const res = await fetch(`${API_URL}/reactions?targetType=${targetType}&targetId=${targetId}`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'x-session-id': sessionId
@@ -46,7 +47,7 @@ export default function Reactions({ targetType, targetId }) {
     const sessionId = getSessionId()
     
     const sendRequest = async (token) => {
-      return await fetch('/api/reactions/toggle', {
+      return await fetch(`${API_URL}/reactions/toggle`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

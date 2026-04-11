@@ -15,6 +15,7 @@ import fetchProjectsCached from '../utils/fetchProjects'
 
 import Reactions from './Reactions'
 import { useToast } from './ui/Toast'
+import { API_URL } from '../config/api'
 
 function AiSummaryButton({ type, title, content }) {
   const [summary, setSummary] = useState('')
@@ -25,7 +26,7 @@ function AiSummaryButton({ type, title, content }) {
     if (loading) return
     setLoading(true); setShown(true)
     try {
-      const res = await fetch('/api/ai/summarize', {
+      const res = await fetch(`${API_URL}/ai/summarize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type, title, content })
@@ -310,7 +311,7 @@ export default function Projects({ limit = 3 }) {
     if (!accessToken) return toast.error('請先登入')
     setSaving(true)
     try {
-      const res = await fetch(`/api/projects/${modal.id}`, {
+      const res = await fetch(`${API_URL}/projects/${modal.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -356,7 +357,7 @@ export default function Projects({ limit = 3 }) {
         // 若大多數專案缺少語言統計，在背景靜默觸發一次同步
         const emptyCount = list.filter(p => !p.language_stats || Object.keys(p.language_stats).length === 0).length
         if (emptyCount > list.length / 2) {
-          fetch('/api/projects/sync', { method: 'POST' })
+          fetch(`${API_URL}/projects/sync`, { method: 'POST' })
             .then(r => r.json())
             .then(syncData => {
               if (syncData.success && syncData.data) {

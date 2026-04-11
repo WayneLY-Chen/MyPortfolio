@@ -3,6 +3,7 @@ import useAuthStore from '../store/authStore'
 import Reactions from './Reactions'
 import { useToast } from './ui/Toast'
 import { Trash2, AlertTriangle } from 'lucide-react'
+import { API_URL } from '../config/api'
 
 // Helper to format date
 const formatDate = (dateStr) => {
@@ -33,7 +34,7 @@ export default function Comments({ type, id, actions }) {
     if (!id) return
     setLoading(true)
     try {
-      const res = await fetch(`/api/comments?type=${type}&id=${id}`)
+      const res = await fetch(`${API_URL}/comments?type=${type}&id=${id}`)
       const data = await res.json()
       if (data.success) setComments(data.data)
     } catch (err) {
@@ -52,7 +53,7 @@ export default function Comments({ type, id, actions }) {
     setSubmitting(true)
 
     const sendRequest = async (token) => {
-      const res = await fetch('/api/comments', {
+      const res = await fetch(`${API_URL}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -102,7 +103,7 @@ export default function Comments({ type, id, actions }) {
   const performDelete = async (commentId) => {
     setIsDeleting(true)
     const sendDeleteRequest = async (token) => {
-      const res = await fetch(`/api/comments/${commentId}`, {
+      const res = await fetch(`${API_URL}/comments/${commentId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       })

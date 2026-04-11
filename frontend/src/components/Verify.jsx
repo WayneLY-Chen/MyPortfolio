@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
+import { AUTH_URL } from '../config/api'
 
 export default function Verify() {
   const [searchParams] = useSearchParams()
@@ -20,7 +21,7 @@ export default function Verify() {
 
     const verifyEmail = async () => {
       try {
-        const res = await fetch(`/auth/verify?token=${encodeURIComponent(token)}`)
+        const res = await fetch(`${AUTH_URL}/verify?token=${encodeURIComponent(token)}`)
         const data = await res.json()
         if (res.ok && data.success) {
           setStatus('success')
@@ -43,7 +44,7 @@ export default function Verify() {
     if (!resendEmail) return
     setResendStatus('sending')
     try {
-      const res = await fetch('/auth/resend-verification', {
+      const res = await fetch(`${AUTH_URL}/resend-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: resendEmail }),
