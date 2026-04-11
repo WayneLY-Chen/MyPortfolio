@@ -7,6 +7,12 @@ const { query } = require('../db');
 const { generateAccessToken, generateRefreshToken, setRefreshTokenCookie, verifyAccessToken } = require('../utils/jwt');
 const { authenticate } = require('../middlewares/authenticate');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/mailer');
+ 
+// 解析多個前端網址，取第一個作為跳轉目的地
+const getPrimaryFrontendUrl = () => {
+  const urls = (process.env.FRONTEND_URL || '').split(',').map(u => u.trim()).filter(Boolean);
+  return urls[0] || 'http://localhost:5173';
+};
 
 // POST /auth/register
 router.post('/register', async (req, res) => {
@@ -40,7 +46,7 @@ router.post('/register', async (req, res) => {
     const user = result.rows[0];
 
     // 寄送驗證信
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = getPrimaryFrontendUrl();
     const verifyUrl = `${frontendUrl}/verify?token=${verificationToken}`;
     try {
       await sendVerificationEmail(email, verifyUrl);
@@ -125,7 +131,7 @@ router.post('/resend-verification', async (req, res) => {
       'UPDATE users SET verification_token = $1, verification_expires_at = $2 WHERE id = $3',
       [verificationToken, verificationExpiresAt, user.id]
     );
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = getPrimaryFrontendUrl();
     const verifyUrl = `${frontendUrl}/verify?token=${verificationToken}`;
     try {
       await sendVerificationEmail(user.email, verifyUrl);
@@ -180,7 +186,7 @@ router.post('/forgot-password', async (req, res) => {
       'UPDATE users SET password_reset_token = $1, password_reset_expires_at = $2 WHERE id = $3',
       [resetToken, resetExpiresAt, user.id]
     );
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendUrl = getPrimaryFrontendUrl();
     const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
     try {
       await sendPasswordResetEmail(user.email, resetUrl);
@@ -238,30 +244,30 @@ router.post('/reset-password', async (req, res) => {
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'], session: false }));
 
 // GET /auth/google/callback
-router.get('/google/callback', passport.authenticate('google', { session: false, failureRedirect: `${process.env.FRONTEND_URL}/login?error=oauth_failed` }), async (req, res) => {
+router.get('/google/callback', passport.authenticate('google', { session: false, failureRedirect: `${getPrimaryFrontendUrl()}/login?error=oauth_failed` }), async (req, res) => {
   const user = req.user;
   const accessToken = generateAccessToken(user.id, user.role);
   const refreshToken = await generateRefreshToken(user.id);
   setRefreshTokenCookie(res, refreshToken);
-  res.redirect(`${process.env.FRONTEND_URL}/login/callback?token=${accessToken}`);
+  res.redirect(`${getPrimaryFrontendUrl()}/login/callback?token=${accessToken}`);
 });
 
 // GET /auth/github
 router.get('/github', passport.authenticate('github', { scope: ['user:email'], session: false }));
 
 // GET /auth/github/callback
-router.get('/github/callback', passport.authenticate('github', { session: false, failureRedirect: `${process.env.FRONTEND_URL}/login?error=oauth_failed` }), async (req, res) => {
+router.get('/github/callback', passport.authenticate('github', { session: false, failureRedirect: `${getPrimaryFrontendUrl()}/login?error=oauth_failed` }), async (req, res) => {
   const user = req.user;
   const accessToken = generateAccessToken(user.id, user.role);
   const refreshToken = await generateRefreshToken(user.id);
   setRefreshTokenCookie(res, refreshToken);
-  res.redirect(`${process.env.FRONTEND_URL}/login/callback?token=${accessToken}`);
+  res.redirect(`${getPrimaryFrontendUrl()}/login/callback?token=${accessToken}`);
 });
 
 // GET /auth/line
 router.get('/line', (req, res, next) => {
   if (!process.env.LINE_CHANNEL_ID) {
-    return res.redirect(`${process.env.FRONTEND_URL}/login?error=line_not_configured`);
+    return res.redirect(`${getPrimaryFrontendUrl()}/login?error=line_not_configured`);
   }
   passport.authenticate('line', { session: false })(req, res, next);
 });
@@ -269,24 +275,24 @@ router.get('/line', (req, res, next) => {
 // GET /auth/line/callback
 router.get('/line/callback', (req, res, next) => {
   if (!process.env.LINE_CHANNEL_ID) {
-    return res.redirect(`${process.env.FRONTEND_URL}/login?error=line_not_configured`);
+    return res.redirect(`${getPrimaryFrontendUrl()}/login?error=line_not_configured`);
   }
   passport.authenticate('line', {
     session: false,
-    failureRedirect: `${process.env.FRONTEND_URL}/login?error=oauth_failed`,
+    failureRedirect: `${getPrimaryFrontendUrl()}/login?error=oauth_failed`,
   })(req, res, next);
 }, async (req, res) => {
   const user = req.user;
   const accessToken = generateAccessToken(user.id, user.role);
   const refreshToken = await generateRefreshToken(user.id);
   setRefreshTokenCookie(res, refreshToken);
-  res.redirect(`${process.env.FRONTEND_URL}/login/callback?token=${accessToken}`);
+  res.redirect(`${getPrimaryFrontendUrl()}/login/callback?token=${accessToken}`);
 });
 
 // GET /auth/facebook
 router.get('/facebook', (req, res, next) => {
   if (!process.env.FACEBOOK_APP_ID) {
-    return res.redirect(`${process.env.FRONTEND_URL}/login?error=facebook_not_configured`);
+    return res.redirect(`${getPrimaryFrontendUrl()}/login?error=facebook_not_configured`);
   }
   passport.authenticate('facebook', { scope: ['public_profile'], session: false })(req, res, next);
 });
@@ -294,18 +300,18 @@ router.get('/facebook', (req, res, next) => {
 // GET /auth/facebook/callback
 router.get('/facebook/callback', (req, res, next) => {
   if (!process.env.FACEBOOK_APP_ID) {
-    return res.redirect(`${process.env.FRONTEND_URL}/login?error=facebook_not_configured`);
+    return res.redirect(`${getPrimaryFrontendUrl()}/login?error=facebook_not_configured`);
   }
   passport.authenticate('facebook', {
     session: false,
-    failureRedirect: `${process.env.FRONTEND_URL}/login?error=oauth_failed`,
+    failureRedirect: `${getPrimaryFrontendUrl()}/login?error=oauth_failed`,
   })(req, res, next);
 }, async (req, res) => {
   const user = req.user;
   const accessToken = generateAccessToken(user.id, user.role);
   const refreshToken = await generateRefreshToken(user.id);
   setRefreshTokenCookie(res, refreshToken);
-  res.redirect(`${process.env.FRONTEND_URL}/login/callback?token=${accessToken}`);
+  res.redirect(`${getPrimaryFrontendUrl()}/login/callback?token=${accessToken}`);
 });
 
 // POST /auth/refresh
