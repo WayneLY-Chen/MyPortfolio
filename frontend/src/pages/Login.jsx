@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import useAuthStore from '../store/authStore'
+import { AUTH_URL } from '../config/api'
 
 const OAUTH_PROVIDERS = [
   { id: 'google', label: '使用 Google 登入', color: '#ea4335' },
@@ -73,7 +74,7 @@ export default function Login({ mode }) {
   }, [isRegister])
 
   const handleOAuth = (provider) => {
-    window.location.href = `/auth/${provider}`
+    window.location.href = `${AUTH_URL}/${provider}`
   }
 
   const handleSubmit = async (e) => {
@@ -85,7 +86,7 @@ export default function Login({ mode }) {
           setError('兩次密碼輸入不一致'); setLoading(false); return
         }
         const res = await fetch(
-          `/auth/register`,
+          `${AUTH_URL}/register`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -101,7 +102,7 @@ export default function Login({ mode }) {
         if (!res.ok) { setError(data.error || '註冊失敗'); return }
         setRegisterSuccess(true)
       } else {
-        const res = await fetch(`/auth/login`, {
+        const res = await fetch(`${AUTH_URL}/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',

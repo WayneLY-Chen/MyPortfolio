@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import useAuthStore from '../store/authStore'
+import { AUTH_URL } from '../config/api'
 
 export default function AuthCallback() {
   const navigate = useNavigate()
@@ -14,7 +15,7 @@ export default function AuthCallback() {
     if (token) {
       // 1. 先暫存 token 並顯示載入中（store 會處理後續的 silentRefresh 或 me 請求）
       // 這裡直接呼叫後端的 /auth/me 來獲取完整使用者資訊
-      fetch('/auth/me', {
+      fetch(`${AUTH_URL}/me`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       .then(res => res.json())

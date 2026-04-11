@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { API_URL } from '../config/api'
 import TopNav from '../components/TopNav'
 import Footer from '../components/Footer'
 import Comments from '../components/Comments'
@@ -55,7 +56,7 @@ export default function BlogPostPage() {
 
   useEffect(() => {
     setLoading(true)
-    fetch(`/api/blog/${slug}`)
+    fetch(`${API_URL}/blog/${slug}`)
       .then(r => r.json())
       .then(d => { if (d.success) { setPost(d.data); setLoading(false) } else { setError('找不到文章'); setLoading(false) } })
       .catch(() => { setError('載入失敗'); setLoading(false) })

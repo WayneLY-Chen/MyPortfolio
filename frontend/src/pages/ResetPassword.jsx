@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+import { AUTH_URL } from '../config/api'
 
 // 眼睛開（可見）SVG
 function EyeOpen() {
@@ -148,7 +148,7 @@ export default function ResetPassword() {
 
     setLoading(true)
     try {
-      const res = await fetch(`${API_BASE}/auth/reset-password`, {
+      const res = await fetch(`${AUTH_URL}/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, newPassword }),
