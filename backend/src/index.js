@@ -26,11 +26,13 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 
 // CORS
+const frontendUrls = (process.env.FRONTEND_URL || '').split(',').map(u => u.trim()).filter(Boolean);
+
 const allowedOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
-  process.env.FRONTEND_URL
-].filter(Boolean);
+  ...frontendUrls
+];
 
 app.use(cors({
   origin: allowedOrigins,
