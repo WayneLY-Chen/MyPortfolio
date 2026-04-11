@@ -28,17 +28,17 @@ const buildHeaders = () => {
  * @param {string} repoName
  * @returns {Object} 語言比例物件，例如 { JavaScript: 75.5, CSS: 24.5 }
  */
-const fetchRepoLanguages = async (repoName) => {
+const fetchRepoLanguages = async (repoName, retryCount = 1) => {
   try {
     const url = `https://api.github.com/repos/${GITHUB_USERNAME}/${repoName}/languages`;
     const response = await axios.get(url, {
       headers: buildHeaders(),
-      timeout: 3000,
+      timeout: 8000,
     });
     const langBytes = response.data;
     const total = Object.values(langBytes).reduce((a, b) => a + b, 0);
     if (total === 0) return {};
-    // Sort by bytes descending so the largest language gets the rounding remainder
+    
     const sorted = Object.entries(langBytes).sort((a, b) => b[1] - a[1]);
     const stats = {};
     let allocated = 0;
@@ -49,12 +49,15 @@ const fetchRepoLanguages = async (repoName) => {
         stats[lang] = pct;
         allocated += pct;
       } else {
-        // Last (smallest) lang gets the remainder to guarantee sum = 100
-        stats[lang] = Math.round((100 - allocated) * 10) / 10;
+        stats[lang] = Math.max(0, Math.round((100 - allocated) * 10) / 10);
       }
     }
     return stats;
-  } catch {
+  } catch (err) {
+    if (retryCount > 0) {
+      console.log(`[GitHub] 語言抓取失敗，正在重試 (${repoName})...`);
+      return fetchRepoLanguages(repoName, retryCount - 1);
+    }
     return {};
   }
 };

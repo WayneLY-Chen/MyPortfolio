@@ -354,9 +354,10 @@ export default function Projects({ limit = 3 }) {
         const list = (listData || []).filter(p => p.name !== 'WayneLY-Chen')
         setProjects(list)
         setLoading(false)
-        // 若大多數專案缺少語言統計，在背景靜默觸發一次同步
-        const emptyCount = list.filter(p => !p.language_stats || Object.keys(p.language_stats).length === 0).length
-        if (emptyCount > list.length / 2) {
+        // 若有任何專案缺少語言統計，或快取的資料不完整，在背景靜默觸發一次同步
+        const hasMissingData = list.some(p => !p.language_stats || Object.keys(p.language_stats).length === 0)
+        if (hasMissingData) {
+          console.log('[Projects] 偵測到部分資料缺失，正在背景同步...')
           fetch(`${API_URL}/projects/sync`, { method: 'POST' })
             .then(r => r.json())
             .then(syncData => {
@@ -618,7 +619,7 @@ export default function Projects({ limit = 3 }) {
                         <img
                           src={imgSrc}
                           alt={p.name}
-                          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block', transition: 'transform 0.6s cubic-bezier(0.19,1,0.22,1)' }}
+                          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block', transition: 'transform 0.6s cubic-bezier(0.19,1,0.22,1)', background: '#111' }}
                           onError={e => {
                             const fb = `https://placehold.co/600x340/0b0b0d/333?text=${encodeURIComponent(p.name)}`
                             if (e.target.src !== fb) e.target.src = fb
