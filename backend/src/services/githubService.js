@@ -98,9 +98,12 @@ const fetchUserRepos = async () => {
     throw new Error(message);
   }
 
-  // 並行抓取所有 Repo 的語言統計
-  const formatted = await Promise.all(
-    repos.map(async (repo) => ({
+  // 改為循序抓取所有 Repo 的語言統計，避免瞬間觸發 Rate Limit
+  const formatted = [];
+  for (const repo of repos) {
+    console.log(`[GitHub] 正在抓取語言統計: ${repo.name}...`);
+    const languages = await fetchRepoLanguages(repo.name);
+    formatted.push({
       github_id: repo.id,
       name: repo.name,
       description: repo.description || null,
@@ -112,9 +115,9 @@ const fetchUserRepos = async () => {
       forks: repo.forks_count || 0,
       topics: repo.topics || [],
       updated_at: repo.updated_at,
-      language_stats: await fetchRepoLanguages(repo.name),
-    }))
-  );
+      language_stats: languages,
+    });
+  }
 
   return formatted;
 };
