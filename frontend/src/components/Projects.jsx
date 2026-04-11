@@ -703,7 +703,7 @@ export default function Projects({ limit = 3 }) {
                   title: p.name,
                   description: p.description || '暫無描述',
                   image: p.image_url || `https://opengraph.githubassets.com/1/WayneLY-Chen/${p.name}`,
-                  topics: p.topics || (p.language ? [p.language] : []),
+                  topics: detectLanguages(p),
                   stars: p.stars || 0,
                   language_stats: p.language_stats || {},
                   onClick: () => setModal(p),
