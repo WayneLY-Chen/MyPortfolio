@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140" width="120" height="140">
+  <!-- Shadow -->
+  <ellipse cx="60" cy="135" rx="26" ry="5" fill="rgba(0,0,0,0.12)"/>
+  <!-- Long silky coat base -->
+  <path d="M30 82 Q25 108 31 124 Q60 132 89 124 Q95 108 90 82 Z" fill="#C8A04A"/>
+  <!-- Dark steel-blue back/body -->
+  <ellipse cx="60" cy="83" rx="24" ry="18" fill="#3E3D6B"/>
+  <!-- Coat sides lighter tan -->
+  <path d="M36 88 Q32 110 38 122 Q60 128 82 122 Q88 110 84 88 Q73 93 60 93 Q47 93 36 88Z" fill="#D4A955" opacity="0.75"/>
+  <!-- Head (chibi big round) -->
+  <ellipse cx="60" cy="52" rx="26" ry="24" fill="#D4A96B"/>
+  <!-- Top fur -->
+  <ellipse cx="60" cy="33" rx="18" ry="13" fill="#C8A04A"/>
+  <!-- Ears -->
+  <polygon points="34,45 37,22 49,41" fill="#3E3D6B"/>
+  <polygon points="86,45 83,22 71,41" fill="#3E3D6B"/>
+  <polygon points="36,44 39,27 48,41" fill="#D4A96B" opacity="0.85"/>
+  <polygon points="84,44 81,27 72,41" fill="#D4A96B" opacity="0.85"/>
+  <!-- Muzzle -->
+  <ellipse cx="60" cy="62" rx="15" ry="12" fill="#F0CC8A"/>
+  <!-- Eyes big dark -->
+  <circle cx="48" cy="50" r="8" fill="#1a1106"/>
+  <circle cx="72" cy="50" r="8" fill="#1a1106"/>
+  <circle cx="50.5" cy="47" r="3" fill="white"/>
+  <circle cx="74.5" cy="47" r="3" fill="white"/>
+  <circle cx="49" cy="50" r="5" fill="#4a2c10" opacity="0.55"/>
+  <circle cx="73" cy="50" r="5" fill="#4a2c10" opacity="0.55"/>
+  <!-- Nose -->
+  <ellipse cx="60" cy="63" rx="5" ry="4" fill="#1a1106"/>
+  <ellipse cx="58.5" cy="62" rx="1.5" ry="1" fill="rgba(255,255,255,0.35)"/>
+  <!-- Mouth small smile -->
+  <path d="M55 67 Q60 72 65 67" stroke="#1a1106" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <!-- Pink bow topknot -->
+  <ellipse cx="52" cy="29" rx="7" ry="4.5" fill="#FF80B0" transform="rotate(-20,52,29)"/>
+  <ellipse cx="68" cy="29" rx="7" ry="4.5" fill="#FF80B0" transform="rotate(20,68,29)"/>
+  <circle cx="60" cy="29" r="4" fill="#FF3D87"/>
+  <!-- Paws -->
+  <ellipse cx="44" cy="120" rx="12" ry="8" fill="#D4A96B"/>
+  <ellipse cx="76" cy="120" rx="12" ry="8" fill="#D4A96B"/>
+  <path d="M36 121 Q44 126 52 121" stroke="#C09040" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+  <path d="M68 121 Q76 126 84 121" stroke="#C09040" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+</svg>
