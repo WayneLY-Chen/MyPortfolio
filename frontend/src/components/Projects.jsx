@@ -287,7 +287,11 @@ export default function Projects({ limit = 3 }) {
   }
 
   const detectLanguages = (p) => {
-    const langs = []
+    if (!p) return []
+    // 優先使用 GitHub Topics
+    let langs = [...(p.topics || [])]
+    
+    // 加入主要語言
     if (p.language) langs.push(p.language)
     
     // 如果有語言統計，將佔比超過 1% 的語言也加入標籤
@@ -297,7 +301,7 @@ export default function Projects({ limit = 3 }) {
       })
     }
 
-    const n = p.name.toLowerCase()
+    const n = (p.name || '').toLowerCase()
     if (n.includes('react')) langs.push('React')
     if (n.includes('node')) langs.push('Node.js')
     if (n.includes('typescript')) langs.push('TypeScript')
@@ -305,7 +309,8 @@ export default function Projects({ limit = 3 }) {
     if (n.includes('vite')) langs.push('Vite')
     if (n.includes('next')) langs.push('Next.js')
     
-    return [...new Set(langs)]
+    // 過濾並去重
+    return [...new Set(langs.filter(Boolean))]
   }
 
   useEffect(() => {
@@ -616,7 +621,7 @@ export default function Projects({ limit = 3 }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 40 }}>
                 {projects.slice(0, limit).map(p => {
                   const imgSrc = p.image_url || `https://opengraph.githubassets.com/1/WayneLY-Chen/${p.name}`
-                  const tags = p.topics || []
+                  const tags = detectLanguages(p)
                   return (
                     <div
                       key={p.id}
@@ -742,9 +747,9 @@ export default function Projects({ limit = 3 }) {
 
                    <div style={{ padding: '40px 48px 56px' }}>
                       {/* ── 技術棧標籤 ── */}
-                      {(modal.topics || detectLanguages(modal)).length > 0 && (
+                      {detectLanguages(modal).length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 28 }}>
-                          {(modal.topics || detectLanguages(modal)).map(t => (
+                          {detectLanguages(modal).map(t => (
                             <span key={t} style={{ fontSize: 11, padding: '4px 12px', border: '1px solid rgba(200,148,42,0.35)', color: '#C8942A', borderRadius: 4, letterSpacing: '0.08em', textTransform: 'uppercase', fontWeight: 700 }}>{t}</span>
                           ))}
                         </div>
