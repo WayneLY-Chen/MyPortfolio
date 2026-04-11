@@ -40,42 +40,7 @@
 └── README.md          # 本說明文件
 ```
 
----
 
-## 🚀 快速開始 (Quick Start)
-
-1. **環境變數設定**：
-   將 `.env.example` 複製為 `.env` 並填入您的 API Key (Gemini, Supabase, OAuth 等)。
-2. **安裝依賴**：
-   ```bash
-   # 前端
-   cd frontend && npm install
-   # 後端
-   cd backend && npm install
-   ```
-3. **啟動開發環境**：
-   ```bash
-   # 前端
-   npm run dev
-   # 後端
-   npm start
-   ```
-
----
-
-## 🌐 部署指南 (Deployment Guide)
-
-### 前端 (Vercel)
-- 將 **Root Directory** 設定為 `frontend`。
-- 在 Vercel 控制台設定所有 `.env` 中的環境變數。
-- `FRONTEND_URL` 請填入 Vercel 分配的網址。
-
-### 後端 (Render / Railway)
-- 將 **Root Directory** 設定為 `backend`。
-- 確保已開啟 Supabase 的 `vector` 擴展功能的連線。
-- `API_BASE_URL` 請填入後端部署後的網址。
-
----
 
 ## 👨‍💻 聯繫我 (Contact)
 
@@ -88,4 +53,4 @@
 
 ---
 > [!TIP]
-> 歡迎直接 Fork 此專案，或透過右下角的 Wobot 助理了解更多關於我的細節！
+> 歡迎 Star 此專案，或透過右下角的 Wobot 助理了解更多關於我的細節！
