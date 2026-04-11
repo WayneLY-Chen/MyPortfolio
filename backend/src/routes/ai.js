@@ -10,6 +10,8 @@ const fs = require('fs')
 
 // Profile data cache mechanism
 const CACHE_TTL = 5 * 60 * 1000;
+let cachedProfile = null;
+let lastFetchTime = 0;
 
 async function getProfileContext() {
   const now = Date.now();
