@@ -117,7 +117,7 @@ export default function Blog({ limit = 3 }) {
   const [modal, setModal] = useState(null)
   const modalBoxRef = useRef(null)
 
-  const { user, accessToken } = useAuthStore()
+  const { user, accessToken, silentRefresh, clearAuth } = useAuthStore()
   const isAdmin = user?.email === 'qweasd226410@gmail.com'
   const [isEditing, setIsEditing] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
@@ -142,16 +142,44 @@ export default function Blog({ limit = 3 }) {
   const handleSaveBlog = async () => {
     if (!accessToken) return toast.error('請先登入')
     setSaving(true)
-    try {
-      const res = await fetch(`${API_URL}/blog/${modal.id}`, {
+    
+    const performRequest = async (token) => {
+      return fetch(`${API_URL}/blog/${modal.id}`, {
         method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ title: editTitle, content: editContent, cover_image: editCoverImage, summary: editSummary })
       })
-      if (!res.ok) throw new Error('儲存失敗')
+    }
+
+    try {
+      let res = await performRequest(accessToken)
+      
+      // Handle Token Expiration
+      if (res.status === 401) {
+        const data = await res.json().catch(() => ({}))
+        if (data.message === 'TOKEN_EXPIRED') {
+          const success = await silentRefresh()
+          if (success) {
+            // Retry with new token
+            const newAccessToken = useAuthStore.getState().accessToken
+            res = await performRequest(newAccessToken)
+          } else {
+            clearAuth()
+            throw new Error('登入已逾時，請重新登入')
+          }
+        } else {
+          throw new Error(data.message || '驗證失敗')
+        }
+      }
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.message || '儲存失敗')
+      }
+      
       const data = await res.json()
       if (data.success) {
         setModal(data.data)
@@ -174,12 +202,13 @@ export default function Blog({ limit = 3 }) {
     if (!accessToken) return toast.error('請先登入')
     if (!editTitle || !editSlug || !editContent) return toast.error('標題、路徑與內容為必填')
     setSaving(true)
-    try {
-      const res = await fetch(`${API_URL}/blog`, {
+
+    const performRequest = async (token) => {
+      return fetch(`${API_URL}/blog`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ 
           title: editTitle, 
@@ -189,6 +218,28 @@ export default function Blog({ limit = 3 }) {
           cover_image: editCoverImage 
         })
       })
+    }
+
+    try {
+      let res = await performRequest(accessToken)
+
+      // Handle Token Expiration
+      if (res.status === 401) {
+        const data = await res.json().catch(() => ({}))
+        if (data.message === 'TOKEN_EXPIRED') {
+          const success = await silentRefresh()
+          if (success) {
+            const newAccessToken = useAuthStore.getState().accessToken
+            res = await performRequest(newAccessToken)
+          } else {
+            clearAuth()
+            throw new Error('登入已逾時，請重新登入')
+          }
+        } else {
+          throw new Error(data.message || '建立失敗')
+        }
+      }
+
       const data = await res.json()
       if (!res.ok) throw new Error(data.message || '建立失敗')
       if (data.success) {
@@ -199,9 +250,10 @@ export default function Blog({ limit = 3 }) {
         })
         setIsCreating(false)
         resetEditFields()
+        toast.success('文章已發佈')
       }
     } catch (e) {
-      alert(e.message)
+      toast.error(e.message)
     } finally {
       setSaving(false)
     }

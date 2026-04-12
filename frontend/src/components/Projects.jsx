@@ -283,7 +283,7 @@ export default function Projects({ limit = 3 }) {
   const [modal, setModal] = useState(null)
   const [sortBy, setSortBy] = useState('stars')
 
-  const { user, accessToken } = useAuthStore()
+  const { user, accessToken, silentRefresh, clearAuth } = useAuthStore()
   const isAdmin = user?.email === 'qweasd226410@gmail.com'
   const [isEditing, setIsEditing] = useState(false)
   const [editDesc, setEditDesc] = useState('')
@@ -340,20 +340,42 @@ export default function Projects({ limit = 3 }) {
   const handleSaveProject = async () => {
     if (!accessToken) return toast.error('請先登入')
     setSaving(true)
-    try {
-      const res = await fetch(`${API_URL}/projects/${modal.id}`, {
+    const performRequest = async (token) => {
+      return fetch(`${API_URL}/projects/${modal.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ description: editDesc, image_url: editImageUrl, topics: editTech, name: modal.name, github_id: modal.github_id })
       })
-      if (!res.ok) {
-        const errData = await res.json().catch(() => null)
-        toast.error(errData?.message || `儲存失敗 (HTTP ${res.status})`)
-        return
+    }
+
+    try {
+      let res = await performRequest(accessToken)
+
+      // Handle Token Expiration
+      if (res.status === 401) {
+        const data = await res.json().catch(() => ({}))
+        if (data.message === 'TOKEN_EXPIRED') {
+          const success = await silentRefresh()
+          if (success) {
+            const newAccessToken = useAuthStore.getState().accessToken
+            res = await performRequest(newAccessToken)
+          } else {
+            clearAuth()
+            throw new Error('登入已逾時，請重新登入')
+          }
+        } else {
+          throw new Error(data.message || '驗證失敗')
+        }
       }
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.message || '儲存失敗')
+      }
+
       const data = await res.json()
       if (data.success) {
         setModal(data.data)
@@ -371,8 +393,8 @@ export default function Projects({ limit = 3 }) {
       } else {
         toast.error(data.message || '儲存失敗，請稍後再試')
       }
-    } catch {
-      toast.error('存取失敗，請檢查網路連線')
+    } catch (e) {
+      toast.error(e.message || '存取失敗，請檢查網路連線')
     } finally {
       setSaving(false)
     }
