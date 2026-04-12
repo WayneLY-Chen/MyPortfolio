@@ -101,6 +101,6 @@ const useAuthStore = create((set, get) => ({
 
     return refreshPromise;
   },
-})),
+}))
 
 export default useAuthStore
