@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
+import remarkBreaks from 'remark-breaks'
 import { useNavigate } from 'react-router-dom'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
@@ -90,12 +91,13 @@ function AiSummaryButton({ type, title, content }) {
             <div className="ai-summary-content" style={{ fontSize: '13.5px', color: '#bbb', lineHeight: 1.7 }}>
               <ReactMarkdown 
                 rehypePlugins={[rehypeRaw]}
-                remarkPlugins={[remarkGfm]}
+                remarkPlugins={[remarkGfm, remarkBreaks]}
                 components={{
                   p: ({node, ...props}) => <p style={{ margin: 0 }} {...props} />,
                   strong: ({node, ...props}) => <strong style={{ color: '#fff', fontWeight: 700 }} {...props} />,
                   ul: ({node, ...props}) => <ul style={{ paddingLeft: '18px', margin: '8px 0', listStyleType: 'disc' }} {...props} />,
                   li: ({node, ...props}) => <li style={{ marginBottom: '4px', color: '#aaa' }} {...props} />,
+                  a: ({node, ...props}) => <a style={{ color: '#d4f029', textDecoration: 'underline', pointerEvents: 'auto' }} target="_blank" rel="noopener noreferrer" {...props} />,
                 }}
               >
                 {summary}
@@ -822,7 +824,7 @@ export default function Blog({ limit = 3 }) {
                           <div className="blog-content-markdown" style={{ fontSize: '15px', color: '#b0b0b0', lineHeight: 2, marginBottom: '28px', fontWeight: 300, letterSpacing: '0.01em', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
                             <ReactMarkdown
                               rehypePlugins={[rehypeRaw]}
-                              remarkPlugins={[remarkGfm]}
+                              remarkPlugins={[remarkGfm, remarkBreaks]}
                               components={{
                                 h1: ({node, ...props}) => <h1 style={{ color: '#fff', fontSize: '28px', fontWeight: 800, margin: '32px 0 16px', fontFamily: 'var(--font-display)' }} {...props} />,
                                 h2: ({node, ...props}) => <h2 style={{ color: '#fff', fontSize: '22px', fontWeight: 800, margin: '32px 0 16px', borderLeft: '3px solid var(--accent)', paddingLeft: '12px', fontFamily: 'var(--font-display)' }} {...props} />,
@@ -830,7 +832,22 @@ export default function Blog({ limit = 3 }) {
                                 p: ({node, ...props}) => <p style={{ marginBottom: '18px', lineHeight: 1.8 }} {...props} />,
                                 ul: ({node, ...props}) => <ul style={{ paddingLeft: '20px', marginBottom: '18px', listStyleType: 'square' }} {...props} />,
                                 li: ({node, ...props}) => <li style={{ marginBottom: '8px' }} {...props} />,
-                                a: ({node, ...props}) => <a style={{ color: 'var(--accent)', textDecoration: 'underline', pointerEvents: 'auto', position: 'relative', zIndex: 1 }} target="_blank" rel="noopener noreferrer" {...props} />,
+                                a: ({node, ...props}) => (
+                                  <a 
+                                    {...props} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    onClick={(e) => { e.stopPropagation(); }} 
+                                    style={{ 
+                                      color: 'var(--accent)', 
+                                      textDecoration: 'underline', 
+                                      pointerEvents: 'auto', 
+                                      position: 'relative', 
+                                      zIndex: 10,
+                                      cursor: 'pointer'
+                                    }} 
+                                  />
+                                ),
                                 strong: ({node, ...props}) => <strong style={{ color: '#fff', fontWeight: 700 }} {...props} />,
                                 img: ({node, ...props}) => <img style={{ maxWidth: '100%', height: 'auto', borderRadius: '8px', margin: '16px 0' }} {...props} />,
                                 code: ({node, inline, ...props}) => (
