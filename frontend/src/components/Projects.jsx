@@ -740,8 +740,8 @@ export default function Projects({ limit = 3 }) {
                           }}
                         />
                         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, transparent 70%, rgba(14,10,6,0.6))' }} />
-                        {/* 語言比例條 — 僅覆蓋圖片區域 */}
-                        {p.language_stats && Object.keys(p.language_stats).length > 0 && (
+                        {/* 語言比例條 — 僅在非 GitHub 預設圖時顯示，避免重複 */}
+                        {p.language_stats && Object.keys(p.language_stats).length > 0 && p.image_url && (
                           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 4, display: 'flex', zIndex: 2 }}>
                             {Object.entries(p.language_stats).map(([lang, pct]) => (
                               <div key={lang} title={`${lang}: ${pct}%`} style={{ width: `${pct}%`, background: LANG_COLORS[lang] || '#888', height: '100%' }} />
