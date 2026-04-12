@@ -30,7 +30,6 @@ const setRefreshTokenCookie = (res, token) => {
     httpOnly: true,
     secure: true, // 跨網域 None 必須配合 Secure: true
     sameSite: 'none',
-    maxAge: 30 * 24 * 60 * 60 * 1000,
     path: '/',
   });
 };
