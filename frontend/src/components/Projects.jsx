@@ -9,6 +9,10 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { useNavigate } from 'react-router-dom'
 import { AnimatedNumber } from './ui/AnimatedNumber'
 import * as Dialog from '@radix-ui/react-dialog'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { Copy, Check } from 'lucide-react'
+import remarkBreaks from 'remark-breaks'
 import useAuthStore from '../store/authStore'
 import Comments from './Comments'
 import { WobotSVG } from './AIAssistant'
@@ -20,6 +24,49 @@ import fetchProjectsCached from '../utils/fetchProjects'
 import Reactions from './Reactions'
 import { useToast } from './ui/Toast'
 import { API_URL } from '../config/api'
+const CopyButton = ({ text }) => {
+  const [copied, setCopied] = useState(false);
+  
+  const handleCopy = async (e) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      style={{
+        position: 'absolute',
+        top: '8px',
+        right: '8px',
+        background: 'rgba(255,255,255,0.08)',
+        border: '1px solid rgba(255,255,255,0.1)',
+        borderRadius: '6px',
+        padding: '6px',
+        color: copied ? '#4ade80' : '#888',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 20,
+        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+        backdropFilter: 'blur(4px)',
+        opacity: 0,
+        visibility: 'hidden'
+      }}
+      className="code-copy-button"
+      title="Copy to clipboard"
+    >
+      {copied ? <Check size={14} /> : <Copy size={14} />}
+    </button>
+  );
+};
 
 function AiSummaryButton({ type, title, content }) {
   const [summary, setSummary] = useState('')
@@ -640,6 +687,16 @@ export default function Projects({ limit = 3 }) {
           }
         }
       `}</style>
+      <style>{`
+        .code-block-container:hover .code-copy-button {
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+        .code-copy-button:hover {
+          background: rgba(255,255,255,0.15) !important;
+          color: #fff !important;
+        }
+      `}</style>
 
       <span className="section-tag">Archive</span>
       <div style={{ position: 'relative' }}>
@@ -876,25 +933,71 @@ export default function Projects({ limit = 3 }) {
                               ),
                               strong: ({node, ...props}) => <strong style={{ color: '#fff', fontWeight: 700 }} {...props} />,
                               img: ({node, ...props}) => <img style={{ maxWidth: '100%', height: 'auto', borderRadius: '8px', margin: '16px 0' }} {...props} />,
-                              code: ({node, inline, ...props}) => (
-                                <code style={{ 
-                                  background: 'rgba(255,255,255,0.06)', 
-                                  padding: inline ? '2px 6px' : '12px 16px', 
-                                  borderRadius: '6px', 
-                                  fontSize: '0.9em',
-                                  display: inline ? 'inline' : 'block',
-                                  fontFamily: 'monospace',
-                                  border: '1px solid rgba(255,255,255,0.1)',
-                                  overflowX: 'auto',
-                                  whiteSpace: inline ? 'normal' : 'pre-wrap',
-                                  wordBreak: 'break-all',
-                                  maxWidth: '100%',
-                                  margin: inline ? '0' : '12px 0'
-                                }} {...props} />
-                              )
+                              code: ({node, inline, className, children, ...props}) => {
+                                const match = /language-(\w+)/.exec(className || '');
+                                const content = String(children).replace(/\n$/, '');
+                                
+                                return !inline ? (
+                                  <div className="code-block-container" style={{ position: 'relative', margin: '16px 0', borderRadius: '8px', overflow: 'hidden' }}>
+                                    <div style={{ 
+                                      position: 'absolute', 
+                                      top: 0, 
+                                      left: 0, 
+                                      right: 0, 
+                                      height: '32px', 
+                                      background: 'rgba(255,255,255,0.03)', 
+                                      borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      padding: '0 12px',
+                                      fontSize: '11px',
+                                      color: '#555',
+                                      textTransform: 'uppercase',
+                                      letterSpacing: '0.1em'
+                                    }}>
+                                      {match ? match[1] : 'code'}
+                                    </div>
+                                    <CopyButton text={content} />
+                                    <SyntaxHighlighter
+                                      style={atomDark}
+                                      language={match ? match[1] : 'text'}
+                                      PreTag="div"
+                                      customStyle={{
+                                        margin: 0,
+                                        padding: '44px 16px 16px',
+                                        background: '#0a0a0f',
+                                        fontSize: '0.85em',
+                                        lineHeight: '1.6',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(255,255,255,0.1)'
+                                      }}
+                                      {...props}
+                                    >
+                                      {content}
+                                    </SyntaxHighlighter>
+                                  </div>
+                                ) : (
+                                  <code style={{ 
+                                    background: 'rgba(255,255,255,0.08)', 
+                                    padding: '2px 6px', 
+                                    borderRadius: '4px', 
+                                    fontSize: '0.9em',
+                                    fontFamily: 'monospace',
+                                    color: '#eee',
+                                    border: '1px solid rgba(255,255,255,0.1)'
+                                  }} {...props}>
+                                    {children}
+                                  </code>
+                                )
+                              }
                             }}
                           >
-                            { (modal.description || '').replace(/\u00a0/g, ' ') }
+                            { (() => {
+                                let content = (modal.description || '此專案尚無詳細描述...').replace(/\u00a0/g, ' ');
+                                const blockCount = (content.match(/```/g) || []).length;
+                                if (blockCount % 2 !== 0) content += '\n```';
+                                return content;
+                              })() }
                           </ReactMarkdown>
                         </div>
                       )}
