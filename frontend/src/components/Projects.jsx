@@ -979,12 +979,18 @@ export default function Projects({ limit = 3 }) {
                                 ) : (
                                   <code style={{ 
                                     background: 'rgba(255,255,255,0.08)', 
-                                    padding: '2px 6px', 
+                                    padding: '0.15em 0.4em', 
                                     borderRadius: '4px', 
-                                    fontSize: '0.9em',
+                                    fontSize: '0.88em',
                                     fontFamily: 'monospace',
                                     color: '#eee',
-                                    border: '1px solid rgba(255,255,255,0.1)'
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    verticalAlign: 'middle',
+                                    display: 'inline-block',
+                                    lineHeight: '1.2',
+                                    margin: '0 2px',
+                                    position: 'relative',
+                                    top: '-1px'
                                   }} {...props}>
                                     {children}
                                   </code>
@@ -994,8 +1000,17 @@ export default function Projects({ limit = 3 }) {
                           >
                             { (() => {
                                 let content = (modal.description || '此專案尚無詳細描述...').replace(/\u00a0/g, ' ');
-                                const blockCount = (content.match(/```/g) || []).length;
-                                if (blockCount % 2 !== 0) content += '\n```';
+                                
+                                // 極限修復：自動補全所有類型的未關閉代碼塊
+                                const lines = content.split('\n');
+                                let inCodeBlock = false;
+                                for (const line of lines) {
+                                  if (line.trim().startsWith('```')) {
+                                    inCodeBlock = !inCodeBlock;
+                                  }
+                                }
+                                if (inCodeBlock) content += '\n```';
+                                
                                 return content;
                               })() }
                           </ReactMarkdown>
