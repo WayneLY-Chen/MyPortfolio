@@ -962,16 +962,18 @@ export default function Blog({ limit = 3 }) {
                                   ) : (
                                     <code style={{ 
                                       background: 'rgba(255,255,255,0.08)', 
-                                      padding: '0.2em 0.4em', 
+                                      padding: '0.15em 0.4em', 
                                       borderRadius: '4px', 
-                                      fontSize: '0.85em',
+                                      fontSize: '0.88em',
                                       fontFamily: 'monospace',
                                       color: '#eee',
                                       border: '1px solid rgba(255,255,255,0.1)',
-                                      verticalAlign: 'baseline',
+                                      verticalAlign: 'middle',
                                       display: 'inline-block',
-                                      lineHeight: '1',
-                                      margin: '0 2px'
+                                      lineHeight: '1.2',
+                                      margin: '0 2px',
+                                      position: 'relative',
+                                      top: '-1px'
                                     }} {...props}>
                                       {children}
                                     </code>
@@ -981,8 +983,17 @@ export default function Blog({ limit = 3 }) {
                             >
                               { (() => {
                                 let content = (modal.content || modal.summary || '此文章尚無內容...').replace(/\u00a0/g, ' ');
-                                const blockCount = (content.match(/```/g) || []).length;
-                                if (blockCount % 2 !== 0) content += '\n```';
+                                
+                                // 極限修復：自動補全所有類型的未關閉代碼塊
+                                const lines = content.split('\n');
+                                let inCodeBlock = false;
+                                for (const line of lines) {
+                                  if (line.trim().startsWith('```')) {
+                                    inCodeBlock = !inCodeBlock;
+                                  }
+                                }
+                                if (inCodeBlock) content += '\n```';
+                                
                                 return content;
                               })() }
                             </ReactMarkdown>
