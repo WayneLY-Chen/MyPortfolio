@@ -95,18 +95,19 @@ function injectGridStyle() {
     }
     .hce-cover-title {
       font-family: var(--font-display);
-      font-size: 15px;
+      font-size: 15.5px;
       font-weight: 700;
       color: #fff;
-      line-height: 1.3;
-      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+      line-height: 1.4;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.6);
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
+      letter-spacing: 0.01em;
     }
     .hce-body {
-      padding: 16px;
+      padding: 16px 18px;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -115,14 +116,19 @@ function injectGridStyle() {
     .hce-desc {
       margin-top: 0;
       color: rgba(255,255,255,0.3);
-      font-size: 12.5px;
-      line-height: 1.6;
+      font-size: 13px;
+      line-height: 1.7;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
-      flex: 1;
+      height: calc(1.7em * 2); /* Premium Grid Sync */
       margin-bottom: 20px;
+      letter-spacing: 0.01em;
+      transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .hce-card-wrapper:hover .hce-desc {
+      color: rgba(255,255,255,0.55);
     }
     .hce-footer {
       display: flex;
