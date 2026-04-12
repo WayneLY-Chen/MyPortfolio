@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://waynes-portfolio.vercel.app/sitemap.xml
+Sitemap: https://my-portfolio-waynely-chens-projects.vercel.app/sitemap.xml
