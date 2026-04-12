@@ -849,17 +849,32 @@ export default function Blog({ limit = 3 }) {
           </AnimatePresence>
         </Dialog.Root>
 
-        {/* New Post Modal */}
+        <AnimatePresence>
         {isCreating && (
-          <>
-            <div style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }} onClick={() => setIsCreating(false)} />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              style={{ position: 'fixed', top: '50%', left: '50%', x: '-50%', y: '-50%', width: '90%', maxWidth: '800px', maxHeight: '90vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '20px', zIndex: 10001, overflowY: 'auto', padding: '40px' }}
-              className="blog-modal-scroll"
-            >
-              <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '32px', marginBottom: '32px', fontWeight: 800 }}>發佈新文章</h2>
+          <Dialog.Root open={isCreating} onOpenChange={(open) => { if (!open) setIsCreating(false) }}>
+            <Dialog.Portal forceMount>
+              <Dialog.Overlay asChild>
+                <motion.div 
+                  initial={{ opacity: 0 }} 
+                  animate={{ opacity: 1 }} 
+                  exit={{ opacity: 0 }}
+                  style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)' }} 
+                  onClick={() => setIsCreating(false)} 
+                />
+              </Dialog.Overlay>
+              <Dialog.Content asChild>
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, x: '-50%', y: '-40%' }}
+                  animate={{ opacity: 1, scale: 1, x: '-50%', y: '-50%' }}
+                  exit={{ opacity: 0, scale: 0.95, x: '-50%', y: '-48%' }}
+                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                  style={{ position: 'fixed', top: '50%', left: '50%', width: '90%', maxWidth: '800px', maxHeight: '92vh', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '20px', zIndex: 10001, overflowY: 'auto', padding: '40px' }}
+                  className="blog-modal-scroll"
+                >
+                  <Dialog.Title style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }}>
+                    發佈新文章
+                  </Dialog.Title>
+                  <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '32px', marginBottom: '32px', fontWeight: 800 }}>發佈新文章</h2>
               
               <label style={{ display: 'block', fontSize: '12px', color: '#555', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '6px' }}>封面圖片 URL</label>
               <input value={editCoverImage} onChange={(e) => setEditCoverImage(e.target.value)} placeholder="https://..." style={{ width: '100%', background: 'rgba(255,255,255,0.03)', color: '#eee', border: '1px solid rgba(255,255,255,0.1)', padding: '12px', marginBottom: '20px', borderRadius: '8px', outline: 'none' }} />
@@ -880,9 +895,12 @@ export default function Blog({ limit = 3 }) {
                 <button onClick={() => setIsCreating(false)} style={{ padding: '12px 28px', background: 'none', border: '1px solid #333', color: '#666', borderRadius: '8px', cursor: 'pointer' }}>取消</button>
                 <button onClick={handleCreateBlog} disabled={saving} style={{ padding: '12px 32px', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 800, cursor: 'pointer' }}>{saving ? '發佈中...' : '確認發佈'}</button>
               </div>
-            </motion.div>
-          </>
+                </motion.div>
+              </Dialog.Content>
+            </Dialog.Portal>
+          </Dialog.Root>
         )}
+        </AnimatePresence>
       </section>
     </>
   )

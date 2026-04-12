@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import ReactMarkdown from 'react-markdown'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { useNavigate } from 'react-router-dom'
@@ -60,7 +61,16 @@ function AiSummaryButton({ type, title, content }) {
             </div>
           ) : (
             <div className="ai-summary-content" style={{ fontSize: '13.5px', color: '#bbb', lineHeight: 1.7 }}>
-              {summary}
+              <ReactMarkdown
+                components={{
+                  p: ({node, ...props}) => <p style={{ margin: 0 }} {...props} />,
+                  strong: ({node, ...props}) => <strong style={{ color: '#fff', fontWeight: 700 }} {...props} />,
+                  ul: ({node, ...props}) => <ul style={{ paddingLeft: '18px', margin: '8px 0', listStyleType: 'disc' }} {...props} />,
+                  li: ({node, ...props}) => <li style={{ marginBottom: '4px', color: '#aaa' }} {...props} />,
+                }}
+              >
+                {summary}
+              </ReactMarkdown>
             </div>
           )}
         </div>
@@ -811,7 +821,32 @@ export default function Projects({ limit = 3 }) {
                           </div>
                         </div>
                       ) : (
-                        <p style={{ fontSize: '17px', color: '#aaa', lineHeight: 1.85, marginBottom: '32px' }}>{modal.description || '暫無描述'}</p>
+                        <div className="project-content-markdown" style={{ fontSize: '17px', color: '#aaa', lineHeight: 1.85, fontWeight: 300, marginBottom: '32px' }}>
+                          <ReactMarkdown
+                            components={{
+                              h1: ({node, ...props}) => <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: 800, margin: '24px 0 12px' }} {...props} />,
+                              h2: ({node, ...props}) => <h2 style={{ color: '#fff', fontSize: '20px', fontWeight: 800, margin: '20px 0 10px', borderLeft: '3px solid #C8942A', paddingLeft: '12px' }} {...props} />,
+                              p: ({node, ...props}) => <p style={{ marginBottom: '16px' }} {...props} />,
+                              ul: ({node, ...props}) => <ul style={{ paddingLeft: '20px', marginBottom: '16px', listStyleType: 'square' }} {...props} />,
+                              li: ({node, ...props}) => <li style={{ marginBottom: '6px' }} {...props} />,
+                              a: ({node, ...props}) => <a style={{ color: '#C8942A', textDecoration: 'underline' }} {...props} />,
+                              strong: ({node, ...props}) => <strong style={{ color: '#fff', fontWeight: 700 }} {...props} />,
+                              code: ({node, inline, ...props}) => (
+                                <code style={{ 
+                                  background: 'rgba(255,255,255,0.06)', 
+                                  padding: inline ? '2px 6px' : '12px', 
+                                  borderRadius: '6px', 
+                                  fontSize: '0.9em',
+                                  display: inline ? 'inline' : 'block',
+                                  fontFamily: 'monospace',
+                                  border: '1px solid rgba(255,255,255,0.1)'
+                                }} {...props} />
+                              )
+                            }}
+                          >
+                            {modal.description || '此專案尚無詳細描述...'}
+                          </ReactMarkdown>
+                        </div>
                       )}
 
                       {!isEditing && (
