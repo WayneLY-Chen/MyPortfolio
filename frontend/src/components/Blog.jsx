@@ -533,6 +533,22 @@ export default function Blog({ limit = 3 }) {
           text-transform: uppercase;
           color: #666;
         }
+        .blog-card-desc {
+          font-size: 14px;
+          color: rgba(255,255,255,0.4);
+          line-height: 1.7;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          height: calc(1.7em * 2); /* Premium Grid Alignment */
+          margin-bottom: 20px;
+          letter-spacing: 0.01em;
+          transition: color 0.3s;
+        }
+        .blog-card:hover .blog-card-desc {
+          color: rgba(255,255,255,0.6);
+        }
         .blog-post-summary {
           font-size: 13.5px;
           color: #999;

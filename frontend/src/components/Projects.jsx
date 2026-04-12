@@ -598,15 +598,20 @@ export default function Projects({ limit = 3 }) {
           line-height: 1.3;
         }
         .proj-card-desc {
-          font-size: 13px;
+          font-size: 13.5px;
           color: rgba(255,255,255,0.4);
-          line-height: 1.65;
+          line-height: 1.7;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
           overflow: hidden;
-          flex: 1;
-          margin-bottom: 12px;
+          height: calc(1.7em * 2); /* 確保卡片整齊劃一 */
+          margin-bottom: 14px;
+          transition: color 0.3s;
+          letter-spacing: 0.01em;
+        }
+        .proj-card:hover .proj-card-desc {
+          color: rgba(255,255,255,0.65);
         }
         .proj-card-tags {
           display: flex;
