@@ -4,8 +4,8 @@ import { AUTH_URL } from '../config/api'
 // 模組級變數，用來達成真正的單例請求 (Singleton Request / Deduplication)
 let refreshPromise = null;
 
-// 從 localStorage 初始化狀態
-const savedUser = JSON.parse(localStorage.getItem('user_cache') || 'null');
+// 從 sessionStorage 初始化狀態
+const savedUser = JSON.parse(sessionStorage.getItem('user_cache') || 'null');
 
 const useAuthStore = create((set, get) => ({
   accessToken: null,
@@ -14,12 +14,12 @@ const useAuthStore = create((set, get) => ({
   isLoading: true,
 
   setAuth: (accessToken, user) => {
-    localStorage.setItem('user_cache', JSON.stringify(user));
+    sessionStorage.setItem('user_cache', JSON.stringify(user));
     set({ accessToken, user, isAuthenticated: !!user, isLoading: false });
   },
   
   clearAuth: () => {
-    localStorage.removeItem('user_cache');
+    sessionStorage.removeItem('user_cache');
     set({ accessToken: null, user: null, isAuthenticated: false, isLoading: false });
     refreshPromise = null;
   },
@@ -36,9 +36,9 @@ const useAuthStore = create((set, get) => ({
         
         if (!res || !res.ok) {
           if (res?.status === 401) {
-             // Token 已過期，清除快取
-             localStorage.removeItem('user_cache');
-             set({ user: null, isAuthenticated: false });
+             // Token 已過期，清除 sessionStorage
+             sessionStorage.removeItem('user_cache');
+             set({ user: null, isAuthenticated: false, isLoading: false });
           }
           set({ isLoading: false });
           return false;
@@ -61,7 +61,7 @@ const useAuthStore = create((set, get) => ({
         
         const meData = await meRes.json().catch(() => null);
         if (meData?.user) {
-          localStorage.setItem('user_cache', JSON.stringify(meData.user));
+          sessionStorage.setItem('user_cache', JSON.stringify(meData.user));
           set({ 
             accessToken: data.access_token, 
             user: meData.user, 
