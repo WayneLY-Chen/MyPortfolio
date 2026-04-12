@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
+import remarkBreaks from 'remark-breaks'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { useNavigate } from 'react-router-dom'
@@ -850,14 +851,29 @@ export default function Projects({ limit = 3 }) {
                         <div className="project-content-markdown" style={{ fontSize: '17px', color: '#aaa', lineHeight: 1.85, fontWeight: 300, marginBottom: '32px', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
                           <ReactMarkdown
                             rehypePlugins={[rehypeRaw]}
-                            remarkPlugins={[remarkGfm]}
+                            remarkPlugins={[remarkGfm, remarkBreaks]}
                             components={{
                               h1: ({node, ...props}) => <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: 800, margin: '24px 0 12px' }} {...props} />,
                               h2: ({node, ...props}) => <h2 style={{ color: '#fff', fontSize: '20px', fontWeight: 800, margin: '20px 0 10px', borderLeft: '3px solid #C8942A', paddingLeft: '12px' }} {...props} />,
                               p: ({node, ...props}) => <p style={{ marginBottom: '16px' }} {...props} />,
                               ul: ({node, ...props}) => <ul style={{ paddingLeft: '20px', marginBottom: '16px', listStyleType: 'square' }} {...props} />,
                               li: ({node, ...props}) => <li style={{ marginBottom: '6px' }} {...props} />,
-                              a: ({node, ...props}) => <a style={{ color: '#C8942A', textDecoration: 'underline', pointerEvents: 'auto', position: 'relative', zIndex: 1 }} target="_blank" rel="noopener noreferrer" {...props} />,
+                              a: ({node, ...props}) => (
+                                <a 
+                                  {...props} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  onClick={(e) => { e.stopPropagation(); }} 
+                                  style={{ 
+                                    color: '#C8942A', 
+                                    textDecoration: 'underline', 
+                                    pointerEvents: 'auto', 
+                                    position: 'relative', 
+                                    zIndex: 10,
+                                    cursor: 'pointer'
+                                  }} 
+                                />
+                              ),
                               strong: ({node, ...props}) => <strong style={{ color: '#fff', fontWeight: 700 }} {...props} />,
                               img: ({node, ...props}) => <img style={{ maxWidth: '100%', height: 'auto', borderRadius: '8px', margin: '16px 0' }} {...props} />,
                               code: ({node, inline, ...props}) => (
@@ -878,7 +894,7 @@ export default function Projects({ limit = 3 }) {
                               )
                             }}
                           >
-                            {modal.description || '此專案尚無詳細描述...'}
+                            { (modal.description || '').replace(/\u00a0/g, ' ') }
                           </ReactMarkdown>
                         </div>
                       )}
