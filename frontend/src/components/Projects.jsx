@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
+import rehypeRaw from 'rehype-raw'
+import remarkGfm from 'remark-gfm'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { useNavigate } from 'react-router-dom'
@@ -62,6 +64,8 @@ function AiSummaryButton({ type, title, content }) {
           ) : (
             <div className="ai-summary-content" style={{ fontSize: '13.5px', color: '#bbb', lineHeight: 1.7 }}>
               <ReactMarkdown
+                rehypePlugins={[rehypeRaw]}
+                remarkPlugins={[remarkGfm]}
                 components={{
                   p: ({node, ...props}) => <p style={{ margin: 0 }} {...props} />,
                   strong: ({node, ...props}) => <strong style={{ color: '#fff', fontWeight: 700 }} {...props} />,
@@ -823,6 +827,8 @@ export default function Projects({ limit = 3 }) {
                       ) : (
                         <div className="project-content-markdown" style={{ fontSize: '17px', color: '#aaa', lineHeight: 1.85, fontWeight: 300, marginBottom: '32px' }}>
                           <ReactMarkdown
+                            rehypePlugins={[rehypeRaw]}
+                            remarkPlugins={[remarkGfm]}
                             components={{
                               h1: ({node, ...props}) => <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: 800, margin: '24px 0 12px' }} {...props} />,
                               h2: ({node, ...props}) => <h2 style={{ color: '#fff', fontSize: '20px', fontWeight: 800, margin: '20px 0 10px', borderLeft: '3px solid #C8942A', paddingLeft: '12px' }} {...props} />,
