@@ -733,7 +733,17 @@ export default function Projects({ limit = 3 }) {
                         <img
                           src={imgSrc}
                           alt={p.name}
-                          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center', display: 'block', transition: 'transform 0.6s cubic-bezier(0.19,1,0.22,1)', background: '#111' }}
+                          style={{ 
+                            position: 'absolute', 
+                            inset: 0, 
+                            width: '100%', 
+                            height: '107%', // 稍微拉高圖片以裁掉底部的 GitHub 比例條
+                            objectFit: 'cover', 
+                            objectPosition: 'top', // 從頂部開始對齊，確保重要資訊不被裁掉
+                            display: 'block', 
+                            transition: 'transform 0.6s cubic-bezier(0.19,1,0.22,1)', 
+                            background: '#111' 
+                          }}
                           onError={e => {
                             const fb = `https://placehold.co/600x340/0b0b0d/333?text=${encodeURIComponent(p.name)}`
                             if (e.target.src !== fb) e.target.src = fb
