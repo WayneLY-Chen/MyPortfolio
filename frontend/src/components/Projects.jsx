@@ -847,7 +847,7 @@ export default function Projects({ limit = 3 }) {
                           </div>
                         </div>
                       ) : (
-                        <div className="project-content-markdown" style={{ fontSize: '17px', color: '#aaa', lineHeight: 1.85, fontWeight: 300, marginBottom: '32px' }}>
+                        <div className="project-content-markdown" style={{ fontSize: '17px', color: '#aaa', lineHeight: 1.85, fontWeight: 300, marginBottom: '32px', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
                           <ReactMarkdown
                             rehypePlugins={[rehypeRaw]}
                             remarkPlugins={[remarkGfm]}
@@ -857,17 +857,23 @@ export default function Projects({ limit = 3 }) {
                               p: ({node, ...props}) => <p style={{ marginBottom: '16px' }} {...props} />,
                               ul: ({node, ...props}) => <ul style={{ paddingLeft: '20px', marginBottom: '16px', listStyleType: 'square' }} {...props} />,
                               li: ({node, ...props}) => <li style={{ marginBottom: '6px' }} {...props} />,
-                              a: ({node, ...props}) => <a style={{ color: '#C8942A', textDecoration: 'underline' }} {...props} />,
+                              a: ({node, ...props}) => <a style={{ color: '#C8942A', textDecoration: 'underline', pointerEvents: 'auto', position: 'relative', zIndex: 1 }} target="_blank" rel="noopener noreferrer" {...props} />,
                               strong: ({node, ...props}) => <strong style={{ color: '#fff', fontWeight: 700 }} {...props} />,
+                              img: ({node, ...props}) => <img style={{ maxWidth: '100%', height: 'auto', borderRadius: '8px', margin: '16px 0' }} {...props} />,
                               code: ({node, inline, ...props}) => (
                                 <code style={{ 
                                   background: 'rgba(255,255,255,0.06)', 
-                                  padding: inline ? '2px 6px' : '12px', 
+                                  padding: inline ? '2px 6px' : '12px 16px', 
                                   borderRadius: '6px', 
                                   fontSize: '0.9em',
                                   display: inline ? 'inline' : 'block',
                                   fontFamily: 'monospace',
-                                  border: '1px solid rgba(255,255,255,0.1)'
+                                  border: '1px solid rgba(255,255,255,0.1)',
+                                  overflowX: 'auto',
+                                  whiteSpace: inline ? 'normal' : 'pre-wrap',
+                                  wordBreak: 'break-all',
+                                  maxWidth: '100%',
+                                  margin: inline ? '0' : '12px 0'
                                 }} {...props} />
                               )
                             }}
