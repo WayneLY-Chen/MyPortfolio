@@ -372,7 +372,7 @@ function DinoGame() {
           <div className="game-overlay-center">
             {isDead
               ? <p className="game-over-text">遊戲結束！得分：{score}</p>
-              : <p className="game-hint-text">按 空白鍵 / ↑ / 點擊 開始</p>
+              : <p className="game-hint-text">按 空白鍵 / ▲ / 點擊 開始</p>
             }
             <button className="snake-btn" onClick={startGame}>{isDead ? '再玩一次' : '開始遊戲'}</button>
           </div>
@@ -408,12 +408,12 @@ function DinoGame() {
             onTouchStart={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
             onTouchEnd={(e) => e.currentTarget.style.transform = 'scale(1)'}
           >
-            ⬆ 跳躍
+            ▲ 跳躍
           </button>
         </div>
       )}
       
-      <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 8, textAlign: 'center' }}>空白鍵 / ↑ 跳躍 · 點擊畫面也可以</p>
+      <p style={{ color: 'var(--muted)', fontSize: 12, marginTop: 8, textAlign: 'center' }}>空白鍵 / ▲ 跳躍 · 點擊畫面也可以</p>
     </div>
   )
 }
