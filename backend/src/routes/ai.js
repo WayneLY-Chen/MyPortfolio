@@ -256,9 +256,14 @@ router.post('/chat', async (req, res) => {
   } catch (err) {
     console.error('[AI Chat] Gemini error:', err.message)
     const isQuota = err.message.includes('429') || err.message.includes('quota')
-    const reply = isQuota 
-      ? '喵... 人家現在太累了（配額用完），請等一分鐘後再跟我說話好嗎？期待這段時間你能幫我餵餵路邊的小貓。'
-      : `大腦發生意外：${err.message}`
+    const isBusy = err.message.includes('503') || err.message.includes('demand') || err.message.includes('Unavailable')
+    
+    let reply = `大腦發生意外：${err.message}`
+    if (isQuota) {
+      reply = '喵... 人家現在太累了（配額用完），請等一分鐘後再跟我說話好嗎？期待這段時間你能幫我餵餵路邊的小貓。'
+    } else if (isBusy) {
+      reply = '哎呀，現在找我聊天的人太多了，大腦暫時處理不來（伺服器繁忙），請你稍等一下再跟我說話喔！'
+    }
 
     // 為錯誤訊息生成語音 (同樣加入超時保護)
     let audioBase64 = null
