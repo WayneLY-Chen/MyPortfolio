@@ -17,9 +17,25 @@ export default function Preloader({ onComplete }) {
   const lettersRef = useRef([])
   const subtitleRef = useRef(null)
   const [loadingProgress, setLoadingProgress] = useState(0)
+  const [displayProgress, setDisplayProgress] = useState(0)
   const [allLoaded, setAllLoaded] = useState(false)
   const imagesRef = useRef([])
   const bitmapsRef = useRef([])
+
+  // 平滑化百分比數字
+  useEffect(() => {
+    let raf
+    const update = () => {
+      setDisplayProgress(prev => {
+        const diff = loadingProgress - prev
+        if (diff <= 0.1) return loadingProgress
+        return prev + diff * 0.1
+      })
+      raf = requestAnimationFrame(update)
+    }
+    update()
+    return () => cancelAnimationFrame(raf)
+  }, [loadingProgress])
 
   // Start loading all images in batches to reduce memory pressure
   useEffect(() => {
@@ -32,13 +48,12 @@ export default function Preloader({ onComplete }) {
       const progress = Math.min(Math.round((count / FRAME_COUNT) * 100), 100)
       setLoadingProgress(progress)
 
-      // Once all images (not bitmaps) are loaded, close the preloader immediately.
-      // Hero will handle bitmap conversion lazily when it starts playing.
+      // 讓進度條也稍微等一下 displayProgress
       if (count >= FRAME_COUNT) {
         setPreloadedImages(imagesRef.current)
-        // Pass whatever bitmaps are ready so far; Hero can fall back to img if needed
         setPreloadedBitmaps(bitmapsRef.current)
-        setAllLoaded(true)
+        // 延遲一點點時間讓百分比能跑完
+        setTimeout(() => setAllLoaded(true), 600)
       }
     }
 
@@ -379,7 +394,7 @@ export default function Preloader({ onComplete }) {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}
         >
-          {loadingProgress}%
+          {Math.round(displayProgress)}%
         </motion.div>
 
         {/* Percentage-like dots */}
