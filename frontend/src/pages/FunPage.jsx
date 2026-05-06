@@ -12,6 +12,7 @@ import { AnimatedNumber } from '../components/ui/AnimatedNumber'
 import { Confetti } from '../components/ui/Confetti'
 import { cn } from '../lib/utils'
 import MoneyCalculator from '../components/MoneyCalculator'
+import TodoList from '../components/TodoList'
 
 // Snake Game
 const CELL = 32
@@ -1798,6 +1799,9 @@ export default function FunPage() {
           <button className={`tab-btn ${activeTab === 'calc' ? 'active' : ''}`} onClick={() => setActiveTab('calc')}>
             計算區
           </button>
+          <button className={`tab-btn ${activeTab === 'todo' ? 'active' : ''}`} onClick={() => setActiveTab('todo')}>
+            待辦事項
+          </button>
           <button className={`tab-btn ${activeTab === 'ai' ? 'active' : ''}`} onClick={() => setActiveTab('ai')}>
             AI 圖片生成
           </button>
@@ -1889,6 +1893,11 @@ export default function FunPage() {
           {activeTab === 'calc' && (
             <div style={{ marginTop: '20px' }}>
               <MoneyCalculator />
+            </div>
+          )}
+          {activeTab === 'todo' && (
+            <div style={{ marginTop: '20px' }}>
+              <TodoList />
             </div>
           )}
         </div>

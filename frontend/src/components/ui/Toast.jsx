@@ -66,6 +66,7 @@ const Toast = ({ title, description, variant = "default", onClose }) => {
         "pointer-events-auto flex w-[350px] items-start gap-4 rounded-xl border p-4 shadow-2xl backdrop-blur-md",
         variants[variant]
       )}
+      style={{ padding: '16px', display: 'flex', gap: '16px', boxSizing: 'border-box' }}
     >
       <div className="shrink-0 pt-0.5">{icons[variant]}</div>
       <div className="flex-1">
