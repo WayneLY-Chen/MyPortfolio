@@ -123,7 +123,7 @@ function AppInner() {
 
   return (
     <ToastProvider>
-      <TodoNotifierRunner />
+      {/* <TodoNotifierRunner /> */}
       <Cursor />
       <AIAssistant />
       <RouteScrollManager />
