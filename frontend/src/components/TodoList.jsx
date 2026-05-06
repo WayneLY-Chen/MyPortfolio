@@ -99,65 +99,95 @@ export default function TodoList() {
         </p>
       </header>
 
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 30, marginBottom: 30 }}>
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-              <input 
-                type="text" 
-                value={taskText}
-                onChange={e => setTaskText(e.target.value)}
-                placeholder="輸入待辦事項..."
-                style={{ flex: 2, minWidth: '200px', background: '#0a0a0a', border: '1px solid #333', color: 'var(--fg)', padding: '16px', borderRadius: 8, outline: 'none', fontSize: 16 }}
-              />
-              <input 
-                type="datetime-local" 
-                value={taskTime}
-                onChange={e => setTaskTime(e.target.value)}
-                style={{ flex: 1, minWidth: '200px', background: '#0a0a0a', border: '1px solid #333', color: 'var(--fg)', padding: '16px', borderRadius: 8, outline: 'none', fontSize: 16, colorScheme: 'dark' }}
-              />
-              <button 
-                onClick={addTask}
-                style={{ padding: '0 30px', background: 'var(--accent)', color: '#000', border: 'none', borderRadius: 8, fontWeight: 800, fontSize: 16, cursor: 'pointer', whiteSpace: 'nowrap' }}
-              >
-                ＋ 新增
-              </button>
-            </div>
-          </div>
-
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 30, minHeight: 300 }}>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {todos.length === 0 ? (
-                <div style={{ textAlign: 'center', color: 'var(--muted)', padding: '40px 0' }}>目前沒有待辦事項。</div>
-              ) : (
-                todos.map(t => (
-                  <li key={t.id} style={{ display: 'flex', alignItems: 'center', padding: '20px', marginBottom: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12, transition: '0.3s', opacity: t.checked ? 0.5 : 1 }}>
-                    <input 
-                      type="checkbox" 
-                      checked={t.checked} 
-                      onChange={() => toggleTask(t.id)}
-                      style={{ width: 24, height: 24, marginRight: 20, cursor: 'pointer', accentColor: 'var(--accent)' }}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 18, color: t.checked ? 'var(--muted)' : 'var(--fg)', textDecoration: t.checked ? 'line-through' : 'none', marginBottom: 4, transition: '0.3s' }}>
-                        {t.text}
-                      </div>
-                      {t.time && (
-                        <div style={{ fontSize: 13, color: 'var(--accent)', fontFamily: 'monospace' }}>
-                          🕒 {new Date(t.time).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}
-                        </div>
-                      )}
-                    </div>
-                    <button 
-                      onClick={() => deleteTask(t.id)}
-                      style={{ background: 'none', border: 'none', color: '#666', fontSize: 24, cursor: 'pointer', marginLeft: 16 }}
-                      title="刪除"
-                    >
-                      ×
-                    </button>
-                  </li>
-                ))
-              )}
-            </ul>
+      {/* 輸入區 */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 30, marginBottom: 30 }}>
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <input 
+            type="text" 
+            value={taskText}
+            onChange={e => setTaskText(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addTask()}
+            placeholder="輸入待辦事項..."
+            style={{ flex: 2, minWidth: '200px', background: '#0a0a0a', border: '1px solid #333', color: 'var(--fg)', padding: '16px', borderRadius: 8, outline: 'none', fontSize: 16 }}
+          />
+          <div style={{ flex: 1, minWidth: '200px', position: 'relative' }}>
+            <input 
+              type="datetime-local" 
+              value={taskTime}
+              onChange={e => setTaskTime(e.target.value)}
+              style={{ width: '100%', background: '#0a0a0a', border: '1px solid #333', color: taskTime ? 'var(--fg)' : 'transparent', padding: '16px', borderRadius: 8, outline: 'none', fontSize: 16, colorScheme: 'dark' }}
+            />
+            {!taskTime && (
+              <div style={{
+                position: 'absolute', top: '50%', left: 16, transform: 'translateY(-50%)',
+                color: '#666', fontSize: 14, pointerEvents: 'none',
+              }}>
+                📅 點擊選擇提醒時間（選填）
+              </div>
+            )}
           </div>
         </div>
+        <div style={{ textAlign: 'center', marginTop: 20 }}>
+          <button 
+            onClick={addTask}
+            style={{
+              padding: '14px 60px', background: 'var(--accent)', color: '#000', border: 'none',
+              borderRadius: 8, fontWeight: 800, fontSize: 18, cursor: 'pointer',
+              transition: 'transform 0.2s, box-shadow 0.2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 4px 24px rgba(200,148,42,0.3)' }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = 'none' }}
+          >
+            ＋ 新增
+          </button>
+        </div>
+      </div>
+
+      {/* 清單區 */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 30, minHeight: 350 }}>
+        {todos.length === 0 ? (
+          <div style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            minHeight: 280, textAlign: 'center', color: 'var(--muted)',
+          }}>
+            <div style={{ fontSize: 48, marginBottom: 16, opacity: 0.4 }}>📋</div>
+            <div style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>目前沒有待辦事項</div>
+            <div style={{ fontSize: 14, opacity: 0.7 }}>在上方輸入框新增你的第一個任務吧！</div>
+          </div>
+        ) : (
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            {todos.map(t => (
+              <li key={t.id} style={{ display: 'flex', alignItems: 'center', padding: '20px', marginBottom: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12, transition: '0.3s', opacity: t.checked ? 0.5 : 1 }}>
+                <input 
+                  type="checkbox" 
+                  checked={t.checked} 
+                  onChange={() => toggleTask(t.id)}
+                  style={{ width: 24, height: 24, marginRight: 20, cursor: 'pointer', accentColor: 'var(--accent)' }}
+                />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 18, color: t.checked ? 'var(--muted)' : 'var(--fg)', textDecoration: t.checked ? 'line-through' : 'none', marginBottom: 4, transition: '0.3s' }}>
+                    {t.text}
+                  </div>
+                  {t.time && (
+                    <div style={{ fontSize: 13, color: 'var(--accent)', fontFamily: 'monospace' }}>
+                      🕒 {new Date(t.time).toLocaleString('zh-TW', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}
+                    </div>
+                  )}
+                </div>
+                <button 
+                  onClick={() => deleteTask(t.id)}
+                  style={{ background: 'none', border: 'none', color: '#666', fontSize: 24, cursor: 'pointer', marginLeft: 16, transition: 'color 0.2s' }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#e74c3c'}
+                  onMouseLeave={e => e.currentTarget.style.color = '#666'}
+                  title="刪除"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
   )
 }
