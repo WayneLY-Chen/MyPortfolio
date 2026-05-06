@@ -102,10 +102,21 @@ export default function Hero({ animate }) {
 
     // Draw frame 0 immediately or when loaded
     const drawFirstFrame = () => {
-      if (_imgs[0] && _imgs[0].complete && _imgs[0].naturalWidth) {
-        draw(0)
-      } else if (_imgs[0]) {
-        _imgs[0].addEventListener('load', () => draw(0))
+      const img = _imgs[0]
+      if (!img) return
+
+      const tryDraw = () => {
+        if (img.naturalWidth) {
+          draw(0)
+        } else {
+          setTimeout(tryDraw, 50)
+        }
+      }
+
+      if (img.complete) {
+        tryDraw()
+      } else {
+        img.addEventListener('load', tryDraw)
       }
     }
     drawFirstFrame()
