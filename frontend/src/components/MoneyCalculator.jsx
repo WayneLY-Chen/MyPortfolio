@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useToast } from './ui/Toast'
 
 export default function MoneyCalculator() {
   const [participants, setParticipants] = useState([])
@@ -15,6 +16,7 @@ export default function MoneyCalculator() {
   const [resultData, setResultData] = useState(null)
   const [finalTotal, setFinalTotal] = useState(0)
   const [loading, setLoading] = useState(false)
+  const { addToast } = useToast()
 
   const addPerson = () => {
     const name = newPersonName.trim()
@@ -33,7 +35,7 @@ export default function MoneyCalculator() {
 
   const addItemToList = () => {
     if (!itemName || !itemPriceExp || selectedConsumers.length === 0) {
-      alert("請填寫項目名稱、金額，並選擇至少一位參與者")
+      addToast({ title: '錯誤', description: '請填寫項目名稱、金額，並選擇至少一位參與者', variant: 'error' })
       return
     }
     try {
@@ -45,7 +47,7 @@ export default function MoneyCalculator() {
       setItemPriceExp('')
       setSelectedConsumers([])
     } catch (e) {
-      alert("金額算式錯誤")
+      addToast({ title: '錯誤', description: '金額算式錯誤', variant: 'error' })
     }
   }
 
@@ -57,7 +59,7 @@ export default function MoneyCalculator() {
 
   const calculateLocally = () => {
     if (participants.length === 0 || !totalBillExp) {
-      alert("請新增至少一位參與者，並輸入整單總金額")
+      addToast({ title: '錯誤', description: '請新增至少一位參與者，並輸入整單總金額', variant: 'error' })
       return
     }
 
@@ -101,7 +103,7 @@ export default function MoneyCalculator() {
       setView('result')
       
     } catch (e) {
-      alert("金額輸入錯誤或計算出錯")
+      addToast({ title: '錯誤', description: '金額輸入錯誤或計算出錯', variant: 'error' })
     } finally {
       setLoading(false)
     }
