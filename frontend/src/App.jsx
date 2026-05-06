@@ -26,6 +26,7 @@ import Verify from './components/Verify'
 import AIAssistant from './components/AIAssistant'
 import useLenis, { getLenis } from './hooks/useLenis'
 import useAuthStore from './store/authStore'
+import useTodoNotifier from './hooks/useTodoNotifier'
 
 function RouteScrollManager() {
   const location = useLocation()
@@ -100,6 +101,7 @@ function AppInner() {
   const silentRefresh = useAuthStore(s => s.silentRefresh)
 
   useEffect(() => { silentRefresh() }, [])
+  useTodoNotifier()
 
   // Check if user has already seen the preloader in this session
   useEffect(() => {

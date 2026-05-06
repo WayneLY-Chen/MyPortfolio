@@ -181,8 +181,10 @@ router.post('/chat', async (req, res) => {
 
   const GEMINI_KEY = process.env.GEMINI_API_KEY
   if (!GEMINI_KEY) {
-    return res.status(500).json({ success: false, reply: '未設定 Gemini API Key' })
+    console.error('[AI Chat] GEMINI_API_KEY is missing in process.env!');
+    return res.status(500).json({ success: false, reply: '未設定 Gemini API Key，請檢查環境變數。' })
   }
+  console.log(`[AI Chat] Using Gemini Key: ${GEMINI_KEY.substring(0, 8)}...`);
 
   try {
     const genAI = new GoogleGenerativeAI(GEMINI_KEY)
@@ -268,7 +270,8 @@ router.post('/chat', async (req, res) => {
 
     res.json({ success: true, reply, audio: audioBase64 })
   } catch (err) {
-    console.error('[AI Chat] Gemini error:', err.message)
+    console.error('[AI Chat] Detailed Error Object:', err);
+    let errorMsg = '我的大腦發生意外了，喵... (GoogleGenerativeAI Error)';
     const isQuota = err.message.includes('429') || err.message.includes('quota')
     const isBusy = err.message.includes('503') || err.message.includes('demand') || err.message.includes('Unavailable')
     const isModel = err.message.includes('not found') || err.message.includes('404')
