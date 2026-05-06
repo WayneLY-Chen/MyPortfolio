@@ -100,8 +100,15 @@ export default function Hero({ animate }) {
     syncSize()
     window.addEventListener('resize', syncSize)
 
-    // Draw frame 0 immediately
-    draw(0)
+    // Draw frame 0 immediately or when loaded
+    const drawFirstFrame = () => {
+      if (_imgs[0] && _imgs[0].complete && _imgs[0].naturalWidth) {
+        draw(0)
+      } else if (_imgs[0]) {
+        _imgs[0].addEventListener('load', () => draw(0))
+      }
+    }
+    drawFirstFrame()
 
     // GSAP scrub: tween frameObj.f from 0 to FRAME_COUNT-1 driven by scroll
     const tween = gsap.to(frameObj, {
