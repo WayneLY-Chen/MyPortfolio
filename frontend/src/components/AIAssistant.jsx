@@ -14,7 +14,7 @@ function hexToRgb(hex) {
   if (map[hex]) return map[hex]
   const m = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i)
   if (m) return `${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}`
-  return '212, 240, 41'
+  return '200, 148, 42'
 }
 
 // ─── WobotSVG ─────────────────────────────────────────────────────────────────
@@ -310,8 +310,8 @@ const QUICK_QUESTIONS = [
 
 // ─── Main component ────────────────────────────────────────────────────────────
 export default function AIAssistant() {
-  const ACCENT = 'var(--accent, #d4f029)'
-  const ACCENT_HEX = '#d4f029'
+  const ACCENT = 'var(--accent, #C8942A)'
+  const ACCENT_HEX = '#C8942A'
 
   const [isMinimized, setIsMinimized] = useState(true)
   const [inputText, setInputText] = useState('')
