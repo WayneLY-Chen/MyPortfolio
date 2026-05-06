@@ -101,21 +101,21 @@ export default function TodoList() {
 
       {/* 輸入區 */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 30, marginBottom: 30 }}>
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <input 
             type="text" 
             value={taskText}
             onChange={e => setTaskText(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addTask()}
             placeholder="輸入待辦事項..."
-            style={{ flex: 2, minWidth: '200px', background: '#0a0a0a', border: '1px solid #333', color: 'var(--fg)', padding: '16px', borderRadius: 8, outline: 'none', fontSize: 16 }}
+            style={{ width: '100%', background: '#0a0a0a', border: '1px solid #333', color: 'var(--fg)', padding: '16px', borderRadius: 8, outline: 'none', fontSize: 16, boxSizing: 'border-box' }}
           />
-          <div style={{ flex: 1, minWidth: '200px', position: 'relative' }}>
+          <div style={{ position: 'relative' }}>
             <input 
               type="datetime-local" 
               value={taskTime}
               onChange={e => setTaskTime(e.target.value)}
-              style={{ width: '100%', background: '#0a0a0a', border: '1px solid #333', color: taskTime ? 'var(--fg)' : 'transparent', padding: '16px', borderRadius: 8, outline: 'none', fontSize: 16, colorScheme: 'dark' }}
+              style={{ width: '100%', background: '#0a0a0a', border: '1px solid #333', color: taskTime ? 'var(--fg)' : 'transparent', padding: '16px', borderRadius: 8, outline: 'none', fontSize: 16, colorScheme: 'dark', boxSizing: 'border-box' }}
             />
             {!taskTime && (
               <div style={{
@@ -158,12 +158,24 @@ export default function TodoList() {
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {todos.map(t => (
               <li key={t.id} style={{ display: 'flex', alignItems: 'center', padding: '20px', marginBottom: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 12, transition: '0.3s', opacity: t.checked ? 0.5 : 1 }}>
-                <input 
-                  type="checkbox" 
-                  checked={t.checked} 
-                  onChange={() => toggleTask(t.id)}
-                  style={{ width: 24, height: 24, marginRight: 20, cursor: 'pointer', accentColor: 'var(--accent)' }}
-                />
+                {/* 自訂 checkbox */}
+                <div
+                  onClick={() => toggleTask(t.id)}
+                  style={{
+                    width: 22, height: 22, flexShrink: 0, marginRight: 20, cursor: 'pointer',
+                    borderRadius: 6,
+                    border: `2px solid ${t.checked ? 'var(--accent)' : 'var(--border)'}`,
+                    background: t.checked ? 'var(--accent)' : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {t.checked && (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M2 6L5 9L10 3" stroke="#0e0a06" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 18, color: t.checked ? 'var(--muted)' : 'var(--fg)', textDecoration: t.checked ? 'line-through' : 'none', marginBottom: 4, transition: '0.3s' }}>
                     {t.text}
