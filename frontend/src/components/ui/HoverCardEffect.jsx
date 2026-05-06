@@ -137,6 +137,9 @@ function injectGridStyle() {
       margin-top: auto;
       padding-top: 12px;
       border-top: 1px solid rgba(255,255,255,0.04);
+      height: 40px;
+      flex-shrink: 0;
+      overflow: hidden;
     }
     .hce-status-row {
       display: flex;
@@ -266,9 +269,9 @@ export const HoverEffect = ({ items, className }) => {
                 <p className="hce-desc">{item.description || "暫無描述"}</p>
 
                 <div className="hce-footer">
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', overflow: 'hidden' }}>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', overflow: 'hidden', alignItems: 'center' }}>
                     {(item.topics || []).slice(0, 3).map(t => (
-                      <span key={t} className="hce-tag">
+                      <span key={t} className="hce-tag" style={{ whiteSpace: 'nowrap' }}>
                         {t}
                       </span>
                     ))}
