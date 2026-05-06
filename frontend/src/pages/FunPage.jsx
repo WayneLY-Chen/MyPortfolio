@@ -11,6 +11,7 @@ import { useToast } from '../components/ui/Toast'
 import { AnimatedNumber } from '../components/ui/AnimatedNumber'
 import { Confetti } from '../components/ui/Confetti'
 import { cn } from '../lib/utils'
+import MoneyCalculator from '../components/MoneyCalculator'
 
 // Snake Game
 const CELL = 32
@@ -1787,12 +1788,15 @@ export default function FunPage() {
             <YorkieDog variant="fun" size={120} />
           </div>
           <h1 className="fun-title" style={{ position: 'relative', zIndex: 1 }}>玩樂空間</h1>
-          <p className="fun-subtitle">遊戲 · AI 工具 · 實驗室</p>
+          <p className="fun-subtitle">遊戲 · 功能 · AI 工具  </p>
         </header>
 
         <div className="tab-nav">
           <button className={`tab-btn ${activeTab === 'games' ? 'active' : ''}`} onClick={() => { setActiveTab('games'); setSelectedGame(null) }}>
             遊戲區
+          </button>
+          <button className={`tab-btn ${activeTab === 'calc' ? 'active' : ''}`} onClick={() => setActiveTab('calc')}>
+            計算區
           </button>
           <button className={`tab-btn ${activeTab === 'ai' ? 'active' : ''}`} onClick={() => setActiveTab('ai')}>
             AI 圖片生成
@@ -1882,6 +1886,11 @@ export default function FunPage() {
             </>
           )}
           {activeTab === 'ai' && <AiImageTab />}
+          {activeTab === 'calc' && (
+            <div style={{ marginTop: '20px' }}>
+              <MoneyCalculator />
+            </div>
+          )}
         </div>
       </main>
       <Footer />

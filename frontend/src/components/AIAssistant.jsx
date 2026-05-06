@@ -697,26 +697,22 @@ export default function AIAssistant() {
       <button
         key={mode}
         onClick={(e) => { e.stopPropagation(); setWobotMode(mode) }}
+        className={`magic-ui-btn ${isActive ? 'active' : ''}`}
         style={{
+          '--btn-color': activeColor,
           flex: 1,
-          background: isActive ? activeColor : 'rgba(0,0,0,0.8)',
-          color: isActive ? '#000' : activeColor,
-          border: `1px solid ${activeColor}`,
-          padding: '7px 2px',
+          padding: '8px 0',
           fontSize: '11px',
-          borderRadius: '4px',
+          color: isActive ? '#000' : activeColor,
           cursor: 'pointer',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: '4px',
-          whiteSpace: 'nowrap',
-          fontFamily: 'inherit',
-          transition: 'background 0.2s, color 0.2s',
+          border: 'none',
+          outline: 'none',
         }}
       >
-        <Icon color={isActive ? '#000' : activeColor} />
-        {label}
+        <span style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+          <Icon color={isActive ? '#000' : activeColor} />
+          {label}
+        </span>
       </button>
     )
   }
@@ -747,8 +743,60 @@ export default function AIAssistant() {
         }
         .wobot-msgs::-webkit-scrollbar { width: 3px; }
         .wobot-msgs::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
-        .wobot-mode-btn:hover { filter: brightness(1.15); }
         .wobot-quick-btn:hover { filter: brightness(1.2); }
+
+        @keyframes magic-beam {
+          0% { transform: translate(-50%, -50%) rotate(0deg); }
+          100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        .magic-ui-btn {
+          position: relative;
+          overflow: hidden;
+          border-radius: 6px;
+          background: transparent;
+          isolation: isolate;
+          transition: transform 0.1s, box-shadow 0.3s;
+        }
+        .magic-ui-btn:hover {
+          box-shadow: 0 0 10px var(--btn-color);
+        }
+        .magic-ui-btn:active {
+          transform: scale(0.96);
+        }
+        .magic-ui-btn.active {
+          box-shadow: 0 0 12px var(--btn-color);
+        }
+        .magic-ui-btn.active:hover {
+          box-shadow: 0 0 18px var(--btn-color);
+        }
+        .magic-ui-btn::before {
+          content: "";
+          position: absolute;
+          z-index: -2;
+          top: 50%;
+          left: 50%;
+          width: 300%;
+          height: 300%;
+          transform: translate(-50%, -50%);
+          background: conic-gradient(from 90deg at 50% 50%, transparent 0%, var(--btn-color) 30%, transparent 50%);
+          animation: magic-beam 3s linear infinite;
+        }
+        .magic-ui-btn.active::before {
+          animation: none;
+          background: var(--btn-color);
+        }
+        .magic-ui-btn::after {
+          content: "";
+          position: absolute;
+          z-index: -1;
+          inset: 1px;
+          border-radius: 5px;
+          background: rgba(10, 10, 10, 0.95);
+          transition: background 0.3s;
+        }
+        .magic-ui-btn.active::after {
+          background: var(--btn-color);
+        }
       `}</style>
 
       <div
@@ -996,14 +1044,14 @@ export default function AIAssistant() {
             <div
               style={{
                 display: 'flex',
-                gap: '5px',
-                padding: '0 10px 8px 10px',
+                padding: '0 10px 10px 10px',
                 flexShrink: 0,
+                width: '100%',
               }}
               onMouseDown={(e) => e.stopPropagation()}
               onTouchStart={(e) => e.stopPropagation()}
             >
-              <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '4px', paddingTop: '4px', scrollbarWidth: 'none' }}>
+              <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
                 {modeBtn('normal', '正常模式', WobotNormalIcon, ACCENT_HEX)}
                 {modeBtn('roast', '毒舌模式', WobotRoastIcon, '#e024c5')}
                 {modeBtn('praise', '吹捧模式', WobotPraiseIcon, '#ffbb00')}

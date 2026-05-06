@@ -98,10 +98,12 @@ export default function TopNav() {
     <>
       <style>{`
         #topnav {
-          position: fixed; top: 0; left: 0; right: 0;
+          position: fixed; top: 0 !important; left: 0; right: 0;
+          margin-top: 0 !important;
           z-index: 1000;
           display: flex; justify-content: space-between; align-items: center;
           padding: 32px 8vw;
+          padding-top: max(32px, env(safe-area-inset-top));
           transition: background 0.4s, backdrop-filter 0.4s;
         }
         #topnav.scrolled {
@@ -165,6 +167,7 @@ export default function TopNav() {
         @media (max-width: 480px) {
           #topnav {
             padding: 20px 4vw;
+            padding-top: max(20px, env(safe-area-inset-top));
           }
           .nav-icon { height: 32px; }
           .nav-right { gap: 12px; }
