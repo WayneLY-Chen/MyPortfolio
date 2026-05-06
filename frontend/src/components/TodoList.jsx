@@ -53,7 +53,7 @@ export default function TodoList() {
     return (
       <div style={{ textAlign: 'center', padding: '60px 20px', animation: 'fadeIn 0.5s' }}>
         <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 24, color: 'var(--fg)', marginBottom: 16 }}>需要登入</h2>
-        <p style={{ color: 'var(--muted)', marginBottom: 24 }}>只有登入的星際探險家才能使用待辦事項功能。</p>
+        <p style={{ color: 'var(--muted)', marginBottom: 24 }}>只有登入的使用者才能使用待辦事項功能。</p>
         <Link to="/login" style={{ display: 'inline-block', padding: '12px 32px', background: 'var(--accent)', color: '#000', borderRadius: 8, fontWeight: 800, textDecoration: 'none', transition: 'transform 0.2s' }}>前往登入</Link>
       </div>
     )
@@ -95,7 +95,7 @@ export default function TodoList() {
       <header style={{ textAlign: 'center', marginBottom: 40 }}>
         <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: 32, fontWeight: 800, color: 'var(--fg)', marginBottom: 8 }}>待辦事項</h2>
         <p style={{ color: 'var(--muted)', fontSize: 14 }}>
-          星際探險家的任務清單。只要網頁沒有關閉，時間到了就會有通知。
+          待辦清單。只要網頁沒有關閉，時間到了就會有通知。
         </p>
       </header>
 
