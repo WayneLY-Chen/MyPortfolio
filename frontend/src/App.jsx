@@ -95,13 +95,17 @@ export default function App() {
   )
 }
 
+function TodoNotifierRunner() {
+  useTodoNotifier()
+  return null
+}
+
 function AppInner() {
   const [loaded, setLoaded] = useState(false)
   const [hasSeenPreloader, setHasSeenPreloader] = useState(false)
   const silentRefresh = useAuthStore(s => s.silentRefresh)
 
   useEffect(() => { silentRefresh() }, [])
-  useTodoNotifier()
 
   // Check if user has already seen the preloader in this session
   useEffect(() => {
@@ -119,6 +123,7 @@ function AppInner() {
 
   return (
     <ToastProvider>
+      <TodoNotifierRunner />
       <Cursor />
       <AIAssistant />
       <RouteScrollManager />
