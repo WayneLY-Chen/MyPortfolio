@@ -217,7 +217,21 @@ router.post('/chat', async (req, res) => {
       generationConfig: { maxOutputTokens: 1000 }
     })
 
-    const result = await chat.sendMessage(message)
+    // 加入重試機制（最多 2 次）
+    let result
+    let lastErr
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        result = await chat.sendMessage(message)
+        break
+      } catch (e) {
+        lastErr = e
+        console.warn(`[AI Chat] Gemini attempt ${attempt + 1} failed:`, e.message)
+        if (attempt < 1) await new Promise(r => setTimeout(r, 1000))
+      }
+    }
+    if (!result) throw lastErr
+
     const reply = result.response.text()
 
     // --- 動態生成 TTS 音訊 (曉曉) --- 使用更加速度優化的 Stream 模式
@@ -257,12 +271,17 @@ router.post('/chat', async (req, res) => {
     console.error('[AI Chat] Gemini error:', err.message)
     const isQuota = err.message.includes('429') || err.message.includes('quota')
     const isBusy = err.message.includes('503') || err.message.includes('demand') || err.message.includes('Unavailable')
+    const isModel = err.message.includes('not found') || err.message.includes('404')
     
-    let reply = `大腦發生意外：${err.message}`
+    let reply
     if (isQuota) {
       reply = '喵... 人家現在太累了（配額用完），請等一分鐘後再跟我說話好嗎？期待這段時間你能幫我餵餵路邊的小貓。'
     } else if (isBusy) {
       reply = '哎呀，現在找我聊天的人太多了，大腦暫時處理不來（伺服器繁忙），請你稍等一下再跟我說話喔！'
+    } else if (isModel) {
+      reply = '喵... 大腦模型升級中，請稍後再試試看喔！'
+    } else {
+      reply = '喵... Wobot 的大腦暫時打瞌睡了，請稍後再試一次吧！如果一直失敗，可以重新整理網頁試試看。'
     }
 
     // 為錯誤訊息生成語音 (同樣加入超時保護)
