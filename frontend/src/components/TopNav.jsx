@@ -109,6 +109,7 @@ export default function TopNav() {
         #topnav.scrolled {
           background: rgba(8,8,8,0.92);
           backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
           border-bottom: 1px solid #1c1c1c;
         }
         .nav-icon { height: 40px; width: auto; object-fit: contain; display: block; }
