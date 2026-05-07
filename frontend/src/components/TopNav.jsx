@@ -104,9 +104,17 @@ export default function TopNav() {
           display: flex; justify-content: space-between; align-items: center;
           padding: 32px 8vw;
           padding-top: max(32px, env(safe-area-inset-top));
-          transition: background 0.4s, backdrop-filter 0.4s;
         }
-        #topnav.scrolled {
+        #topnav::before {
+          content: '';
+          position: absolute;
+          top: -100px; left: 0; right: 0; bottom: 0;
+          background: transparent;
+          z-index: -1;
+          pointer-events: none;
+          transition: background 0.4s, backdrop-filter 0.4s, -webkit-backdrop-filter 0.4s;
+        }
+        #topnav.scrolled::before {
           background: rgba(8,8,8,0.92);
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
