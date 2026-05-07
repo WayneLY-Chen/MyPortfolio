@@ -39,10 +39,11 @@ export default function Preloader({ onComplete }) {
       
       if (diff > 0.01) {
         currentDisplay += diff * 0.05 // 調小係數讓動畫感更明顯
-        setDisplayProgress(currentDisplay)
-      } else if (target === 100 && currentDisplay !== 100) {
+        const newInt = Math.round(currentDisplay)
+        setDisplayProgress(prev => (prev !== newInt ? newInt : prev))
+      } else if (target === 100) {
         currentDisplay = 100
-        setDisplayProgress(100)
+        setDisplayProgress(prev => (prev !== 100 ? 100 : prev))
       }
       raf = requestAnimationFrame(update)
     }

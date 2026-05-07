@@ -112,6 +112,8 @@ export default function TopNav() {
           background: transparent;
           z-index: -1;
           pointer-events: none;
+          transform: translate3d(0, 0, 0);
+          -webkit-transform: translate3d(0, 0, 0);
           transition: background 0.4s, backdrop-filter 0.4s, -webkit-backdrop-filter 0.4s;
         }
         #topnav.scrolled::before {
