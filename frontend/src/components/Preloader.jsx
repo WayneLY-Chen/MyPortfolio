@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState } from 'react'
+import { useEffect, useRef, useMemo, useState } from 'react' // useState kept for allLoaded
 import { gsap } from 'gsap'
 import { motion } from 'framer-motion'
 import { setPreloadedImages, setPreloadedBitmaps } from './Hero'
@@ -16,33 +16,26 @@ export default function Preloader({ onComplete }) {
   const barRef = useRef(null)
   const lettersRef = useRef([])
   const subtitleRef = useRef(null)
-  const [loadingProgress, setLoadingProgress] = useState(0)
-  const [displayProgress, setDisplayProgress] = useState(0)
   const [allLoaded, setAllLoaded] = useState(false)
   const imagesRef = useRef([])
   const bitmapsRef = useRef([])
-
+  const progressNumRef = useRef(null)
   const targetProgressRef = useRef(0)
 
-  // 更新目標進度
-  useEffect(() => {
-    targetProgressRef.current = loadingProgress
-  }, [loadingProgress])
-
-  // 平滑化百分比數字
+  // 平滑化百分比數字 — 直接操作 DOM 避免 React 18 batching 跳幀
   useEffect(() => {
     let raf
     let currentDisplay = 0
     const update = () => {
       const target = targetProgressRef.current
       const diff = target - currentDisplay
-      
       if (diff > 0.01) {
-        currentDisplay += diff * 0.05 // 調小係數讓動畫感更明顯
-        setDisplayProgress(currentDisplay)
-      } else if (target === 100 && currentDisplay !== 100) {
+        currentDisplay += diff * 0.05
+      } else if (target === 100 && currentDisplay < 100) {
         currentDisplay = 100
-        setDisplayProgress(100)
+      }
+      if (progressNumRef.current) {
+        progressNumRef.current.textContent = Math.round(currentDisplay) + '%'
       }
       raf = requestAnimationFrame(update)
     }
@@ -59,7 +52,7 @@ export default function Preloader({ onComplete }) {
     const updateProgress = (count) => {
       if (cancelled) return
       const progress = Math.min(Math.round((count / FRAME_COUNT) * 100), 100)
-      setLoadingProgress(progress)
+      targetProgressRef.current = progress
 
       // 讓進度條也稍微等一下 displayProgress
       if (count >= FRAME_COUNT) {
@@ -114,8 +107,8 @@ export default function Preloader({ onComplete }) {
       if (!cancelled) {
         setPreloadedImages(imagesRef.current)
         setPreloadedBitmaps(bitmapsRef.current)
+        targetProgressRef.current = 100
         setAllLoaded(true)
-        setLoadingProgress(100)
       }
     }, 8000)
 
@@ -407,7 +400,7 @@ export default function Preloader({ onComplete }) {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.6 }}
         >
-          {Math.round(displayProgress)}%
+          <span ref={progressNumRef}>0%</span>
         </motion.div>
 
         {/* Percentage-like dots */}
