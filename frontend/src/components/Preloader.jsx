@@ -22,20 +22,33 @@ export default function Preloader({ onComplete }) {
   const imagesRef = useRef([])
   const bitmapsRef = useRef([])
 
+  const targetProgressRef = useRef(0)
+
+  // 更新目標進度
+  useEffect(() => {
+    targetProgressRef.current = loadingProgress
+  }, [loadingProgress])
+
   // 平滑化百分比數字
   useEffect(() => {
     let raf
+    let currentDisplay = 0
     const update = () => {
-      setDisplayProgress(prev => {
-        const diff = loadingProgress - prev
-        if (diff <= 0.1) return loadingProgress
-        return prev + diff * 0.1
-      })
+      const target = targetProgressRef.current
+      const diff = target - currentDisplay
+      
+      if (diff > 0.01) {
+        currentDisplay += diff * 0.05 // 調小係數讓動畫感更明顯
+        setDisplayProgress(currentDisplay)
+      } else if (target === 100 && currentDisplay !== 100) {
+        currentDisplay = 100
+        setDisplayProgress(100)
+      }
       raf = requestAnimationFrame(update)
     }
     update()
     return () => cancelAnimationFrame(raf)
-  }, [loadingProgress])
+  }, [])
 
   // Start loading all images in batches to reduce memory pressure
   useEffect(() => {
