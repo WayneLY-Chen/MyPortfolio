@@ -279,22 +279,26 @@ function MicIcon({ color }) {
 // ─── Simple markdown renderer ──────────────────────────────────────────────────
 function SimpleMarkdown({ text, color }) {
   if (!text) return null
+
+  const renderInline = (line, keyPrefix) => {
+    const parts = line.split(/(\*\*[^*]+\*\*)/)
+    return parts.map((part, j) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={`${keyPrefix}-${j}`} style={{ fontWeight: 'bold', filter: 'brightness(1.4)' }}>{part.slice(2, -2)}</strong>
+      }
+      return part
+    })
+  }
+
   return (
     <div>
       {text.split('\n').map((line, i) => {
         if (!line.trim()) return <br key={i} />
-        // Bold: **text**
-        const parts = line.split(/(\*\*[^*]+\*\*)/)
-        return (
-          <p key={i} style={{ margin: '0 0 6px 0' }}>
-            {parts.map((part, j) => {
-              if (part.startsWith('**') && part.endsWith('**')) {
-                return <strong key={j} style={{ fontWeight: 'bold', filter: 'brightness(1.4)' }}>{part.slice(2, -2)}</strong>
-              }
-              return part
-            })}
-          </p>
-        )
+        if (line.startsWith('### ')) return <p key={i} style={{ margin: '6px 0 4px', fontWeight: 'bold', fontSize: '0.95em', filter: 'brightness(1.4)' }}>{renderInline(line.slice(4), i)}</p>
+        if (line.startsWith('## '))  return <p key={i} style={{ margin: '6px 0 4px', fontWeight: 'bold', fontSize: '1em',   filter: 'brightness(1.4)' }}>{renderInline(line.slice(3), i)}</p>
+        if (line.startsWith('# '))   return <p key={i} style={{ margin: '6px 0 4px', fontWeight: 'bold', fontSize: '1.05em', filter: 'brightness(1.4)' }}>{renderInline(line.slice(2), i)}</p>
+        if (line.startsWith('- ') || line.startsWith('* ')) return <p key={i} style={{ margin: '0 0 4px', paddingLeft: '8px' }}>{'• '}{renderInline(line.slice(2), i)}</p>
+        return <p key={i} style={{ margin: '0 0 6px 0' }}>{renderInline(line, i)}</p>
       })}
     </div>
   )
