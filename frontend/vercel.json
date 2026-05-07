@@ -13,6 +13,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/google-proxy/(.*)",
+      "destination": "/api/google-proxy.js"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api/$1"
     },

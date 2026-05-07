@@ -208,10 +208,15 @@ router.post('/chat', async (req, res) => {
 
     const profile = await getProfileContext()
 
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      systemInstruction: buildSystemPrompt(mode, profile) + projectsContext
-    })
+    const proxyUrl = 'https://my-portfolio-waynely-chens-projects.vercel.app/api/google-proxy';
+
+    const model = genAI.getGenerativeModel(
+      {
+        model: 'gemini-2.5-flash',
+        systemInstruction: buildSystemPrompt(mode, profile) + projectsContext
+      },
+      { baseUrl: proxyUrl }
+    )
 
     // 使用 chat session 實現記憶功能
     const chat = model.startChat({
