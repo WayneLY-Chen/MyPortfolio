@@ -23,51 +23,33 @@ export function setPreloadedBitmaps() {} // kept for Preloader compatibility
 
 function preloadImages() {
   if (_imagesLoaded) return
-  _imagesLoaded = true // 標記為正在/已載入，避免重複呼叫
+  _imagesLoaded = true
 
-  const BATCH_SIZE = 4;
-  let loaded = 0;
-
+  const BATCH_SIZE = 4
   const loadBatch = (startIdx) => {
-    const end = Math.min(startIdx + BATCH_SIZE, FRAME_COUNT);
-    let currentBatchLoaded = 0;
-    const toLoad = end - startIdx;
-
-    if (toLoad === 0) return;
+    const end = Math.min(startIdx + BATCH_SIZE, FRAME_COUNT)
+    let doneInBatch = 0
+    const toLoad = end - startIdx
+    if (toLoad === 0) return
 
     for (let i = startIdx; i < end; i++) {
       if (_imgs[i]) {
-        currentBatchLoaded++;
-        loaded++;
-        if (currentBatchLoaded === toLoad && end < FRAME_COUNT) {
-          setTimeout(() => loadBatch(end), 10);
-        }
-        continue;
+        doneInBatch++
+        if (doneInBatch === toLoad && end < FRAME_COUNT) setTimeout(() => loadBatch(end), 10)
+        continue
       }
-
-      const img = new Image();
-      img.decoding = 'async';
-      img.src = FRAMES[i];
-      _imgs[i] = img;
-
+      const img = new Image()
+      img.decoding = 'async'
+      img.src = FRAMES[i]
+      _imgs[i] = img
       const onDone = () => {
-        currentBatchLoaded++;
-        loaded++;
-        if (currentBatchLoaded === toLoad && end < FRAME_COUNT) {
-          setTimeout(() => loadBatch(end), 10);
-        }
-      };
-
-      if (img.complete) {
-        onDone();
-      } else {
-        img.onload = onDone;
-        img.onerror = onDone;
+        doneInBatch++
+        if (doneInBatch === toLoad && end < FRAME_COUNT) setTimeout(() => loadBatch(end), 10)
       }
+      img.complete ? onDone() : (img.onload = onDone, img.onerror = onDone)
     }
-  };
-
-  loadBatch(0);
+  }
+  loadBatch(0)
 }
 
 export function isFirstFrameReady() {
