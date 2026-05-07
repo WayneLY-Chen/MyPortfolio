@@ -103,20 +103,18 @@ export default function TopNav() {
           z-index: 1000;
           display: flex; justify-content: space-between; align-items: center;
           padding: 32px 8vw;
-          padding-top: max(32px, env(safe-area-inset-top));
+          padding-top: calc(env(safe-area-inset-top) + 32px);
+          transition: background 0.4s, backdrop-filter 0.4s;
         }
         #topnav::before {
           content: '';
-          position: absolute;
-          top: -100px; left: 0; right: 0; bottom: 0;
-          background: transparent;
-          z-index: -1;
-          pointer-events: none;
-          transform: translate3d(0, 0, 0);
-          -webkit-transform: translate3d(0, 0, 0);
-          transition: background 0.4s, backdrop-filter 0.4s, -webkit-backdrop-filter 0.4s;
+          position: fixed;
+          top: 0; left: 0; right: 0;
+          height: env(safe-area-inset-top);
+          background: #080808;
+          z-index: 1001;
         }
-        #topnav.scrolled::before {
+        #topnav.scrolled {
           background: rgba(8,8,8,0.92);
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
@@ -178,7 +176,7 @@ export default function TopNav() {
         @media (max-width: 480px) {
           #topnav {
             padding: 20px 4vw;
-            padding-top: max(20px, env(safe-area-inset-top));
+            padding-top: calc(env(safe-area-inset-top) + 20px);
           }
           .nav-icon { height: 32px; }
           .nav-right { gap: 12px; }
