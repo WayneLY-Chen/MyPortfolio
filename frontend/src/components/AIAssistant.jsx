@@ -277,6 +277,19 @@ function MicIcon({ color }) {
 }
 
 // ─── Simple markdown renderer ──────────────────────────────────────────────────
+const EMOJI_MAP = {
+  book: '📖', books: '📚', sparkles: '✨', rocket: '🚀', star: '⭐', fire: '🔥',
+  check: '✅', x: '❌', warning: '⚠️', info: 'ℹ️', bulb: '💡', wrench: '🔧',
+  gear: '⚙️', computer: '💻', phone: '📱', link: '🔗', trophy: '🏆',
+  tada: '🎉', wave: '👋', point_right: '👉', white_check_mark: '✅',
+  mag: '🔍', pencil: '✏️', memo: '📝', package: '📦', label: '🏷️',
+  art: '🎨', zap: '⚡', bug: '🐛', construction: '🚧', hammer: '🔨',
+}
+
+function replaceEmojiShortcodes(str) {
+  return str.replace(/:([a-z0-9_+]+):/g, (match, name) => EMOJI_MAP[name] || match)
+}
+
 function SimpleMarkdown({ text, color }) {
   if (!text) return null
 
@@ -284,9 +297,9 @@ function SimpleMarkdown({ text, color }) {
     const parts = line.split(/(\*\*[^*]+\*\*)/)
     return parts.map((part, j) => {
       if (part.startsWith('**') && part.endsWith('**')) {
-        return <strong key={`${keyPrefix}-${j}`} style={{ fontWeight: 'bold', filter: 'brightness(1.4)' }}>{part.slice(2, -2)}</strong>
+        return <strong key={`${keyPrefix}-${j}`} style={{ fontWeight: 'bold', filter: 'brightness(1.4)' }}>{replaceEmojiShortcodes(part.slice(2, -2))}</strong>
       }
-      return part
+      return replaceEmojiShortcodes(part)
     })
   }
 
