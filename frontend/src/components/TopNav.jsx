@@ -106,14 +106,6 @@ export default function TopNav() {
           padding-top: calc(env(safe-area-inset-top) + 32px);
           transition: background 0.4s, backdrop-filter 0.4s;
         }
-        #topnav::before {
-          content: '';
-          position: fixed;
-          top: 0; left: 0; right: 0;
-          height: env(safe-area-inset-top);
-          background: #080808;
-          z-index: 1001;
-        }
         #topnav.scrolled {
           background: rgba(8,8,8,0.92);
           backdrop-filter: blur(8px);
@@ -256,6 +248,7 @@ export default function TopNav() {
         .overlay-footer a:hover { color: var(--fg); }
       `}</style>
 
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, height: 'env(safe-area-inset-top)', background: '#080808', zIndex: 1001 }} />
       <nav id="topnav" className={scrolled ? 'scrolled' : ''}>
         <a href="/" className="nav-icon-link" onClick={(e) => { e.preventDefault(); navigate('/') }}>
         </a>
