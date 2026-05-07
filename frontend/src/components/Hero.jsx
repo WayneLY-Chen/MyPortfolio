@@ -23,33 +23,16 @@ export function setPreloadedBitmaps() {} // kept for Preloader compatibility
 
 function preloadImages() {
   if (_imagesLoaded) return
-  _imagesLoaded = true
-
-  const BATCH_SIZE = 8
-  const loadBatch = (startIdx) => {
-    const end = Math.min(startIdx + BATCH_SIZE, FRAME_COUNT)
-    let doneInBatch = 0
-    const toLoad = end - startIdx
-    if (toLoad === 0) return
-
-    for (let i = startIdx; i < end; i++) {
-      if (_imgs[i]) {
-        doneInBatch++
-        if (doneInBatch === toLoad && end < FRAME_COUNT) setTimeout(() => loadBatch(end), 10)
-        continue
-      }
-      const img = new Image()
-      img.decoding = 'async'
-      img.src = FRAMES[i]
-      _imgs[i] = img
-      const onDone = () => {
-        doneInBatch++
-        if (doneInBatch === toLoad && end < FRAME_COUNT) setTimeout(() => loadBatch(end), 10)
-      }
-      img.complete ? onDone() : (img.onload = onDone, img.onerror = onDone)
-    }
+  let loaded = 0
+  for (let i = 0; i < FRAME_COUNT; i++) {
+    if (_imgs[i]) { loaded++; continue }
+    const img = new Image()
+    img.decoding = 'async'
+    img.src = FRAMES[i]
+    _imgs[i] = img
+    img.onload = () => { loaded++ }
   }
-  loadBatch(0)
+  _imagesLoaded = true
 }
 
 export function isFirstFrameReady() {
@@ -95,24 +78,15 @@ export default function Hero({ animate }) {
     const draw = (idx) => {
       const i = Math.max(0, Math.min(FRAME_COUNT - 1, Math.round(idx)))
       if (i === lastDrawn) return
-      let img = _imgs[i]
-      let drawIdx = i
-      if (!img || !img.complete || !img.naturalWidth) {
-        // fall back to nearest loaded frame below current index
-        for (let j = i - 1; j >= 0; j--) {
-          const c = _imgs[j]
-          if (c && c.complete && c.naturalWidth) { img = c; drawIdx = j; break }
-        }
-        if (!img || !img.complete || !img.naturalWidth) return
-      }
-      if (drawIdx === lastDrawn) return
+      const img = _imgs[i]
+      if (!img || !img.complete || !img.naturalWidth) return
       const cw = canvas.width, ch = canvas.height
       const scale = Math.max(cw / img.naturalWidth, ch / img.naturalHeight)
       const x = (cw - img.naturalWidth * scale) / 2
       const y = (ch - img.naturalHeight * scale) / 2
       ctx.clearRect(0, 0, cw, ch)
       ctx.drawImage(img, x, y, img.naturalWidth * scale, img.naturalHeight * scale)
-      lastDrawn = drawIdx
+      lastDrawn = i
     }
 
     const syncSize = () => {
