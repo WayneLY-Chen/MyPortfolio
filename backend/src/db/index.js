@@ -2,7 +2,7 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 const dbUrl = process.env.DATABASE_URL || '';
-const isHostedDb = dbUrl.includes('supabase.co') || dbUrl.includes('neon.tech');
+const isHostedDb = dbUrl.includes('supabase.co') || dbUrl.includes('supabase.com') || dbUrl.includes('neon.tech');
 
 const pool = new Pool({
   connectionString: dbUrl,
