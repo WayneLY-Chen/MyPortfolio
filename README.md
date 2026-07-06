@@ -1,4 +1,4 @@
-<![CDATA[# 🚀 Wayne's Portfolio & Editorial Studio
+# 🚀 Wayne's Portfolio & Editorial Studio
 
 <div align="center">
 
@@ -296,4 +296,4 @@ cd frontend && npm run dev
 > 💡 歡迎 ⭐ Star 此專案，或透過右下角的 **Wobot 助理**了解更多關於我的細節！
 
 </div>
-]]>
+
