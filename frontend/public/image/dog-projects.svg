@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 150" width="120" height="150">
+  <!-- Shadow -->
+  <ellipse cx="60" cy="143" rx="26" ry="5" fill="rgba(0,0,0,0.12)"/>
+  <!-- Mini laptop the dog holds -->
+  <rect x="26" y="108" width="30" height="20" rx="3" fill="#2a2a3a" stroke="#555" stroke-width="1"/>
+  <rect x="28" y="110" width="26" height="14" rx="2" fill="#1a8cff" opacity="0.8"/>
+  <!-- Screen glow lines -->
+  <line x1="30" y1="113" x2="52" y2="113" stroke="white" stroke-width="1" opacity="0.5"/>
+  <line x1="30" y1="116" x2="48" y2="116" stroke="white" stroke-width="1" opacity="0.5"/>
+  <line x1="30" y1="119" x2="50" y2="119" stroke="white" stroke-width="1" opacity="0.5"/>
+  <rect x="26" y="128" width="30" height="3" rx="1" fill="#3a3a4a"/>
+  <!-- Long silky coat -->
+  <path d="M30 80 Q25 106 31 122 Q60 130 89 122 Q95 106 90 80 Z" fill="#C8A04A"/>
+  <!-- Dark steel-blue back -->
+  <ellipse cx="60" cy="81" rx="24" ry="18" fill="#3E3D6B"/>
+  <!-- Coat sides -->
+  <path d="M36 86 Q32 108 38 120 Q60 126 82 120 Q88 108 84 86 Q73 91 60 91 Q47 91 36 86Z" fill="#D4A955" opacity="0.75"/>
+  <!-- Left arm reaching out -->
+  <path d="M36 90 Q28 98 30 108" stroke="#D4A96B" stroke-width="9" stroke-linecap="round" fill="none"/>
+  <ellipse cx="30" cy="109" rx="7" ry="5" fill="#D4A96B"/>
+  <!-- Head chibi -->
+  <ellipse cx="60" cy="50" rx="26" ry="24" fill="#D4A96B"/>
+  <!-- Top fur -->
+  <ellipse cx="60" cy="31" rx="18" ry="12" fill="#C8A04A"/>
+  <!-- Ears -->
+  <polygon points="34,43 37,20 49,39" fill="#3E3D6B"/>
+  <polygon points="86,43 83,20 71,39" fill="#3E3D6B"/>
+  <polygon points="36,42 39,25 48,39" fill="#D4A96B" opacity="0.85"/>
+  <polygon points="84,42 81,25 72,39" fill="#D4A96B" opacity="0.85"/>
+  <!-- Muzzle -->
+  <ellipse cx="60" cy="60" rx="15" ry="12" fill="#F0CC8A"/>
+  <!-- Eyes focused/determined look -->
+  <circle cx="48" cy="48" r="8" fill="#1a1106"/>
+  <circle cx="72" cy="48" r="8" fill="#1a1106"/>
+  <circle cx="50.5" cy="45" r="3" fill="white"/>
+  <circle cx="74.5" cy="45" r="3" fill="white"/>
+  <circle cx="49" cy="48" r="5" fill="#4a2c10" opacity="0.55"/>
+  <circle cx="73" cy="48" r="5" fill="#4a2c10" opacity="0.55"/>
+  <!-- Eyebrows determined -->
+  <path d="M42 40 Q48 37 54 40" stroke="#5a3010" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M66 40 Q72 37 78 40" stroke="#5a3010" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <!-- Nose -->
+  <ellipse cx="60" cy="61" rx="5" ry="4" fill="#1a1106"/>
+  <ellipse cx="58.5" cy="60" rx="1.5" ry="1" fill="rgba(255,255,255,0.35)"/>
+  <!-- Focused mouth line -->
+  <path d="M55 65 Q60 67 65 65" stroke="#1a1106" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <!-- Hard hat / engineer cap -->
+  <ellipse cx="60" cy="30" rx="22" ry="8" fill="#FFD700"/>
+  <rect x="42" y="24" width="36" height="8" rx="3" fill="#FFC000"/>
+  <rect x="38" y="29" width="44" height="4" rx="2" fill="#FFD700"/>
+  <!-- Paws -->
+  <ellipse cx="76" cy="118" rx="12" ry="8" fill="#D4A96B"/>
+  <path d="M68 119 Q76 124 84 119" stroke="#C09040" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+</svg>

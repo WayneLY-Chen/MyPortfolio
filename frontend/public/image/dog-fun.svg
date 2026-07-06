@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 150" width="130" height="150">
+  <!-- Shadow -->
+  <ellipse cx="65" cy="143" rx="28" ry="5" fill="rgba(0,0,0,0.12)"/>
+  <!-- Sparkles around -->
+  <g fill="#FFD700" opacity="0.9">
+    <path d="M10 30 L12 24 L14 30 L20 32 L14 34 L12 40 L10 34 L4 32 Z" transform="scale(0.7) translate(5,5)"/>
+    <path d="M110 20 L112 14 L114 20 L120 22 L114 24 L112 30 L110 24 L104 22 Z" transform="scale(0.6) translate(60,0)"/>
+    <path d="M5 70 L6.5 66 L8 70 L12 71.5 L8 73 L6.5 77 L5 73 L1 71.5 Z" transform="scale(0.8)"/>
+    <path d="M115 65 L116.5 61 L118 65 L122 66.5 L118 68 L116.5 72 L115 68 L111 66.5 Z" transform="scale(0.7) translate(40,5)"/>
+  </g>
+  <!-- Tongue out (below body, behind coat) -->
+  <ellipse cx="65" cy="75" rx="7" ry="9" fill="#FF6B9D"/>
+  <ellipse cx="65" cy="70" rx="7" ry="5" fill="#FF6B9D"/>
+  <!-- Long silky coat -->
+  <path d="M32 82 Q27 108 33 124 Q65 132 97 124 Q103 108 98 82 Z" fill="#C8A04A"/>
+  <!-- Dark steel-blue back -->
+  <ellipse cx="65" cy="83" rx="26" ry="18" fill="#3E3D6B"/>
+  <!-- Coat sides -->
+  <path d="M38 88 Q34 110 40 122 Q65 128 90 122 Q96 110 92 88 Q80 93 65 93 Q50 93 38 88Z" fill="#D4A955" opacity="0.75"/>
+  <!-- Right arm raised up with star -->
+  <path d="M92 88 Q100 76 98 65" stroke="#D4A96B" stroke-width="9" stroke-linecap="round" fill="none"/>
+  <!-- Star in paw -->
+  <path d="M98 55 L100 49 L102 55 L108 57 L102 59 L100 65 L98 59 L92 57 Z" fill="#FFD700"/>
+  <!-- Left paw pointing -->
+  <path d="M38 88 Q30 96 32 108" stroke="#D4A96B" stroke-width="9" stroke-linecap="round" fill="none"/>
+  <ellipse cx="31" cy="109" rx="7" ry="5" fill="#D4A96B"/>
+  <!-- Head chibi, slightly tilted -->
+  <ellipse cx="65" cy="50" rx="27" ry="25" fill="#D4A96B" transform="rotate(5,65,50)"/>
+  <!-- Top fur -->
+  <ellipse cx="65" cy="31" rx="18" ry="12" fill="#C8A04A"/>
+  <!-- Ears slightly perked -->
+  <polygon points="38,43 40,18 53,40" fill="#3E3D6B"/>
+  <polygon points="92,40 90,16 78,38" fill="#3E3D6B"/>
+  <polygon points="40,42 42,23 52,40" fill="#D4A96B" opacity="0.85"/>
+  <polygon points="90,39 88,21 79,38" fill="#D4A96B" opacity="0.85"/>
+  <!-- Muzzle -->
+  <ellipse cx="65" cy="62" rx="15" ry="11" fill="#F0CC8A"/>
+  <!-- Eyes happy/squinting (curved) -->
+  <path d="M41 47 Q48 41 55 47" stroke="#1a1106" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M75 47 Q82 41 89 47" stroke="#1a1106" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <!-- Eye shines -->
+  <circle cx="48" cy="45" r="2" fill="white" opacity="0.7"/>
+  <circle cx="82" cy="45" r="2" fill="white" opacity="0.7"/>
+  <!-- Nose -->
+  <ellipse cx="65" cy="62" rx="5" ry="4" fill="#1a1106"/>
+  <ellipse cx="63.5" cy="61" rx="1.5" ry="1" fill="rgba(255,255,255,0.35)"/>
+  <!-- Tongue sticking out happy -->
+  <path d="M59 67 Q65 72 71 67" stroke="#1a1106" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <ellipse cx="65" cy="71" rx="5" ry="6" fill="#FF6B9D"/>
+  <!-- Cleft in tongue -->
+  <line x1="65" y1="68" x2="65" y2="75" stroke="#e0508a" stroke-width="1" opacity="0.6"/>
+  <!-- Green star/flower bow topknot -->
+  <ellipse cx="57" cy="29" rx="7" ry="4.5" fill="#2EC27E" transform="rotate(-25,57,29)"/>
+  <ellipse cx="73" cy="29" rx="7" ry="4.5" fill="#2EC27E" transform="rotate(25,73,29)"/>
+  <circle cx="65" cy="29" r="4" fill="#1AAD6A"/>
+  <!-- Paws bottom -->
+  <ellipse cx="47" cy="120" rx="12" ry="8" fill="#D4A96B"/>
+  <ellipse cx="83" cy="120" rx="12" ry="8" fill="#D4A96B"/>
+  <path d="M39 121 Q47 126 55 121" stroke="#C09040" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+  <path d="M75 121 Q83 126 91 121" stroke="#C09040" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+</svg>
