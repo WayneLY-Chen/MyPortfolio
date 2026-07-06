@@ -1,5 +1,4 @@
-const { Pool } = require('pg');
-const pool = new Pool({ connectionString: 'postgresql://postgres.cewnazwknnnjxbdxwnot:REMOVED_PASSWORD@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres' });
+const { pool } = require('./src/db/index');
 
 const authorId = 'bd5dc3ec-1369-4b76-a89d-0dcbd4be7c24';
 
