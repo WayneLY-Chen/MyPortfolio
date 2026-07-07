@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <radialGradient id="glow" cx="82%" cy="18%" r="75%">
+      <stop offset="0%" stop-color="#FEC514" stop-opacity="0.22"/>
+      <stop offset="55%" stop-color="#FEC514" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#FEC514" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#FEC514"/>
+      <stop offset="100%" stop-color="#FEC514" stop-opacity="0.15"/>
+    </linearGradient>
+    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#f5ede0" stroke-opacity="0.035" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="#0e0a06"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <text x="80" y="120" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" letter-spacing="10" fill="#C8942A">WAYNE — DEV BLOG</text>
+  <text x="76" y="330" font-family="Segoe UI Black, Arial Black, sans-serif" font-size="132" font-weight="900" letter-spacing="4" fill="#f5ede0" fill-opacity="0.94">SEARCH</text>
+  <rect x="80" y="380" width="240" height="6" rx="3" fill="url(#bar)"/>
+  <text x="80" y="472" font-family="Microsoft JhengHei, PingFang TC, sans-serif" font-size="52" font-weight="700" fill="#8a7560">中文全文檢索入門</text>
+  <circle cx="1060" cy="520" r="66" fill="none" stroke="#FEC514" stroke-opacity="0.5" stroke-width="1.5"/>
+  <circle cx="1060" cy="520" r="42" fill="none" stroke="#FEC514" stroke-opacity="0.25" stroke-width="1"/>
+  <circle cx="1060" cy="520" r="8" fill="#FEC514"/>
+  <rect x="0" y="622" width="1200" height="8" fill="#FEC514" fill-opacity="0.85"/>
+</svg>

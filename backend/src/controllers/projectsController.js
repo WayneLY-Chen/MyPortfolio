@@ -81,7 +81,19 @@ const getProjects = async (req, res, next) => {
 
     // 快取不存在、已過期或強制同步，呼叫 GitHub API
     console.log('[Projects] 正在呼叫 GitHub API...');
-    const repos = await fetchUserRepos();
+    let repos = [];
+    try {
+      repos = await fetchUserRepos();
+    } catch (ghErr) {
+      // GitHub 失敗（Token 失效、限流等）→ 回退使用資料庫既有資料，不要回空白
+      console.error('[Projects] GitHub 同步失敗，回退資料庫既有資料:', ghErr.message);
+      const staleResult = await query(`
+        SELECT id, name, description, image_url, url, homepage, language, stars, forks, topics, language_stats, updated_at
+        FROM projects
+        ORDER BY updated_at DESC NULLS LAST
+      `);
+      return res.json({ success: true, source: 'stale-cache', data: staleResult.rows });
+    }
 
     if (repos.length > 0) {
       try {
@@ -109,7 +121,13 @@ const getProjects = async (req, res, next) => {
       return res.json({ success: true, source: 'github', data: repos });
     }
 
-    return res.json({ success: true, source: 'github', data: [] });
+    // GitHub 回傳 0 筆時也退回資料庫既有資料
+    const fallbackResult = await query(`
+      SELECT id, name, description, image_url, url, homepage, language, stars, forks, topics, language_stats, updated_at
+      FROM projects
+      ORDER BY updated_at DESC NULLS LAST
+    `);
+    return res.json({ success: true, source: fallbackResult.rows.length > 0 ? 'stale-cache' : 'github', data: fallbackResult.rows });
   } catch (err) {
     // DB completely unavailable — try GitHub API directly
     console.error('[Projects] DB unavailable, falling back to GitHub API:', err.message);
