@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
 import remarkGfm from 'remark-gfm'
-import remarkBreaks from 'remark-breaks'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { useNavigate } from 'react-router-dom'
@@ -922,31 +921,41 @@ export default function Projects({ limit = 3 }) {
                         <div className="project-content-markdown" style={{ fontSize: '17px', color: '#aaa', lineHeight: 1.85, fontWeight: 300, marginBottom: '32px', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
                           <ReactMarkdown
                             rehypePlugins={[rehypeRaw]}
-                            remarkPlugins={[remarkGfm, remarkBreaks]}
+                            remarkPlugins={[remarkGfm]}
                             components={{
                               h1: ({node, ...props}) => <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: 800, margin: '24px 0 12px' }} {...props} />,
                               h2: ({node, ...props}) => <h2 style={{ color: '#fff', fontSize: '20px', fontWeight: 800, margin: '20px 0 10px', borderLeft: '3px solid #C8942A', paddingLeft: '12px' }} {...props} />,
                               p: ({node, ...props}) => <p style={{ marginBottom: '16px' }} {...props} />,
                               ul: ({node, ...props}) => <ul style={{ paddingLeft: '20px', marginBottom: '16px', listStyleType: 'square' }} {...props} />,
                               li: ({node, ...props}) => <li style={{ marginBottom: '6px' }} {...props} />,
-                              a: ({node, ...props}) => (
-                                <a 
-                                  {...props} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer" 
-                                  onClick={(e) => { e.stopPropagation(); }} 
-                                  style={{ 
-                                    color: '#C8942A', 
-                                    textDecoration: 'underline', 
-                                    pointerEvents: 'auto', 
-                                    position: 'relative', 
-                                    zIndex: 10,
-                                    cursor: 'pointer'
-                                  }} 
-                                />
-                              ),
+                              a: ({node, ...props}) => {
+                                // 只包圖片的連結（如徽章）不加底線，維持乾淨排列
+                                const imageOnly = node?.children?.length === 1 && node.children[0].tagName === 'img'
+                                return (
+                                  <a
+                                    {...props}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => { e.stopPropagation(); }}
+                                    style={{
+                                      color: '#C8942A',
+                                      textDecoration: imageOnly ? 'none' : 'underline',
+                                      pointerEvents: 'auto',
+                                      position: 'relative',
+                                      zIndex: 10,
+                                      cursor: 'pointer'
+                                    }}
+                                  />
+                                )
+                              },
                               strong: ({node, ...props}) => <strong style={{ color: '#fff', fontWeight: 700 }} {...props} />,
-                              img: ({node, ...props}) => <img style={{ maxWidth: '100%', height: 'auto', borderRadius: '8px', margin: '16px 0' }} {...props} />,
+                              img: ({node, src, ...props}) => {
+                                // shields.io 徽章等小圖示：inline 排列（跟 GitHub 一致），不獨佔一行
+                                const isBadge = /shields\.io|badgen\.net|img\.shields|\/badge\//.test(src || '')
+                                return isBadge
+                                  ? <img src={src} style={{ display: 'inline-block', verticalAlign: 'middle', height: '20px', width: 'auto', margin: '3px 4px', borderRadius: '4px' }} {...props} />
+                                  : <img src={src} style={{ display: 'block', maxWidth: '100%', height: 'auto', borderRadius: '8px', margin: '16px 0' }} {...props} />
+                              },
                               blockquote: ({node, ...props}) => <blockquote style={{ margin: '16px 0', padding: '10px 18px', borderLeft: '3px solid rgba(200,148,42,0.5)', background: 'rgba(200,148,42,0.05)', borderRadius: '0 8px 8px 0', color: '#bbb' }} {...props} />,
                               hr: ({node, ...props}) => <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '28px 0' }} {...props} />,
                               table: ({node, ...props}) => (
