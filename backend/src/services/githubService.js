@@ -63,6 +63,23 @@ const fetchRepoLanguages = async (repoName, retryCount = 1) => {
 };
 
 /**
+ * 取得單一 Repo 的 README 原始 Markdown（沒有 README 時回傳 null）
+ * @param {string} repoName
+ */
+const fetchRepoReadme = async (repoName) => {
+  try {
+    const url = `https://api.github.com/repos/${GITHUB_USERNAME}/${repoName}/readme`;
+    const response = await axios.get(url, {
+      headers: { ...buildHeaders(), Accept: 'application/vnd.github.raw+json' },
+      timeout: 8000,
+    });
+    return typeof response.data === 'string' ? response.data : null;
+  } catch (err) {
+    return null; // 404（無 README）或其他錯誤都視為沒有
+  }
+};
+
+/**
  * 從 GitHub API 取得使用者的公開 Repo 清單
  * @returns {Array} 格式化後的 Repo 陣列（含語言統計）
  * @throws {Error} GitHub API 失敗時拋出錯誤
@@ -103,6 +120,7 @@ const fetchUserRepos = async () => {
   for (const repo of repos) {
     console.log(`[GitHub] 正在抓取語言統計: ${repo.name}...`);
     const languages = await fetchRepoLanguages(repo.name);
+    const readme = await fetchRepoReadme(repo.name);
     
     // 如果 GitHub 沒回傳主語言，從統計資料中找出佔比最高的作為主語言
     let primaryLanguage = repo.language;
@@ -125,10 +143,11 @@ const fetchUserRepos = async () => {
       topics: repo.topics || [],
       updated_at: repo.updated_at,
       language_stats: languages,
+      readme,
     });
   }
 
   return formatted;
 };
 
-module.exports = { fetchUserRepos, fetchRepoLanguages };
+module.exports = { fetchUserRepos, fetchRepoLanguages, fetchRepoReadme };

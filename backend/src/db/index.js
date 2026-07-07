@@ -20,6 +20,7 @@ const runMigrations = async () => {
   try {
     await pool.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS language_stats JSONB DEFAULT '{}'::jsonb;`);
     await pool.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS image_url TEXT;`);
+    await pool.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS readme TEXT;`);
     // Email 驗證欄位
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token TEXT;`);
     await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_expires_at TIMESTAMPTZ;`);
