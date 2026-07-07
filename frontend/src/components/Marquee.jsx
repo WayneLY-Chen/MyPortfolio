@@ -95,6 +95,10 @@ export default function Marquee() {
         .marquee-tech-name {
           font-family: var(--font-sans); font-weight: 700;
           font-size: inherit; text-transform: uppercase; letter-spacing: inherit;
+          line-height: 1;
+          /* 光學置中：抵銷字距在最後一個字母後的殘留空白，並微降大寫字的視覺重心 */
+          margin-right: -0.22em;
+          transform: translateY(1px);
         }
       `}</style>
       <section id="marquee">

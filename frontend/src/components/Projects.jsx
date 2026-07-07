@@ -738,8 +738,8 @@ export default function Projects({ limit = 3 }) {
                             inset: 0, 
                             width: '100%', 
                             height: '107%', // 稍微拉高圖片以裁掉底部的 GitHub 比例條
-                            objectFit: 'cover', 
-                            objectPosition: 'top', // 從頂部開始對齊，確保重要資訊不被裁掉
+                            objectFit: 'cover',
+                            objectPosition: 'left top', // 靠左上對齊，OG 圖的重點資訊在左側不被裁掉
                             display: 'block', 
                             transition: 'transform 0.6s cubic-bezier(0.19,1,0.22,1)', 
                             background: '#111' 
@@ -749,7 +749,7 @@ export default function Projects({ limit = 3 }) {
                             if (e.target.src !== fb) e.target.src = fb
                           }}
                         />
-                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, transparent 70%, rgba(14,10,6,0.6))' }} />
+                        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right, transparent 35%, rgba(14,10,6,0.45) 70%, rgba(14,10,6,0.95))' }} />
                         {/* 語言比例條 — 比照 /projects 樣式，精確壓在圖片下緣 */}
                         {p.language_stats && Object.keys(p.language_stats).length > 0 && (
                           <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 4, display: 'flex', zIndex: 3, background: 'rgba(0,0,0,0.5)' }}>
@@ -947,6 +947,17 @@ export default function Projects({ limit = 3 }) {
                               ),
                               strong: ({node, ...props}) => <strong style={{ color: '#fff', fontWeight: 700 }} {...props} />,
                               img: ({node, ...props}) => <img style={{ maxWidth: '100%', height: 'auto', borderRadius: '8px', margin: '16px 0' }} {...props} />,
+                              blockquote: ({node, ...props}) => <blockquote style={{ margin: '16px 0', padding: '10px 18px', borderLeft: '3px solid rgba(200,148,42,0.5)', background: 'rgba(200,148,42,0.05)', borderRadius: '0 8px 8px 0', color: '#bbb' }} {...props} />,
+                              hr: ({node, ...props}) => <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '28px 0' }} {...props} />,
+                              table: ({node, ...props}) => (
+                                <div style={{ width: '100%', overflowX: 'auto', margin: '20px 0', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', minWidth: 'max-content' }} {...props} />
+                                </div>
+                              ),
+                              thead: ({node, ...props}) => <thead style={{ background: 'rgba(200,148,42,0.1)' }} {...props} />,
+                              th: ({node, ...props}) => <th style={{ textAlign: 'left', padding: '10px 16px', color: '#C8942A', fontWeight: 700, fontSize: '13px', letterSpacing: '0.03em', textTransform: 'uppercase', whiteSpace: 'nowrap', borderBottom: '1px solid rgba(200,148,42,0.25)' }} {...props} />,
+                              td: ({node, ...props}) => <td style={{ padding: '10px 16px', color: '#bbb', borderBottom: '1px solid rgba(255,255,255,0.05)', verticalAlign: 'top' }} {...props} />,
+                              tr: ({node, ...props}) => <tr {...props} />,
                               code: ({node, inline, className, children, ...props}) => {
                                 const match = /language-(\w+)/.exec(className || '');
                                 const content = String(children).replace(/\n$/, '');
@@ -1013,7 +1024,7 @@ export default function Projects({ limit = 3 }) {
                             }}
                           >
                             { (() => {
-                                let content = (modal.description || '此專案尚無詳細描述...').replace(/\u00a0/g, ' ');
+                                let content = (modal.readme || modal.description || '此專案尚無詳細描述...').replace(/\u00a0/g, ' ');
                                 
                                 // 極限修復：自動補全所有類型的未關閉代碼塊
                                 const lines = content.split('\n');
@@ -1033,7 +1044,7 @@ export default function Projects({ limit = 3 }) {
 
                       {!isEditing && (
                         <>
-                          <AiSummaryButton type="project" title={modal.name} content={modal.description} />
+                          <AiSummaryButton type="project" title={modal.name} content={modal.readme || modal.description} />
                           <div style={{ marginBottom: '40px' }}><Reactions targetType="project" targetId={modal.id || modal.name} /></div>
                         </>
                       )}

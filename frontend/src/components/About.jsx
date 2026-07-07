@@ -5,6 +5,7 @@ import { motion, useInView } from 'framer-motion'
 import { useButton } from '@react-aria/button'
 import YorkieDog from './YorkieDog'
 import { Badge } from './ui/badge'
+import { getLenis } from '../hooks/useLenis'
 
 const devIcon = (s) => `https://cdn.jsdelivr.net/gh/devicons/devicon/icons/${s}/${s}-original.svg`
 const SKILLS = [
@@ -551,9 +552,13 @@ export default function About() {
                 key={id}
                 label={label}
                 isActive={activeNav === id}
-                onPress={() =>
-                  document.querySelector(`[data-section="${id}"]`)?.scrollIntoView({ behavior: 'smooth' })
-                }
+                onPress={() => {
+                  const el = document.querySelector(`[data-section="${id}"]`)
+                  if (!el) return
+                  // 用 Lenis 捲動（跟 TopNav 一致），避免與平滑捲動打架，並預留固定 NAV 的高度
+                  const lenis = getLenis()
+                  lenis ? lenis.scrollTo(el, { offset: -90 }) : el.scrollIntoView({ behavior: 'smooth' })
+                }}
               />
             ))}
           </nav>

@@ -11,13 +11,15 @@ const upsertProjects = async (repos) => {
   if (!repos || repos.length === 0) return;
 
   const upsertSQL = `
-    INSERT INTO projects (github_id, name, description, url, homepage, language, stars, forks, topics, language_stats, updated_at)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    INSERT INTO projects (github_id, name, description, url, homepage, language, stars, forks, topics, language_stats, updated_at, readme)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
     ON CONFLICT (github_id) DO UPDATE SET
       name           = EXCLUDED.name,
-      -- 【保護機制】優先保留資料庫中已有的手動編輯內容（非 NULL 且非空字串）
-      description    = COALESCE(NULLIF(projects.description, ''), EXCLUDED.description),
-      topics         = COALESCE(NULLIF(projects.topics, '{}'::text[]), EXCLUDED.topics),
+      -- 以 GitHub 為準：GitHub 上改了描述/主題/README 就跟著更新（GitHub 為空才保留舊值）
+      description    = COALESCE(NULLIF(EXCLUDED.description, ''), projects.description),
+      topics         = COALESCE(NULLIF(EXCLUDED.topics, '{}'::text[]), projects.topics),
+      readme         = COALESCE(NULLIF(EXCLUDED.readme, ''), projects.readme),
+      -- 圖片仍優先保留資料庫的自訂封面
       image_url      = COALESCE(NULLIF(projects.image_url, ''), EXCLUDED.image_url),
       language_stats = EXCLUDED.language_stats,
       url            = EXCLUDED.url,
@@ -43,6 +45,7 @@ const upsertProjects = async (repos) => {
       repo.topics,
       JSON.stringify(repo.language_stats || {}),
       repo.updated_at,
+      repo.readme || null,
     ]);
   }
 
@@ -60,7 +63,7 @@ const getProjects = async (req, res, next) => {
     if (!forceSync) {
       // 查詢資料庫中 1 小時內更新的快取資料
       const cacheResult = await query(`
-        SELECT id, name, description, image_url, url, homepage, language, stars, forks, topics, language_stats, updated_at
+        SELECT id, name, description, readme, image_url, url, homepage, language, stars, forks, topics, language_stats, updated_at
         FROM projects
         WHERE created_at > NOW() - INTERVAL '${CACHE_DURATION_HOURS} hours'
            OR (SELECT MAX(created_at) FROM projects) > NOW() - INTERVAL '${CACHE_DURATION_HOURS} hours'
@@ -88,7 +91,7 @@ const getProjects = async (req, res, next) => {
       // GitHub 失敗（Token 失效、限流等）→ 回退使用資料庫既有資料，不要回空白
       console.error('[Projects] GitHub 同步失敗，回退資料庫既有資料:', ghErr.message);
       const staleResult = await query(`
-        SELECT id, name, description, image_url, url, homepage, language, stars, forks, topics, language_stats, updated_at
+        SELECT id, name, description, readme, image_url, url, homepage, language, stars, forks, topics, language_stats, updated_at
         FROM projects
         ORDER BY updated_at DESC NULLS LAST
       `);
@@ -101,7 +104,7 @@ const getProjects = async (req, res, next) => {
 
         // 從資料庫重新讀取（確保格式一致）
         const freshResult = await query(`
-          SELECT id, name, description, image_url, url, homepage, language, stars, forks, topics, language_stats, updated_at
+          SELECT id, name, description, readme, image_url, url, homepage, language, stars, forks, topics, language_stats, updated_at
           FROM projects
           ORDER BY updated_at DESC NULLS LAST
         `);
@@ -123,7 +126,7 @@ const getProjects = async (req, res, next) => {
 
     // GitHub 回傳 0 筆時也退回資料庫既有資料
     const fallbackResult = await query(`
-      SELECT id, name, description, image_url, url, homepage, language, stars, forks, topics, language_stats, updated_at
+      SELECT id, name, description, readme, image_url, url, homepage, language, stars, forks, topics, language_stats, updated_at
       FROM projects
       ORDER BY updated_at DESC NULLS LAST
     `);
@@ -200,7 +203,7 @@ const syncProjects = async (req, res) => {
     if (repos.length > 0) {
       await upsertProjects(repos);
       const freshResult = await query(`
-        SELECT id, name, description, image_url, url, homepage, language, stars, forks, topics, language_stats, updated_at
+        SELECT id, name, description, readme, image_url, url, homepage, language, stars, forks, topics, language_stats, updated_at
         FROM projects
         ORDER BY updated_at DESC NULLS LAST
       `);

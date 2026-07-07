@@ -24,10 +24,36 @@
 html {
   overflow-x: hidden;
   background: var(--bg);
+  /* Firefox 捲動條：細版、鎏金 */
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
 }
 
 #root {
   background: var(--bg);
+}
+
+/* ── 全域鎏金捲動條（WebKit / Chromium / Edge）── */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(180deg, #C8942A, #8a5e18);
+  /* 用透明 border 讓拇指看起來更纖細、與軌道之間留白 */
+  border: 2px solid var(--bg);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #e0aa3c, #C8942A);
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 
@@ -196,9 +222,18 @@ body::after {
 .marquee-track {
   overflow: hidden;
   padding: 8px 0;
+  position: relative;
   /* 左右邊緣漸隱，項目像從霧中流入流出 */
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
   mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+}
+/* 一條貫穿的金色細線：膠囊像串在同一條金鍊上，彼此相連 */
+.marquee-track::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(200,148,42,0), rgba(200,148,42,0.4) 15%, rgba(200,148,42,0.4) 85%, rgba(200,148,42,0));
 }
 .marquee-track + .marquee-track { margin-top: 22px; }
 .marquee-inner {
@@ -211,11 +246,13 @@ body::after {
 .marquee-item {
   position: relative;
   display: inline-flex; align-items: center; gap: 14px;
+  flex-shrink: 0; /* 防止 flex 壓縮吃掉右側 padding，確保左右留白對稱 */
   font-family: var(--font-sans);
   font-size: clamp(12px, 1vw, 15px);
   font-weight: 600; text-transform: uppercase; letter-spacing: 0.22em;
+  line-height: 1;
   color: #b9a687;
-  padding: 14px 30px;
+  padding: 18px 40px;
   /* 間距隨螢幕寬度縮放：確保一圈內容永遠寬於視窗，同名項目不會同時出現 */
   margin: 0 clamp(12px, 2.6vw, 110px);
   border-radius: 999px;
@@ -438,7 +475,7 @@ body::after {
   }
   .marquee-item {
     font-size: 12px !important;
-    padding: 9px 16px;
+    padding: 12px 22px;
     margin: 0 8px;
     gap: 8px;
   }
