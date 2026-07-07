@@ -91,11 +91,10 @@ export default function Marquee() {
   return (
     <>
       <style>{`
-        .marquee-item { display: inline-flex; align-items: center; gap: 10px; }
-        .marquee-tech-icon { width: 28px; height: 28px; object-fit: contain; vertical-align: middle; }
+        .marquee-tech-icon { width: 20px; height: 20px; object-fit: contain; vertical-align: middle; }
         .marquee-tech-name {
           font-family: var(--font-sans); font-weight: 700;
-          font-size: clamp(14px, 2vw, 22px); text-transform: uppercase; letter-spacing: 0.05em;
+          font-size: inherit; text-transform: uppercase; letter-spacing: inherit;
         }
       `}</style>
       <section id="marquee">
