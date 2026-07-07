@@ -98,6 +98,11 @@ export default function Marquee() {
         }
       `}</style>
       <section id="marquee">
+        <div className="marquee-heading" aria-hidden="true">
+          <span className="mh-line" />
+          <span className="mh-text">Tech Stack</span>
+          <span className="mh-line" />
+        </div>
         <MarqueeTrack techs={topTechs} />
         <MarqueeTrack techs={bottomTechs} reverse />
       </section>

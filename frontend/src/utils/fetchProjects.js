@@ -15,7 +15,10 @@ export default async function fetchProjectsCached() {
       .then(r => r.json())
       .then(d => {
         if (d.success) {
-          sessionStorage.setItem('projectsListCache', JSON.stringify(d.data));
+          // 空清單不寫入快取，避免 API 暫時故障時把「沒資料」鎖進整個分頁生命週期
+          if (Array.isArray(d.data) && d.data.length > 0) {
+            sessionStorage.setItem('projectsListCache', JSON.stringify(d.data));
+          }
           return d.data;
         }
         return [];

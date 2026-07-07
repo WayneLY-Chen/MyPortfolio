@@ -167,10 +167,31 @@ body::after {
 
 /* ── Marquee ── */
 #marquee {
-  padding: 60px 0;
+  padding: 80px 0 90px;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   overflow: hidden;
+  position: relative;
+  /* 頂部鎏金光暈，賦予區塊縱深 */
+  background:
+    radial-gradient(900px 320px at 50% -60px, rgba(200, 148, 42, 0.07), transparent 70%),
+    linear-gradient(180deg, rgba(245, 237, 224, 0.012), transparent 35%);
+}
+.marquee-heading {
+  display: flex; align-items: center; justify-content: center; gap: 28px;
+  margin-bottom: 52px;
+}
+.marquee-heading .mh-line {
+  width: min(180px, 20vw); height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(200, 148, 42, 0.45));
+}
+.marquee-heading .mh-line:last-child { transform: scaleX(-1); }
+.marquee-heading .mh-text {
+  font-family: var(--font-sans);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.55em; padding-left: 0.55em;
+  color: var(--accent); text-transform: uppercase;
+  white-space: nowrap;
 }
 .marquee-track {
   overflow: hidden;
@@ -182,33 +203,56 @@ body::after {
 .marquee-track + .marquee-track { margin-top: 22px; }
 .marquee-inner {
   display: flex; white-space: nowrap;
-  /* 上排：由左流向右 */
-  animation: marquee-right 40s linear infinite;
+  /* 上排：由左流向右，緩慢優雅 */
+  animation: marquee-right 55s linear infinite;
 }
 /* 下排：由右流回左 */
-.marquee-track.reverse .marquee-inner { animation: marquee-left 40s linear infinite; }
+.marquee-track.reverse .marquee-inner { animation: marquee-left 55s linear infinite; }
 .marquee-item {
-  display: inline-flex; align-items: center; gap: 12px;
+  position: relative;
+  display: inline-flex; align-items: center; gap: 14px;
   font-family: var(--font-sans);
-  font-size: clamp(13px, 1.1vw, 17px);
-  font-weight: 700; text-transform: uppercase; letter-spacing: 0.18em;
-  color: var(--muted);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.008));
-  padding: 12px 26px;
+  font-size: clamp(12px, 1vw, 15px);
+  font-weight: 600; text-transform: uppercase; letter-spacing: 0.22em;
+  color: #b9a687;
+  padding: 14px 30px;
   /* 間距隨螢幕寬度縮放：確保一圈內容永遠寬於視窗，同名項目不會同時出現 */
-  margin: 0 clamp(10px, 2.6vw, 110px);
+  margin: 0 clamp(12px, 2.6vw, 110px);
+  border-radius: 999px;
+  /* 金屬漸層髮絲邊框：雙層背景 + 透明 border 的 border-box 技法 */
+  border: 1px solid transparent;
+  background:
+    linear-gradient(180deg, #151009, #0f0b06) padding-box,
+    linear-gradient(135deg, rgba(200, 148, 42, 0.55), rgba(200, 148, 42, 0.08) 38%, rgba(245, 237, 224, 0.07) 62%, rgba(200, 148, 42, 0.38)) border-box;
+  box-shadow:
+    inset 0 1px 0 rgba(245, 237, 224, 0.05),
+    0 10px 28px rgba(0, 0, 0, 0.35);
   white-space: nowrap;
-  transition: color 0.3s, border-color 0.3s, box-shadow 0.3s;
+  transition: color 0.35s, background 0.35s, box-shadow 0.35s, transform 0.35s;
   cursor: none;
 }
 .marquee-item:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-  box-shadow: 0 0 24px rgba(200, 148, 42, 0.18);
+  color: var(--fg);
+  transform: translateY(-2px);
+  background:
+    linear-gradient(180deg, #1c150a, #120d07) padding-box,
+    linear-gradient(135deg, #C8942A, rgba(200, 148, 42, 0.35)) border-box;
+  box-shadow:
+    inset 0 1px 0 rgba(245, 237, 224, 0.09),
+    0 0 34px rgba(200, 148, 42, 0.22);
 }
-.marquee-dot { display: none; }
+.marquee-item:hover .marquee-tech-icon { filter: none; }
+/* 膠囊之間懸浮的金色菱形分隔 */
+.marquee-dot {
+  position: absolute;
+  left: calc(100% + clamp(12px, 2.6vw, 110px));
+  top: 50%;
+  width: 5px; height: 5px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: linear-gradient(135deg, #C8942A, rgba(200, 148, 42, 0.3));
+  opacity: 0.55;
+  font-size: 0; color: transparent; line-height: 0;
+}
 /* 內容為兩份複製，位移剛好一份（-50%，精確分數無誤差）才能無縫循環，不會有重置跳動 */
 @keyframes marquee-left {
   from { transform: translateX(0); }
