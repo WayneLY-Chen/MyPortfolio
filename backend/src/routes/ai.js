@@ -96,15 +96,23 @@ router.post('/tts', async (req, res) => {
 
     const { audioStream } = tts.toStream(cleanText)
     const chunks = []
-
-    audioStream.on('data', (chunk) => chunks.push(chunk))
-    audioStream.on('end', () => {
+    let sent = false
+    const finish = () => {
+      // msedge-tts 2.x 的串流以 close 收尾，不一定發 end — 兩個事件都處理
+      if (sent) return
+      sent = true
       const buffer = Buffer.concat(chunks)
+      console.log(`[AI TTS] 合成完成: ${buffer.length} bytes`)
       res.set({ 'Content-Type': 'audio/mpeg', 'Content-Length': buffer.length })
       res.send(buffer)
-    })
+    }
+
+    audioStream.on('data', (chunk) => chunks.push(chunk))
+    audioStream.on('end', finish)
+    audioStream.on('close', finish)
     audioStream.on('error', (err) => {
-      throw err
+      console.error('[AI TTS] stream error:', err.message)
+      if (!sent) { sent = true; res.status(500).json({ success: false, error: '語音合成失敗' }) }
     })
   } catch (err) {
     console.error('[AI TTS] Stream mode error:', err.message)
@@ -265,8 +273,10 @@ router.post('/chat', async (req, res) => {
           new Promise((resolve, reject) => {
             const { audioStream } = tts.toStream(cleanText)
             const chunks = []
+            const done = () => resolve(Buffer.concat(chunks).toString('base64'))
             audioStream.on('data', (chunk) => chunks.push(chunk))
-            audioStream.on('end', () => resolve(Buffer.concat(chunks).toString('base64')))
+            audioStream.on('end', done)
+            audioStream.on('close', done)
             audioStream.on('error', reject)
           }),
           new Promise((_, reject) => setTimeout(() => reject(new Error('TTS Timeout')), 4000))
@@ -307,8 +317,10 @@ router.post('/chat', async (req, res) => {
         new Promise((resolve) => {
           const { audioStream } = tts.toStream(reply)
           const chunks = []
+          const done = () => resolve(Buffer.concat(chunks).toString('base64'))
           audioStream.on('data', (c) => chunks.push(c))
-          audioStream.on('end', () => resolve(Buffer.concat(chunks).toString('base64')))
+          audioStream.on('end', done)
+          audioStream.on('close', done)
           audioStream.on('error', () => resolve(null))
         }),
         new Promise(resolve => setTimeout(() => resolve(null), 3000))
