@@ -533,8 +533,16 @@ export default function Projects({ limit = 3 }) {
         .project-sort-btn { padding: 9px 24px; background: transparent; border: 1px solid rgba(255,255,255,0.1); color: #666; border-radius: 100px; cursor: pointer; transition: 0.3s; font-size: 13px; font-weight: 600; }
         .project-sort-btn.active { border-color: #C8942A; color: #C8942A; background: rgba(200,148,42,0.08); }
         .project-dialog-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); backdrop-filter: blur(12px); z-index: 1000; }
-        .project-dialog-content { position: fixed; top: 50%; left: 50%; width: 92vw; max-width: 960px; max-height: 92vh; background: #0e0a06; border: 1px solid rgba(200,148,42,0.2); border-radius: 24px; z-index: 1001; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
+        .project-dialog-content { position: fixed; top: 50%; left: 50%; width: 92vw; max-width: 960px; max-height: 92vh; max-height: 92dvh; background: #0e0a06; border: 1px solid rgba(200,148,42,0.2); border-radius: 24px; z-index: 1001; overflow-y: auto; scrollbar-width: none; -ms-overflow-style: none; }
         .project-dialog-content::-webkit-scrollbar { display: none; }
+        /* 手機版彈窗：dvh 用「實際可視高度」計算，關閉鈕不會被推出螢幕外 */
+        @media (max-width: 600px) {
+          .project-dialog-content { width: 96vw; max-height: 88dvh; border-radius: 16px; }
+          .pd-banner { height: 200px !important; }
+          .pd-banner-text { bottom: 16px !important; left: 20px !important; right: 20px !important; }
+          .pd-banner-text h2 { font-size: 26px !important; }
+          .pd-body { padding: 24px 18px 36px !important; }
+        }
 
         /* ── 全頁卡片格線 ── */
         .project-card-grid {
@@ -836,23 +844,27 @@ export default function Projects({ limit = 3 }) {
                      {modal.description || '專案詳細資訊'}
                    </Dialog.Description>
                    
+                   {/* 關閉鈕：sticky 固定在彈窗右上角，捲動時不會消失 */}
+                   <div style={{ position: 'sticky', top: 0, zIndex: 20, height: 0 }}>
+                     <Dialog.Close asChild>
+                       <button aria-label="關閉" style={{ position: 'absolute', top: 14, right: 14, width: 38, height: 38, borderRadius: '50%', background: 'rgba(0,0,0,0.65)', border: '1px solid rgba(200,148,42,0.35)', color: '#fff', fontSize: 19, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>×</button>
+                     </Dialog.Close>
+                   </div>
+
                    {/* ── Banner ── */}
-                   <div style={{ position: 'relative', width: '100%', height: '380px', overflow: 'hidden' }}>
+                   <div className="pd-banner" style={{ position: 'relative', width: '100%', height: '380px', overflow: 'hidden' }}>
                       <img src={modal.image_url || `https://opengraph.githubassets.com/1/WayneLY-Chen/${modal.name}`} alt={modal.name} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.55 }} onError={e => { e.target.style.display = 'none' }} />
                       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, #0e0a06 10%, transparent 70%)' }} />
-                      <div style={{ position: 'absolute', bottom: 36, left: 48, right: 48 }}>
-                        <h2 style={{ fontSize: '42px', fontWeight: 900, color: '#fff', marginBottom: '14px', lineHeight: 1.1 }}>{modal.name}</h2>
+                      <div className="pd-banner-text" style={{ position: 'absolute', bottom: 36, left: 48, right: 48 }}>
+                        <h2 style={{ fontSize: '42px', fontWeight: 900, color: '#fff', marginBottom: '14px', lineHeight: 1.1, overflowWrap: 'anywhere' }}>{modal.name}</h2>
                         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
                           <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#C8942A', fontWeight: 700, fontSize: 15 }}><Star size={16} fill="#C8942A" stroke="#C8942A" /> {modal.stars || 0} Stars</span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#bbb', fontWeight: 600, fontSize: 15 }}><GitFork size={16} /> {modal.forks || 0} Forks</span>
                         </div>
                       </div>
-                      <Dialog.Close asChild>
-                        <button style={{ position: 'absolute', top: 20, right: 20, width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.15)', color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
-                      </Dialog.Close>
                    </div>
 
-                   <div style={{ padding: '40px 48px 56px' }}>
+                   <div className="pd-body" style={{ padding: '40px 48px 56px' }}>
                       {/* ── 技術棧標籤 ── */}
                       {detectLanguages(modal).length > 0 && (
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 28 }}>
