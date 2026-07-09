@@ -185,15 +185,15 @@ export default function Comments({ type, id, actions }) {
         </div>
       ) : (
         <div style={{ marginBottom: 20, padding: 16, background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: 12 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <p style={{ color: '#aaa', fontSize: 13, margin: 0 }}>登入後即可發表留言</p>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+            <p style={{ color: '#aaa', fontSize: 13, margin: 0, whiteSpace: 'nowrap' }}>登入後即可發表留言</p>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               {actions}
               <button
                 onClick={() => window.location.href = '/login'}
                 style={{
                   padding: '7px 18px', background: 'var(--accent, #d4f029)', color: '#000', border: 'none', borderRadius: 8,
-                  fontWeight: 700, fontSize: 12, cursor: 'pointer', letterSpacing: '0.05em'
+                  fontWeight: 700, fontSize: 12, cursor: 'pointer', letterSpacing: '0.05em', whiteSpace: 'nowrap'
                 }}
               >
                 前往登入

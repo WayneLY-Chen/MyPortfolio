@@ -360,6 +360,7 @@ export default function AIAssistant() {
   const silenceTimerRef = useRef(null)
   const originalInputRef = useRef('')
   const audioRef = useRef(null)
+  const speakSessionRef = useRef(0)
 
   // ── Drag ──────────────────────────────────────────────────────────────────────
   const handlePointerDown = (e) => {
@@ -496,10 +497,37 @@ export default function AIAssistant() {
     }
   }, [])
 
-  // TTS Functionality
+  // TTS Functionality（分句串流：第一句先合成先播，其餘句子邊播邊預載）
+  const fetchTtsUrl = async (text) => {
+    const res = await fetch(`${API_URL}/ai/tts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voice: 'zh-CN-XiaoxiaoNeural' })
+    })
+    if (!res.ok) throw new Error('Edge TTS API error')
+    return URL.createObjectURL(await res.blob())
+  }
+
+  const splitForTts = (text) => {
+    const parts = text.match(/[^。！？!?\n]+[。！？!?\n]*/g) || [text]
+    const chunks = []
+    let buf = ''
+    for (const raw of parts) {
+      const p = raw.trim()
+      if (!p) continue
+      // 第一句單獨成塊，讓語音能最快開始
+      if (chunks.length === 0 && !buf) { chunks.push(p); continue }
+      if (buf && (buf.length + p.length) > 80) { chunks.push(buf); buf = p }
+      else buf += p
+    }
+    if (buf) chunks.push(buf)
+    return chunks
+  }
+
   const speakText = async (text) => {
     if (!autoRead || typeof window === 'undefined') return
-    
+    const session = ++speakSessionRef.current
+
     if ('speechSynthesis' in window) window.speechSynthesis.cancel()
     if (audioRef.current) {
       audioRef.current.pause()
@@ -509,34 +537,32 @@ export default function AIAssistant() {
     let cleanText = text.replace(/\[img:.*?\]/g, '')
     if (cleanText.includes('你可以點擊下方快捷鍵')) cleanText = '你好！我是 Wayne 的專屬助理'
 
-    return new Promise(async (resolve) => {
-      try {
-        const res = await fetch(`${API_URL}/ai/tts`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: cleanText, voice: 'zh-CN-XiaoxiaoNeural' })
-        })
-        
-        if (!res.ok) throw new Error('Edge TTS API error')
-        
-        const blob = await res.blob()
-        const url = URL.createObjectURL(blob)
+    const chunks = splitForTts(cleanText)
+    if (chunks.length === 0) return
+
+    let nextPromise = fetchTtsUrl(chunks[0])
+    for (let i = 0; i < chunks.length; i++) {
+      let url
+      try { url = await nextPromise } catch (err) {
+        console.error('Edge TTS streaming failed:', err)
+        return
+      }
+      if (speakSessionRef.current !== session) { URL.revokeObjectURL(url); return }
+      if (i + 1 < chunks.length) nextPromise = fetchTtsUrl(chunks[i + 1])
+
+      await new Promise((resolve) => {
         const audio = new Audio(url)
         audioRef.current = audio
-        
-        audio.onplay = () => resolve(audio.duration || 0)
-        audio.onended = () => URL.revokeObjectURL(url)
-        audio.onerror = () => resolve(0)
-
+        audio.onended = () => { URL.revokeObjectURL(url); resolve() }
+        audio.onerror = () => { URL.revokeObjectURL(url); resolve() }
         audio.play().catch(e => {
           console.warn('Audio auto-play prevented:', e)
-          resolve(0)
+          URL.revokeObjectURL(url)
+          resolve()
         })
-      } catch (err) {
-        console.error('Edge TTS streaming failed:', err)
-        resolve(0)
-      }
-    })
+      })
+      if (speakSessionRef.current !== session) return
+    }
   }
 
   // Speech-to-Text Toggle
@@ -561,6 +587,7 @@ export default function AIAssistant() {
   // ── Send / Ask ────────────────────────────────────────────────────────────────
   const handleAsk = async (questionOverride) => {
     // Interrupt current actions
+    speakSessionRef.current++
     if ('speechSynthesis' in window) window.speechSynthesis.cancel()
     if (audioRef.current) {
       audioRef.current.pause()
@@ -879,6 +906,7 @@ export default function AIAssistant() {
                     const next = !autoRead
                     setAutoRead(next)
                     if (!next) {
+                      speakSessionRef.current++
                       if (typeof window !== 'undefined' && window.speechSynthesis) {
                         window.speechSynthesis.cancel()
                       }
