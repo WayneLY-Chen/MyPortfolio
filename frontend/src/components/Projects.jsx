@@ -222,15 +222,15 @@ const STYLES = `
     .project-dialog-content h2 {
       font-size: 28px !important;
     }
-    .project-dialog-content > div:first-of-type {
+    .project-dialog-content .pd-banner {
       height: 280px !important;
     }
-    .project-dialog-content > div:first-of-type > div:last-child {
+    .project-dialog-content .pd-banner-text {
       left: 20px !important;
       right: 20px !important;
       bottom: 20px !important;
     }
-    .project-dialog-content > div:last-child {
+    .project-dialog-content .pd-body {
       padding: 24px 20px 32px !important;
     }
   }
@@ -255,15 +255,15 @@ const STYLES = `
       font-size: 22px !important;
       margin-bottom: 10px !important;
     }
-    .project-dialog-content > div:first-of-type {
+    .project-dialog-content .pd-banner {
       height: 220px !important;
     }
-    .project-dialog-content > div:first-of-type > div:last-child {
+    .project-dialog-content .pd-banner-text {
       left: 16px !important;
       right: 16px !important;
       bottom: 16px !important;
     }
-    .project-dialog-content > div:last-child {
+    .project-dialog-content .pd-body {
       padding: 20px 16px 28px !important;
     }
     .project-view-all {
@@ -971,13 +971,13 @@ export default function Projects({ limit = 3 }) {
                               blockquote: ({node, ...props}) => <blockquote style={{ margin: '16px 0', padding: '10px 18px', borderLeft: '3px solid rgba(200,148,42,0.5)', background: 'rgba(200,148,42,0.05)', borderRadius: '0 8px 8px 0', color: '#bbb' }} {...props} />,
                               hr: ({node, ...props}) => <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '28px 0' }} {...props} />,
                               table: ({node, ...props}) => (
-                                <div style={{ width: '100%', overflowX: 'auto', margin: '20px 0', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', minWidth: 'max-content' }} {...props} />
+                                <div style={{ width: '100%', margin: '20px 0', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+                                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', tableLayout: 'fixed' }} {...props} />
                                 </div>
                               ),
                               thead: ({node, ...props}) => <thead style={{ background: 'rgba(200,148,42,0.1)' }} {...props} />,
-                              th: ({node, ...props}) => <th style={{ textAlign: 'left', padding: '10px 16px', color: '#C8942A', fontWeight: 700, fontSize: '13px', letterSpacing: '0.03em', textTransform: 'uppercase', whiteSpace: 'nowrap', borderBottom: '1px solid rgba(200,148,42,0.25)' }} {...props} />,
-                              td: ({node, ...props}) => <td style={{ padding: '10px 16px', color: '#bbb', borderBottom: '1px solid rgba(255,255,255,0.05)', verticalAlign: 'top' }} {...props} />,
+                              th: ({node, ...props}) => <th style={{ textAlign: 'left', padding: '10px 16px', color: '#C8942A', fontWeight: 700, fontSize: '13px', letterSpacing: '0.03em', textTransform: 'uppercase', borderBottom: '1px solid rgba(200,148,42,0.25)', overflowWrap: 'anywhere', wordBreak: 'break-word' }} {...props} />,
+                              td: ({node, ...props}) => <td style={{ padding: '10px 16px', color: '#bbb', borderBottom: '1px solid rgba(255,255,255,0.05)', verticalAlign: 'top', overflowWrap: 'anywhere', wordBreak: 'break-word' }} {...props} />,
                               tr: ({node, ...props}) => <tr {...props} />,
                               code: ({node, inline, className, children, ...props}) => {
                                 const match = /language-(\w+)/.exec(className || '');
@@ -1004,39 +1004,42 @@ export default function Projects({ limit = 3 }) {
                                       {match ? match[1] : 'code'}
                                     </div>
                                     <CopyButton text={content} />
-                                    <SyntaxHighlighter
-                                      style={atomDark}
-                                      language={match ? match[1] : 'text'}
-                                      PreTag="div"
-                                      customStyle={{
-                                        margin: 0,
-                                        padding: '44px 16px 16px',
-                                        background: '#0a0a0f',
-                                        fontSize: '0.85em',
-                                        lineHeight: '1.6',
-                                        borderRadius: '8px',
-                                        border: '1px solid rgba(255,255,255,0.1)'
-                                      }}
-                                      {...props}
-                                    >
-                                      {content}
-                                    </SyntaxHighlighter>
+                                    <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                      <SyntaxHighlighter
+                                        style={atomDark}
+                                        language={match ? match[1] : 'text'}
+                                        PreTag="div"
+                                        customStyle={{
+                                          margin: 0,
+                                          padding: '44px 16px 16px',
+                                          background: '#0a0a0f',
+                                          fontSize: '0.85em',
+                                          lineHeight: '1.6',
+                                          border: 'none',
+                                          width: 'max-content',
+                                          minWidth: '100%'
+                                        }}
+                                        {...props}
+                                      >
+                                        {content}
+                                      </SyntaxHighlighter>
+                                    </div>
                                   </div>
                                 ) : (
-                                  <code style={{ 
-                                    background: 'rgba(255,255,255,0.08)', 
-                                    padding: '0.15em 0.4em', 
-                                    borderRadius: '4px', 
+                                  <code style={{
+                                    background: 'rgba(255,255,255,0.08)',
+                                    padding: '0.15em 0.4em',
+                                    borderRadius: '4px',
                                     fontSize: '0.88em',
                                     fontFamily: 'monospace',
                                     color: '#eee',
                                     border: '1px solid rgba(255,255,255,0.1)',
                                     verticalAlign: 'middle',
-                                    display: 'inline-block',
+                                    display: 'inline',
                                     lineHeight: '1.2',
                                     margin: '0 2px',
-                                    position: 'relative',
-                                    top: '-1px'
+                                    overflowWrap: 'anywhere',
+                                    wordBreak: 'break-word'
                                   }} {...props}>
                                     {children}
                                   </code>
@@ -1079,7 +1082,7 @@ export default function Projects({ limit = 3 }) {
                               <button onClick={() => setIsEditing(true)} style={{ padding: '11px 24px', border: '1px solid #C8942A', color: '#C8942A', borderRadius: 8, background: 'transparent', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>編輯內容</button>
                             )}
                             {modal.url && (
-                              <a href={modal.url} target="_blank" rel="noreferrer" style={{ padding: '11px 24px', background: '#fff', color: '#000', borderRadius: 8, fontWeight: 800, textDecoration: 'none', fontSize: 14 }}>前往 GitHub →</a>
+                              <a href={modal.url} target="_blank" rel="noreferrer" style={{ padding: '11px 24px', background: '#fff', color: '#000', borderRadius: 8, fontWeight: 800, textDecoration: 'none', fontSize: 14, whiteSpace: 'nowrap' }}>前往 GitHub →</a>
                             )}
                           </div>
                         )}
