@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 import { ToastProvider } from './components/ui/Toast'
 import Preloader from './components/Preloader'
 import TopNav from './components/TopNav'
@@ -137,6 +138,7 @@ function AppInner() {
       <TodoNotifierRunner />
       <Cursor />
       <AIAssistant />
+      <SpeedInsights />
       <RouteScrollManager />
       <Routes>
         <Route path="/" element={<HomePage loaded={loaded} setLoaded={handlePreloaderComplete} hasSeenPreloader={hasSeenPreloader} />} />
