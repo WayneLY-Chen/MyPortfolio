@@ -8,7 +8,9 @@
     "dev": "nodemon src/index.js",
     "db:init": "psql $DATABASE_URL -f src/db/schema.sql",
     "db:seed-blog": "node src/db/seed_blog.js",
-    "db:seed-knowledge": "node src/db/seed_knowledge.js"
+    "db:seed-knowledge": "node src/db/seed_knowledge.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -32,6 +34,10 @@
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4"
+    "@vitest/coverage-v8": "4.1.10",
+    "nodemon": "^3.1.4",
+    "socket.io-client": "4.8.3",
+    "supertest": "7.2.2",
+    "vitest": "4.1.10"
   }
 }
