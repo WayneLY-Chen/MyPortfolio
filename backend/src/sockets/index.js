@@ -1,6 +1,7 @@
 const { Server } = require('socket.io');
 const gameState = require('./gameState');
 const { factionState, bossState, resetFaction, resetBoss } = gameState;
+const { verifyGuestSessionToken } = require('../utils/jwt');
 
 // 紀錄中斷連線的計時器
 const disconnectTimers = {};
@@ -22,8 +23,34 @@ function initSockets(server) {
 
   console.log('Socket.io 伺服器初始化成功');
 
+  // SEC-04/SEC-05: 握手驗證閘門，必須在 io.on('connection', ...) 之前註冊。
+  // 拒絕必須發生在握手階段，而不是個別事件處理器裡——否則連線仍會建立、
+  // 仍會收到 connection 事件，SEC-04 要求「驗證失敗的連線完全無法加入
+  // 遊戲」就無法成立。
+  //
+  // 憑證一律從 handshake.auth（Socket.io 專門承載憑證的欄位）讀取，不再
+  // 從 query string 讀（同時也讓 sessionId 不再出現在 server / proxy 的
+  // access log 裡，T-01-08）。sessionId 一律以驗證通過後、伺服器端signed
+  // payload 內的值為準，client 端在 query string 或其他欄位塞入的任何值
+  // 一律被忽略（SEC-05 冒用防範）。
+  io.use((socket, next) => {
+    const { token } = socket.handshake.auth || {};
+    if (!token) {
+      console.log('[Socket] 握手被拒絕: 未提供 token');
+      return next(new Error('unauthorized'));
+    }
+    try {
+      const payload = verifyGuestSessionToken(token);
+      socket.data.sessionId = payload.sid;
+      next();
+    } catch (err) {
+      console.log('[Socket] 握手被拒絕: token 驗證失敗');
+      next(new Error('unauthorized'));
+    }
+  });
+
   io.on('connection', (socket) => {
-    const sessionId = socket.handshake.query.sessionId;
+    const sessionId = socket.data.sessionId;
     console.log(`[Socket] 玩家連線: ${socket.id}, Session: ${sessionId}`);
 
     // 如果該玩家之前斷線在倒數中，清除計時器 (重連成功)
