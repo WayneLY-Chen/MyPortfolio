@@ -250,7 +250,7 @@ router.post('/chat', optionalAuthenticate, aiLimiter, async (req, res) => {
         model: 'gemini-3.1-flash-lite',
         systemInstruction: buildSystemPrompt(mode, profile) + projectsContext
       },
-      { baseUrl: proxyUrl }
+      { baseUrl: proxyUrl, customHeaders: { 'x-internal-proxy-key': process.env.INTERNAL_PROXY_KEY } }
     )
 
     // 使用 chat session 實現記憶功能
