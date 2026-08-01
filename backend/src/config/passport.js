@@ -1,46 +1,41 @@
 const passport = require('passport');
+const jwt = require('jsonwebtoken');
 const LocalStrategy = require('passport-local').Strategy;
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const GitHubStrategy = require('passport-github2').Strategy;
 const LineStrategy = require('passport-line-auth').Strategy;
 const FacebookStrategy = require('passport-facebook').Strategy;
-const { query } = require('../db');
 const { verifyLocalCredentials } = require('./localVerify');
+const { handleOAuth } = require('./oauthAccountLink');
+const { isProviderEmailVerified } = require('./oauthEmailVerification');
 
-// 共用 OAuth 處理
-const handleOAuth = async (provider, profileId, email, displayName, avatarUrl, done) => {
+// SEC-07/D-16(option-b)/D-17：handleOAuth 已搬到 ./oauthAccountLink.js
+// （見該檔頂端註解說明原因與 D-16 option-a → option-b 的取代紀錄）。
+// isProviderEmailVerified 依 02-PROVIDER-EMAIL-VERIFICATION.md 的事實表
+// 判定各家 provider 是否明確聲明這次的 email 已驗證，四家 strategy 都
+// 必須算出這個值並傳給 handleOAuth——這是 Phase 1 抽出 completeOAuthLogin
+// 要防的同一類「改三家漏一家」問題。
+
+// D-18/追加調查(C)：passport-line-auth@0.2.9 的 userProfile() 從未把 email
+// 寫進 profile（見事實表逐行追蹤 node_modules 原始碼的結論）。真正的 email
+// 落在 token 端點回應裡的 id_token（LINE 簽發的 JWT），此處手動解碼並
+// 驗證簽章——不是單純 base64 解碼，那樣任何人都能偽造 email claim 直接
+// 走過 D-16 的合併閘門。LINE 以 Channel Secret 做 HS256 對稱簽章，額外
+// 比對 issuer 與 audience，三者缺一都視為驗證失敗。
+const decodeLineIdToken = (idToken) => {
+  if (!idToken || !process.env.LINE_CHANNEL_SECRET) return null;
   try {
-    const existing = await query(
-      'SELECT u.* FROM users u JOIN oauth_accounts oa ON u.id = oa.user_id WHERE oa.provider = $1 AND oa.provider_id = $2',
-      [provider, profileId]
-    );
-    if (existing.rows.length > 0) return done(null, existing.rows[0]);
-
-    let user;
-    if (email) {
-      const byEmail = await query('SELECT * FROM users WHERE email = $1', [email]);
-      if (byEmail.rows.length > 0) user = byEmail.rows[0];
-    }
-
-    // 需在 .env 設定 ADMIN_EMAIL 以指定管理員帳號
-    const isAdmin = email === process.env.ADMIN_EMAIL;
-
-    if (!user) {
-      const result = await query(
-        'INSERT INTO users (email, display_name, avatar_url, role, is_verified) VALUES ($1, $2, $3, $4, true) RETURNING *',
-        [email, displayName, avatarUrl, isAdmin ? 'admin' : 'visitor']
-      );
-      user = result.rows[0];
-    }
-
-    await query(
-      'INSERT INTO oauth_accounts (user_id, provider, provider_id, provider_email) VALUES ($1, $2, $3, $4) ON CONFLICT (provider, provider_id) DO NOTHING',
-      [user.id, provider, profileId, email]
-    );
-
-    return done(null, user);
+    return jwt.verify(idToken, process.env.LINE_CHANNEL_SECRET, {
+      algorithms: ['HS256'],
+      issuer: 'https://access.line.me',
+      audience: process.env.LINE_CHANNEL_ID,
+    });
   } catch (err) {
-    return done(err);
+    // 驗證失敗（簽章不符、issuer/audience 不符、過期、格式錯誤等）一律
+    // 回傳 null，呼叫端會落回既有的合成 email 分支——不得因為 decode
+    // 失敗就中斷整個登入流程。
+    console.error('[Auth] LINE id_token 驗證失敗:', err.message);
+    return null;
   }
 };
 
@@ -58,7 +53,11 @@ if (process.env.GOOGLE_CLIENT_ID) {
   }, async (accessToken, refreshToken, profile, done) => {
     const email = profile.emails?.[0]?.value;
     const avatar = profile.photos?.[0]?.value;
-    await handleOAuth('google', profile.id, email, profile.displayName, avatar, done);
+    // D-18/SEC-07：Google 已經現成提供 email_verified 訊號
+    // （profile.emails[0].verified，見 oauthEmailVerification.js），
+    // 這是四家中最容易正確判斷的一家。
+    const emailVerified = isProviderEmailVerified('google', profile, {});
+    await handleOAuth('google', profile.id, email, profile.displayName, avatar, emailVerified, done);
   }));
 }
 
@@ -69,10 +68,16 @@ if (process.env.GITHUB_CLIENT_ID) {
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
     callbackURL: `${process.env.API_BASE_URL}/auth/github/callback`,
     scope: ['user:email'],
+    // D-18/SEC-07（02-06 決策閘追加調整）：passport-github2 預設會把
+    // /user/emails 回應的 verified 欄位丟棄，只留下 primary email 的
+    // 字串值。加上 allRawEmails: true 讓 profile.emails[0].verified
+    // 保留真實查驗結果，而不是被本專案的設定方式截斷。
+    allRawEmails: true,
   }, async (accessToken, refreshToken, profile, done) => {
     const email = profile.emails?.[0]?.value;
     const avatar = profile.photos?.[0]?.value;
-    await handleOAuth('github', profile.id, email, profile.displayName || profile.username, avatar, done);
+    const emailVerified = isProviderEmailVerified('github', profile, {});
+    await handleOAuth('github', profile.id, email, profile.displayName || profile.username, avatar, emailVerified, done);
   }));
 }
 
@@ -88,13 +93,29 @@ if (process.env.LINE_CHANNEL_ID) {
     scope: ['profile', 'openid', 'email'],
     botPrompt: 'normal',
   }, async (accessToken, refreshToken, params, profile, done) => {
-    // LINE profile 格式：profile.id, profile.displayName, profile.pictureUrl
-    // email 不在 profile 內，而是透過 params.id_token 解析，passport-line-auth 會自動放入 profile.email
+    // LINE profile 格式：profile.id, profile.displayName, profile.pictureUrl。
+    //
+    // D-18 追加調查（C）：先前這裡寫著「email 不在 profile 內，而是透過
+    // params.id_token 解析，passport-line-auth 會自動放入 profile.email」
+    // ——這個說法與目前安裝的 passport-line-auth@0.2.9 實際行為不符（逐行
+    // 讀 node_modules 原始碼證實：該版本從未處理 email 或 id_token，
+    // profile.email 恆為 undefined，見
+    // .planning/phases/02-reliability-hardening/02-PROVIDER-EMAIL-VERIFICATION.md）。
+    // 這裡改為手動解碼並驗證 params.id_token（LINE 的 token 端點回應，
+    // passport-oauth2 以 arity-5 verify callback 原封不動傳進來）。
     const profileId = profile.id || profile.sub;
     const displayName = profile.displayName || profile.name || `LINE用戶_${profileId}`;
     const avatarUrl = profile.pictureUrl || profile.photos?.[0]?.value || null;
-    const email = profile.email || `line_${profileId}@noemail.auth`;
-    await handleOAuth('line', String(profileId), email, displayName, avatarUrl, done);
+    const idTokenClaims = decodeLineIdToken(params?.id_token);
+    const email = idTokenClaims?.email || profile.email || `line_${profileId}@noemail.auth`;
+    // LINE 的 ID token 是否附帶 email_verified claim 未經即時查證——保守
+    // 只在該 claim 明確為 true 時才視為已驗證，其餘一律 false。
+    const lineProfileForVerification = {
+      email,
+      emailVerified: idTokenClaims?.email_verified === true,
+    };
+    const emailVerified = isProviderEmailVerified('line', lineProfileForVerification, params);
+    await handleOAuth('line', String(profileId), email, displayName, avatarUrl, emailVerified, done);
   }));
 }
 
@@ -114,7 +135,10 @@ if (process.env.FACEBOOK_APP_ID) {
     const displayName = profile.displayName ||
       `${profile.name?.givenName || ''} ${profile.name?.familyName || ''}`.trim() ||
       `Facebook用戶_${profile.id}`;
-    await handleOAuth('facebook', profile.id, email, displayName, avatar, done);
+    // Facebook Graph API 的 email 欄位不附帶任何驗證旗標，一律 false
+    // （見 oauthEmailVerification.js）。
+    const emailVerified = isProviderEmailVerified('facebook', profile, {});
+    await handleOAuth('facebook', profile.id, email, displayName, avatar, emailVerified, done);
   }));
 }
 
