@@ -18,6 +18,8 @@ import {
   toChars,
   markWrongIndices,
   isComplete,
+  deletesCommitted,
+  clampToTarget,
   calcAccuracy,
   calcWpmEn,
   calcCpmZh,
@@ -58,17 +60,65 @@ describe('D-14: 曾經打錯就永久記錄,只增不刪', () => {
   })
 })
 
-describe('D-13: 完成條件採整段完全相等(Pitfall 5)', () => {
+describe('D-32(取代 D-13 + Pitfall 5):完成條件改為輸入字數達到題目字數,未修正錯字不擋結束', () => {
   it('typed 與 target 完全相等時為 true', () => {
     assert.equal(isComplete('你好', '你好'), true)
   })
 
-  it('中間有未修正錯字但長度相同時為 false', () => {
-    assert.equal(isComplete('你女', '你好'), false)
+  it('規則反轉:曾經打錯但長度已達標,現在為 true(取代原本斷言 false 的案例,保留規則反轉的歷史)', () => {
+    assert.equal(isComplete('你女', '你好'), true)
   })
 
   it('長度不足時為 false', () => {
     assert.equal(isComplete('你', '你好'), false)
+  })
+
+  it('輸入超出題目長度也算完成', () => {
+    assert.equal(isComplete('你好嗎', '你好'), true)
+  })
+
+  it('長度以 code point 計算而非 String.length,中英混排案例佐證走的是 toChars', () => {
+    assert.equal(isComplete('你好abc', '你好abc'), true)
+  })
+
+  it('空題目時為 false,避免題庫異常時出現「零輸入即完成」的退化情境', () => {
+    assert.equal(isComplete('', ''), false)
+  })
+})
+
+describe('D-31: deletesCommitted 用前綴不變式判斷是否刪除了已上屏字元', () => {
+  it('新值變短時視為刪除已上屏字元', () => {
+    assert.equal(deletesCommitted('你', '你好'), true)
+  })
+
+  it('新值與已上屏字串相等時不算刪除', () => {
+    assert.equal(deletesCommitted('你好', '你好'), false)
+  })
+
+  it('組字緩衝區把符號接在已上屏字串後面,前綴不變 —— 必須放行(IME 緩衝區可編輯的機器可驗證代理)', () => {
+    assert.equal(deletesCommitted('你好ㄋ', '你好'), false)
+  })
+
+  it('前綴本身被改動時視為刪除已上屏字元', () => {
+    assert.equal(deletesCommitted('你壞', '你好'), true)
+  })
+
+  it('空輸入時按 Backspace 不算刪除', () => {
+    assert.equal(deletesCommitted('', ''), false)
+  })
+})
+
+describe('D-31: clampToTarget 依 code point 截斷超長輸入', () => {
+  it('超長時截到題目長度', () => {
+    assert.equal(clampToTarget('你好嗎', '你好'), '你好')
+  })
+
+  it('未超長時原樣回傳', () => {
+    assert.equal(clampToTarget('你', '你好'), '你')
+  })
+
+  it('以 toChars 而非 slice 切割,code point 計數正確', () => {
+    assert.equal(clampToTarget('你好abc', '你好a'), '你好a')
   })
 })
 

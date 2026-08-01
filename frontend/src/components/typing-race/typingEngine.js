@@ -1,5 +1,6 @@
 // 打字競速計分引擎 —— 零 React 依賴的純函式模組,可用 node --test 直接驗證。
-// Source: 03-RESEARCH.md「Code Examples」章節的公式定義(依 D-11/D-13/D-14/D-29 設計)。
+// Source: 03-RESEARCH.md「Code Examples」章節的公式定義(依 D-11/D-13/D-14/D-29 設計);
+// D-31/D-32/D-33(2026-08-02 嚴格模式修訂)取代 D-13/D-14,細節見各函式上方註解。
 
 // D-11: 用 Array.from 而非 split('')/直接索引,對本階段語料(CJK 基本區 + 全形標點
 // + ASCII,全部落在 BMP)兩者結果完全相同;這裡選 Array.from 純粹是零成本保險,
@@ -8,9 +9,11 @@ export function toChars(str) {
   return Array.from(str)
 }
 
-// D-14:「錯過一次就記一次,改對不還清白」——每次呼叫都用『目前完整 typed 字串』
-// 與 target 全量重新比對,只新增不刪除 index,不嘗試追蹤這次新增/刪除了哪個字元。
-// 這個設計刻意選擇全量重算而非增量 diff,理由見 03-RESEARCH.md Pattern 2。
+// D-14(已被 D-31 取代):全量重算模型維持不變——每次呼叫都用『目前完整 typed
+// 字串』與 target 全量重新比對,只新增不刪除 index,不嘗試追蹤這次新增/刪除了
+// 哪個字元。理由已從「改對不還清白」改為結構性事實:D-31 之後已上屏字元不可
+// 修改,重算結果天然單調遞增,只增不刪本來就是唯一可能的結果,不再是規則的
+// 刻意選擇。這個設計仍選擇全量重算而非增量 diff,理由見 03-RESEARCH.md Pattern 2。
 export function markWrongIndices(typed, target, everWrongSet) {
   const typedChars = toChars(typed)
   const targetChars = toChars(target)
@@ -21,10 +24,39 @@ export function markWrongIndices(typed, target, everWrongSet) {
   return everWrongSet
 }
 
-// D-13 + Pitfall 5:完成條件採「typed 與 target 完全相等」,而非僅檢查最後一個索引,
-// 避免「中間留著未修正錯字,但最後一字打對就結束」的怪異情況。
+// D-32(取代 D-13 + Pitfall 5):完成條件改為「輸入字數達到題目字數」,不再要求
+// 逐字完全相等——未修正的錯字不再擋住測驗結束。這是知情下反轉 03-RESEARCH.md
+// Pitfall 5 建議的決定(該處為了避免「中間留著未修正錯字就結束」而選擇全字串
+// 相等),理由是使用者裁決:D-31 讓已上屏字元不可修改之後,「留著錯字結束」不
+// 再是缺陷而是規則本身,結果卡的作答回顧本來就會把紅標再列一次,語意一致。
+// 用 toChars 取兩者長度而非 String.length,以 code point 而非 UTF-16 code unit
+// 計算,避免未來語料含 surrogate pair 時的長度誤判(見 D-11)。題目長度為 0 時
+// 視為異常情境,一律回傳 false,避免題庫異常時出現「零輸入即完成」的退化情境。
 export function isComplete(typed, target) {
-  return typed === target
+  const targetLen = toChars(target).length
+  if (targetLen === 0) return false
+  return toChars(typed).length >= targetLen
+}
+
+// D-31:前綴不變式——判斷一次輸入是否「刪除了已上屏的字」,準則與是否在組字中
+// 完全無關:只要新值仍以已上屏字串(settled)為前綴,就不算刪除已上屏文字,不論
+// 變長、變短或不變。這條規則刻意不去猜測目前是否在組字狀態,因為 IME 組字緩衝區
+// 內的任何編輯(含刪除注音符號)都天然保留已上屏前綴,因此自動放行,不需要額外
+// 的組字例外判斷,也因此不受 03-RESEARCH.md 警告的 input/compositionstart 事件
+// 順序競態影響。用 String.prototype.startsWith 直接比較即可——settled 永遠是
+// 完整字串,前綴比較不會切開 UTF-16 surrogate pair。
+export function deletesCommitted(nextValue, settled) {
+  return !nextValue.startsWith(settled)
+}
+
+// D-31:超出題目長度的輸入直接截斷,避免使用者打超過字數,也避免超打字元灌水
+// 速度計算。用 toChars 而非 slice 依 code point 截斷。呼叫端注意:不得在組字
+// 進行中呼叫這個函式,截斷會直接破壞尚未上屏的注音組字緩衝區內容。
+export function clampToTarget(value, target) {
+  const targetChars = toChars(target)
+  const valueChars = toChars(value)
+  if (valueChars.length <= targetChars.length) return value
+  return valueChars.slice(0, targetChars.length).join('')
 }
 
 // D-14:正確率 = (target 長度 - 曾經打錯的字數) / target 長度,以百分比表示。
