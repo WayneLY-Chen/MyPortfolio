@@ -14,6 +14,24 @@ const getPrimaryFrontendUrl = () => {
   return urls[0] || 'http://localhost:5173';
 };
 
+// D-01/SEC-01: 完成 OAuth 登入的共用邏輯。四家 provider (Google/GitHub/LINE/
+// Facebook) 的 callback 最後都只呼叫這一個函式，避免修三家漏一家。
+// 這裡刻意不產生 access token —— access token 只透過 POST /auth/refresh
+// 換發 (D-02)，callback redirect 不帶任何 query string，故不留下可被瀏覽器
+// history / referrer / proxy log 記錄的憑證。
+const completeOAuthLogin = async (req, res, provider) => {
+  try {
+    const user = req.user;
+    const refreshToken = await generateRefreshToken(user.id);
+    setRefreshTokenCookie(res, refreshToken);
+    console.log(`[Auth] OAuth 登入成功 (${provider}):`, user.id);
+    res.redirect(`${getPrimaryFrontendUrl()}/login/callback`);
+  } catch (err) {
+    console.error(`[Auth] OAuth 登入完成失敗 (${provider}):`, err.message);
+    res.redirect(`${getPrimaryFrontendUrl()}/login?error=oauth_failed`);
+  }
+};
+
 // POST /auth/register
 router.post('/register', async (req, res) => {
   const { email, password, display_name } = req.body;
@@ -245,11 +263,7 @@ router.get('/google', passport.authenticate('google', { scope: ['profile', 'emai
 
 // GET /auth/google/callback
 router.get('/google/callback', passport.authenticate('google', { session: false, failureRedirect: `${getPrimaryFrontendUrl()}/login?error=oauth_failed` }), async (req, res) => {
-  const user = req.user;
-  const accessToken = generateAccessToken(user.id, user.role);
-  const refreshToken = await generateRefreshToken(user.id);
-  setRefreshTokenCookie(res, refreshToken);
-  res.redirect(`${getPrimaryFrontendUrl()}/login/callback?token=${accessToken}`);
+  await completeOAuthLogin(req, res, 'google');
 });
 
 // GET /auth/github
@@ -257,11 +271,7 @@ router.get('/github', passport.authenticate('github', { scope: ['user:email'], s
 
 // GET /auth/github/callback
 router.get('/github/callback', passport.authenticate('github', { session: false, failureRedirect: `${getPrimaryFrontendUrl()}/login?error=oauth_failed` }), async (req, res) => {
-  const user = req.user;
-  const accessToken = generateAccessToken(user.id, user.role);
-  const refreshToken = await generateRefreshToken(user.id);
-  setRefreshTokenCookie(res, refreshToken);
-  res.redirect(`${getPrimaryFrontendUrl()}/login/callback?token=${accessToken}`);
+  await completeOAuthLogin(req, res, 'github');
 });
 
 // GET /auth/line
@@ -282,11 +292,7 @@ router.get('/line/callback', (req, res, next) => {
     failureRedirect: `${getPrimaryFrontendUrl()}/login?error=oauth_failed`,
   })(req, res, next);
 }, async (req, res) => {
-  const user = req.user;
-  const accessToken = generateAccessToken(user.id, user.role);
-  const refreshToken = await generateRefreshToken(user.id);
-  setRefreshTokenCookie(res, refreshToken);
-  res.redirect(`${getPrimaryFrontendUrl()}/login/callback?token=${accessToken}`);
+  await completeOAuthLogin(req, res, 'line');
 });
 
 // GET /auth/facebook
@@ -307,11 +313,7 @@ router.get('/facebook/callback', (req, res, next) => {
     failureRedirect: `${getPrimaryFrontendUrl()}/login?error=oauth_failed`,
   })(req, res, next);
 }, async (req, res) => {
-  const user = req.user;
-  const accessToken = generateAccessToken(user.id, user.role);
-  const refreshToken = await generateRefreshToken(user.id);
-  setRefreshTokenCookie(res, refreshToken);
-  res.redirect(`${getPrimaryFrontendUrl()}/login/callback?token=${accessToken}`);
+  await completeOAuthLogin(req, res, 'facebook');
 });
 
 // POST /auth/refresh
@@ -344,7 +346,7 @@ router.post('/logout', authenticate, async (req, res) => {
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
     await query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1', [tokenHash]).catch(() => {});
   }
-  res.clearCookie('refresh_token', { path: '/auth' });
+  res.clearCookie('refresh_token', { path: '/' });
   return res.json({ success: true, message: '已成功登出' });
 });
 
