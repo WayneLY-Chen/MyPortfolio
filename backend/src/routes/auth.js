@@ -301,7 +301,20 @@ router.get('/facebook', (req, res, next) => {
   if (!process.env.FACEBOOK_APP_ID) {
     return res.redirect(`${getPrimaryFrontendUrl()}/login?error=facebook_not_configured`);
   }
-  passport.authenticate('facebook', { scope: ['public_profile'], session: false })(req, res, next);
+  // D-18 追加調查 / 事實表發現：這條路由過去只請求 'public_profile'，
+  // 而 config/passport.js 的 FacebookStrategy 卻已經在 profileFields 準備
+  // 接收 emails——兩者互相矛盾，導致 email 欄位在 Graph API 層級幾乎不會
+  // 被回傳（Facebook 的存取控制以「使用者授權的 permission」為準，不是
+  // profileFields/fields= 參數）。加上 'email' 讓 strategy 真正拿得到它
+  // 準備接收的欄位。若 Facebook 應用尚未通過 email permission 審核，
+  // Graph API 會靜默省略該欄位、登入照常成功——這個改動在任何審核狀態下
+  // 都是安全的。
+  //
+  // 這個改動一旦生效，Facebook 分支的 email 就不再幾乎恆為合成信箱——
+  // isProviderEmailVerified('facebook', ...) 的保守 false 判定（見
+  // oauthEmailVerification.js）與 SEC-07/D-16(option-b) 的合併閘門會開始
+  // 真正接住這條路徑，而不再是先前的死碼。
+  passport.authenticate('facebook', { scope: ['public_profile', 'email'], session: false })(req, res, next);
 });
 
 // GET /auth/facebook/callback
