@@ -48,8 +48,17 @@ router.post('/register', async (req, res) => {
       return res.status(409).json({ success: false, error: 'Email 已被使用' });
     }
     const passwordHash = await bcrypt.hash(password, 12);
-    // 需在 .env 設定 ADMIN_EMAIL 以指定管理員帳號
-    const isAdmin = email === process.env.ADMIN_EMAIL;
+
+    // D-17（第二現場，02-PROVIDER-EMAIL-VERIFICATION.md「追加發現」一節）：
+    // 這裡過去會在註冊當下就比對 email === ADMIN_EMAIL 並直接寫入
+    // role: 'admin'——即使 is_verified 同時被設為 false，資料庫裡仍然
+    // 多出一筆「休眠中的未驗證 admin 帳號」，與 passport.js:26 的 OAuth
+    // 提權問題同根同源：先信任、後驗證。
+    //
+    // 修法：註冊時一律建立 role: 'visitor'，admin 角色的授予延後到
+    // GET /auth/verify 真正完成驗證的那一刻（見下方），讓「先驗證、後
+    // 信任」在本地註冊路徑上也成立，而不是依賴 is_verified 這道次要
+    // 關卡去降低一個本來就不該存在的休眠風險。
 
     // 生成驗證 token，有效期 24 小時
     const verificationToken = crypto.randomUUID();
@@ -58,9 +67,9 @@ router.post('/register', async (req, res) => {
     const result = await query(
       `INSERT INTO users
          (email, password_hash, display_name, role, is_verified, verification_token, verification_expires_at)
-       VALUES ($1, $2, $3, $4, false, $5, $6)
+       VALUES ($1, $2, $3, 'visitor', false, $4, $5)
        RETURNING id, email, display_name, avatar_url, role, is_verified, created_at`,
-      [email, passwordHash, display_name, isAdmin ? 'admin' : 'visitor', verificationToken, verificationExpiresAt]
+      [email, passwordHash, display_name, verificationToken, verificationExpiresAt]
     );
     const user = result.rows[0];
 
@@ -113,12 +122,22 @@ router.get('/verify', async (req, res) => {
     if (new Date() > new Date(user.verification_expires_at)) {
       return res.status(400).json({ success: false, error: '驗證連結已過期，請重新申請驗證信' });
     }
+    // D-17（第二現場）：admin 角色的授予延後到這一刻——email 必須先真正
+    // 通過驗證（使用者能收到寄到該信箱的信、並點擊其中連結），才會被
+    // 賦予 role: 'admin'。需在 .env 設定 ADMIN_EMAIL 以指定管理員帳號。
+    // 用同一句 UPDATE 的 CASE 表達式完成，避免多一次查詢或競態；未命中
+    // ADMIN_EMAIL 時 role 維持 POST /register 寫入的既有值不變。
+    const promoteToAdmin = user.email === process.env.ADMIN_EMAIL;
     // 標記帳號為已驗證並清除 token
     await query(
       `UPDATE users
-       SET is_verified = true, verification_token = NULL, verification_expires_at = NULL, updated_at = NOW()
+       SET is_verified = true,
+           verification_token = NULL,
+           verification_expires_at = NULL,
+           role = CASE WHEN $2 THEN 'admin' ELSE role END,
+           updated_at = NOW()
        WHERE id = $1`,
-      [user.id]
+      [user.id, promoteToAdmin]
     );
     console.log('[Auth] 使用者 Email 驗證成功:', user.email);
     return res.status(200).json({ success: true, message: '電子信箱驗證成功！您現在可以登入了' });
