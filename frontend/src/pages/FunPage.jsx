@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { io } from 'socket.io-client'
-import { API_URL, SOCKET_URL } from '../config/api'
+import { API_URL, AUTH_URL, SOCKET_URL } from '../config/api'
 
 import TopNav from '../components/TopNav'
 import Footer from '../components/Footer'
@@ -612,6 +612,31 @@ function Game2048() {
   )
 }
 
+// D-04/D-05/D-06/SEC-04/SEC-05: 訪客身分改由伺服器簽發並簽名，而非前端自行
+// 用 crypto.randomUUID() 產生後被伺服器盲信。兩款多人遊戲(尾刀爭奪戰、
+// 陣營大戰)各自沿用原本的 sessionStorage key，只是現在存的是伺服器發回的
+// { sessionId, token } 配對，而不是自產的 UUID —— 每個分頁仍然各自持有
+// 獨立身分，才能在同一台電腦用兩個分頁互打(見下方呼叫端保留的註解)。
+async function loadGuestSession(storageKey) {
+  try {
+    const stored = sessionStorage.getItem(storageKey)
+    if (stored) {
+      const parsed = JSON.parse(stored)
+      if (parsed?.sessionId && parsed?.token) return parsed
+    }
+  } catch {
+    // 損壞的 storage 內容視同沒有 —— 往下走重新跟伺服器要一份
+  }
+  const res = await fetch(`${AUTH_URL}/guest-session`)
+  const data = await res.json()
+  if (!data?.success || !data?.sessionId || !data?.token) {
+    throw new Error('無法取得訪客連線憑證')
+  }
+  const pair = { sessionId: data.sessionId, token: data.token }
+  sessionStorage.setItem(storageKey, JSON.stringify(pair))
+  return pair
+}
+
 // Boss Raid Game
 const CARD_POOL = [
   { id: 'c1', name: '基礎斬擊', type: 'melee', cost: 0, power: 15, desc: '無消耗的輕盈一擊' },
@@ -646,14 +671,23 @@ function BossRaidGame() {
   const [bossState, setBossState] = useState({ hp: BOSS_MAX, max_hp: BOSS_MAX, is_alive: true, killed_by: null })
   const [victory, setVictory] = useState(false)
   
-  const [sessionId] = useState(() => {
-    let id = sessionStorage.getItem('boss_raid_session')
-    if (!id) {
-      id = crypto.randomUUID()
-      sessionStorage.setItem('boss_raid_session', id)
-    }
-    return id
-  })
+  // D-04/D-06: sessionId 與其簽名 token 現在由伺服器發放，見上方
+  // loadGuestSession()。不再由前端自行 crypto.randomUUID() 產生。
+  const [session, setSession] = useState(null)
+  const sessionId = session?.sessionId
+  const guestRetriedRef = useRef(false)
+
+  useEffect(() => {
+    let cancelled = false
+    loadGuestSession('boss_raid_session')
+      .then((pair) => { if (!cancelled) setSession(pair) })
+      .catch(() => {
+        if (!cancelled) {
+          addToast({ title: '連線初始化失敗', description: '無法取得遊戲連線憑證，請重新整理頁面', variant: 'error' })
+        }
+      })
+    return () => { cancelled = true }
+  }, [])
 
   const [playerHp, setPlayerHp] = useState(300)
   const [playerMp, setPlayerMp] = useState(100)
@@ -692,13 +726,33 @@ function BossRaidGame() {
   const socketRef = useRef(null);
 
   useEffect(() => {
-    if (!entered) return;
-    
-    // Socket Initialization
+    if (!entered || !session) return;
+
+    // Socket Initialization — 憑證透過 auth 選項傳遞（而非 query string），
+    // 由伺服器端的 io.use() 握手中介層驗證簽章 (SEC-04/SEC-05)。玩家名稱
+    // 不再放進連線參數：伺服器從未讀取過它，加入戰場的名稱一律透過
+    // 'boss_join' 事件的 payload 傳送。
     const socket = io(SOCKET_URL, {
-      query: { sessionId, name: playerName }
+      auth: { token: session.token }
     });
     socketRef.current = socket;
+
+    socket.on('connect_error', (err) => {
+      console.error('[BossRaid] 連線失敗:', err.message)
+      // 憑證被伺服器拒絕（例如 24 小時 token 已過期）：清除快取並重新
+      // 取得一份新憑證，最多重試一次，避免無限迴圈。
+      if (err.message === 'unauthorized' && !guestRetriedRef.current) {
+        guestRetriedRef.current = true
+        sessionStorage.removeItem('boss_raid_session')
+        loadGuestSession('boss_raid_session')
+          .then((pair) => setSession(pair))
+          .catch(() => {
+            addToast({ title: '連線失敗', description: '遊戲連線遭拒絕，請重新整理頁面再試一次', variant: 'error' })
+          })
+      } else {
+        addToast({ title: '連線失敗', description: '無法連上遊戲伺服器，請稍後重試', variant: 'error' })
+      }
+    });
 
     socket.on('boss_init', (data) => {
       setBossState(data.bossState);
@@ -735,7 +789,7 @@ function BossRaidGame() {
     return () => {
       socket.disconnect();
     };
-  }, [entered, playerName]);
+  }, [entered, playerName, session]);
 
   const initLocal = useCallback(() => {
     const d = shuffleDeck()
@@ -1001,6 +1055,7 @@ function BossRaidGame() {
 
 // ── Portal War (Multiplayer Sync) ─────────────────────────────────────────────
 function PortalWarGame({ onBack }) {
+  const { addToast } = useToast()
   const [phase, setPhase] = useState('lobby') // 'lobby' | 'playing' | 'finished'
   const [blueName, setBlueName] = useState('')
   const [orangeName, setOrangeName] = useState('')
@@ -1018,27 +1073,57 @@ function PortalWarGame({ onBack }) {
   }
   
   // Multiplayer session & lobby state
-  const [sessionId] = useState(() => {
-    // 為了支援在同一台電腦、同一個瀏覽器的多個分頁進行對戰測試，必須使用 sessionStorage。
-    // 這樣每個分頁都會產生一個獨立的 sessionId。
-    let id = sessionStorage.getItem('portal_war_session')
-    if (!id) {
-      id = crypto.randomUUID()
-      sessionStorage.setItem('portal_war_session', id)
-    }
-    return id
-  })
-  
+  // 為了支援在同一台電腦、同一個瀏覽器的多個分頁進行對戰測試，必須使用
+  // sessionStorage —— 這樣每個分頁都會持有獨立的身分。這份身分現在改由
+  // 伺服器發放並簽名(D-04/D-06)：每個分頁仍各自向 /auth/guest-session
+  // 要一份屬於自己的 { sessionId, token }，而不是像過去一樣自己產生 UUID。
+  const [session, setSession] = useState(null)
+  const sessionId = session?.sessionId
+  const guestRetriedRef = useRef(false)
+
+  useEffect(() => {
+    let cancelled = false
+    loadGuestSession('portal_war_session')
+      .then((pair) => { if (!cancelled) setSession(pair) })
+      .catch(() => {
+        if (!cancelled) {
+          addToast({ title: '連線初始化失敗', description: '無法取得遊戲連線憑證，請重新整理頁面', variant: 'error' })
+        }
+      })
+    return () => { cancelled = true }
+  }, [])
+
   const [lobby, setLobby] = useState({});
   const lobbyRef = useRef({});
   const socketRef = useRef(null);
   const [isDisconnected, setIsDisconnected] = useState(false);
 
   useEffect(() => {
+    if (!session) return;
+
+    // 憑證透過 auth 選項傳遞（而非 query string），由伺服器端 io.use()
+    // 握手中介層驗證簽章 (SEC-04/SEC-05)。base URL 維持 '/'，兩個連線點
+    // 刻意使用不同的 base URL 值，不應改動。
     const socket = io('/', {
-      query: { sessionId }
+      auth: { token: session.token }
     });
     socketRef.current = socket;
+
+    socket.on('connect_error', (err) => {
+      console.error('[PortalWar] 連線失敗:', err.message)
+      if (err.message === 'unauthorized' && !guestRetriedRef.current) {
+        guestRetriedRef.current = true
+        sessionStorage.removeItem('portal_war_session')
+        loadGuestSession('portal_war_session')
+          .then((pair) => setSession(pair))
+          .catch(() => {
+            addToast({ title: '連線失敗', description: '遊戲連線遭拒絕，請重新整理頁面再試一次', variant: 'error' })
+          })
+      } else {
+        addToast({ title: '連線失敗', description: '無法連上遊戲伺服器，請稍後重試', variant: 'error' })
+      }
+    });
+
     socket.on('lobby_update', (data) => {
       const players = data.players || {};
       setLobby(players);
@@ -1127,7 +1212,7 @@ function PortalWarGame({ onBack }) {
       window.removeEventListener('beforeunload', handleUnload);
       socket.disconnect();
     };
-  }, [sessionId]);
+  }, [session]);
 
   const fetchResults = async () => {
     setLoadingResults(true)
