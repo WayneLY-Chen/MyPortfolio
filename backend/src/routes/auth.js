@@ -320,11 +320,16 @@ router.get('/facebook', (req, res, next) => {
   if (!process.env.FACEBOOK_APP_ID) {
     return res.redirect(`${getPrimaryFrontendUrl()}/login?error=facebook_not_configured`);
   }
-  // D-18 追加調查 / 事實表發現：這條路由過去只請求 'public_profile'，
-  // 而 config/passport.js 的 FacebookStrategy 卻已經在 profileFields 準備
-  // 接收 emails——兩者互相矛盾，導致 email 欄位在 Graph API 層級幾乎不會
-  // 被回傳（Facebook 的存取控制以「使用者授權的 permission」為準，不是
-  // profileFields/fields= 參數）。加上 'email' 讓 strategy 真正拿得到它
+  // 這條路由過去只請求 'public_profile'，而 config/passport.js 的
+  // FacebookStrategy 卻已在 profileFields 準備接收 emails——兩者互相矛盾，
+  // 導致 email 幾乎不會被回傳（Facebook 以「使用者授權的 permission」為準，
+  // 不是 profileFields/fields= 參數）。
+  //
+  // 但 'email' 不能無條件請求：Facebook 應用程式若未取得 email 權限，
+  // 請求該 scope 會直接回 "Invalid Scopes: email" 並中斷登入，而不是靜默
+  // 略過（2026-08-02 實測，開發者帳號直接被擋在同意畫面之前）。
+  // 因此改為由環境變數開關，預設不請求，維持登入可用：
+  //   FACEBOOK_EMAIL_SCOPE=true  → 待 Facebook 後台的 email 權限核准後再開啟
   // 準備接收的欄位。若 Facebook 應用尚未通過 email permission 審核，
   // Graph API 會靜默省略該欄位、登入照常成功——這個改動在任何審核狀態下
   // 都是安全的。
@@ -333,7 +338,10 @@ router.get('/facebook', (req, res, next) => {
   // isProviderEmailVerified('facebook', ...) 的保守 false 判定（見
   // oauthEmailVerification.js）與 SEC-07/D-16(option-b) 的合併閘門會開始
   // 真正接住這條路徑，而不再是先前的死碼。
-  passport.authenticate('facebook', { scope: ['public_profile', 'email'], session: false })(req, res, next);
+  const facebookScope = process.env.FACEBOOK_EMAIL_SCOPE === 'true'
+    ? ['public_profile', 'email']
+    : ['public_profile'];
+  passport.authenticate('facebook', { scope: facebookScope, session: false })(req, res, next);
 });
 
 // GET /auth/facebook/callback
