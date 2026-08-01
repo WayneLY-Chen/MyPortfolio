@@ -193,7 +193,33 @@ export default function Login({ mode }) {
           ))}
         </div>
         <div className="auth-divider"><span>或使用 Email {isRegister ? '註冊' : '登入'}</span></div>
-        {error && <p className="auth-error">{error}</p>}
+        {error && (
+          <>
+            <p className="auth-error">{error}</p>
+            {/* D-15/SEC-06：登入失敗訊息不再區分帳號是否存在或型態，
+                所以在出錯的當下，同一個視野內立刻補一個可點的出路——
+                不取代密碼欄位下方那個既有的「忘記密碼？」連結，只在
+                錯誤發生時多一次引導。僅登入模式顯示，註冊失敗與忘記
+                密碼無關。 */}
+            {!isRegister && (
+              <div style={{ marginTop: '-4px', marginBottom: '8px' }}>
+                <Link
+                  to="/forgot-password"
+                  style={{
+                    fontSize: '13px',
+                    color: 'rgba(255,255,255,0.45)',
+                    textDecoration: 'none',
+                    transition: 'color 0.2s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#C8942A'}
+                  onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.45)'}
+                >
+                  前往忘記密碼
+                </Link>
+              </div>
+            )}
+          </>
+        )}
         <form onSubmit={handleSubmit} className="auth-form">
           {isRegister && (
             <div className="form-group">
