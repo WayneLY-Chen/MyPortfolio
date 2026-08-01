@@ -44,14 +44,14 @@ process.env.FRONTEND_URL = 'http://localhost:5173';
 import Module from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { query, pool } from '../db/__mocks__/index.js';
+import { query, pool, runMigrations, migrationsReady } from '../db/__mocks__/index.js';
 import { fetchUserRepos, fetchRepoLanguages, fetchRepoReadme } from '../services/__mocks__/githubService.js';
 import passportStub from '../config/__mocks__/passport.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const redirects = [
-  { realPath: path.resolve(__dirname, '../db/index.js'), mockExports: { query, pool } },
+  { realPath: path.resolve(__dirname, '../db/index.js'), mockExports: { query, pool, runMigrations, migrationsReady } },
   { realPath: path.resolve(__dirname, '../services/githubService.js'), mockExports: { fetchUserRepos, fetchRepoLanguages, fetchRepoReadme } },
   { realPath: path.resolve(__dirname, '../config/passport.js'), mockExports: passportStub },
 ];

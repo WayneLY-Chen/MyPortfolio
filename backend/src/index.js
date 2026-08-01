@@ -4,6 +4,7 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const http = require('http');
+const { migrationsReady } = require('./db');
 
 const projectsRouter = require('./routes/projects');
 const profileRouter = require('./routes/profile');
@@ -116,16 +117,21 @@ app.use((err, _req, res, _next) => {
 });
 
 // Start Server
+// server.listen() 只能經由 migrationsReady.then() 抵達 —— migration 尚未成功前，
+// 行程不綁定連接埠、不接受任何請求（REL-01, D-10/D-11）。失敗原因已在
+// db/index.js 的 catch 記錄過，這裡不重複輸出。
 
-initSockets(server);
+migrationsReady.then(() => {
+  initSockets(server);
 
-server.listen(PORT, () => {
-  console.log('========================================');
-  console.log(`  Portfolio Backend 啟動成功 (Socket.io Enabled)`);
-  console.log(`  Port    : ${PORT}`);
-  console.log(`  環境    : ${process.env.NODE_ENV || 'development'}`);
-  console.log(`  Health  : http://localhost:${PORT}/health`);
-  console.log('========================================');
-});
+  server.listen(PORT, () => {
+    console.log('========================================');
+    console.log(`  Portfolio Backend 啟動成功 (Socket.io Enabled)`);
+    console.log(`  Port    : ${PORT}`);
+    console.log(`  環境    : ${process.env.NODE_ENV || 'development'}`);
+    console.log(`  Health  : http://localhost:${PORT}/health`);
+    console.log('========================================');
+  });
+}).catch(() => process.exit(1));
 
 module.exports = app;

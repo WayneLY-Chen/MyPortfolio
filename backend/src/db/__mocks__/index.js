@@ -16,3 +16,12 @@ export const pool = {
   on: vi.fn(),
   query: vi.fn(),
 };
+
+// backend/src/index.js destructures `migrationsReady` from `require('./db')`
+// and gates server.listen() behind it (REL-01, D-11). Tests must never wait
+// on a real migration run, so this mock resolves immediately.
+export const migrationsReady = Promise.resolve();
+
+// Exported so a test can assert it was invoked / control its resolution if
+// ever needed — always resolves, mirroring `migrationsReady` above.
+export const runMigrations = vi.fn(() => Promise.resolve());
