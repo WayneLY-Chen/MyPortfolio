@@ -452,21 +452,6 @@ export default function Projects({ limit = 3 }) {
         const list = (listData || []).filter(p => p.name !== 'WayneLY-Chen')
         setProjects(list)
         setLoading(false)
-        // 若有任何專案缺少語言統計，或快取的資料不完整，在背景靜默觸發一次同步
-        const hasMissingData = list.some(p => !p.language_stats || Object.keys(p.language_stats).length === 0)
-        if (hasMissingData) {
-          console.log('[Projects] 偵測到部分資料缺失，正在背景同步...')
-          fetch(`${API_URL}/projects/sync`, { method: 'POST' })
-            .then(r => r.json())
-            .then(syncData => {
-              if (syncData.success && syncData.data) {
-                const refreshed = syncData.data;
-                sessionStorage.setItem('projectsListCache', JSON.stringify(refreshed));
-                setProjects(refreshed.filter(p => p.name !== 'WayneLY-Chen'));
-              }
-            })
-            .catch(() => {})
-        }
       })
       .catch(e => { setError(e.message); setLoading(false) })
   }, [])
