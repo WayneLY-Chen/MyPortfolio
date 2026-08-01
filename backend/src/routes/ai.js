@@ -81,6 +81,9 @@ function buildSystemPrompt(mode, p) {
   return `${knowledgeBase}\n\n${modeInstructions[mode] || modeInstructions.normal}`
 }
 
+// /tts 逾時上限（ms）— 使用者主動觸發的逐句朗讀，給比 /chat 內部動態 TTS（4000/3000ms）更寬鬆的上限
+const TTS_TIMEOUT_MS = 8000
+
 // POST /api/ai/tts
 router.post('/tts', async (req, res) => {
   const { text, voice = 'zh-CN-XiaoxiaoNeural' } = req.body
@@ -97,10 +100,22 @@ router.post('/tts', async (req, res) => {
     const { audioStream } = tts.toStream(cleanText)
     const chunks = []
     let sent = false
+
+    // 逾時分支：延伸既有的 sent-flag 守衛，第三個分支。只設 sent 而不 close() 會讓
+    // Express 不再雙重回應，卻把往 Microsoft Edge Read Aloud 的 WebSocket 連線留著空轉。
+    const timeoutHandle = setTimeout(() => {
+      if (sent) return
+      sent = true
+      tts.close()
+      console.warn('[AI TTS] 合成逾時，已關閉底層連線')
+      res.status(504).json({ success: false, error: '語音合成逾時' })
+    }, TTS_TIMEOUT_MS)
+
     const finish = () => {
       // msedge-tts 2.x 的串流以 close 收尾，不一定發 end — 兩個事件都處理
       if (sent) return
       sent = true
+      clearTimeout(timeoutHandle)
       const buffer = Buffer.concat(chunks)
       console.log(`[AI TTS] 合成完成: ${buffer.length} bytes`)
       res.set({ 'Content-Type': 'audio/mpeg', 'Content-Length': buffer.length })
@@ -111,11 +126,14 @@ router.post('/tts', async (req, res) => {
     audioStream.on('end', finish)
     audioStream.on('close', finish)
     audioStream.on('error', (err) => {
-      console.error('[AI TTS] stream error:', err.message)
-      if (!sent) { sent = true; res.status(500).json({ success: false, error: '語音合成失敗' }) }
+      if (sent) return
+      sent = true
+      clearTimeout(timeoutHandle)
+      console.error('[AI TTS] stream error:', err.stack || err.message)
+      res.status(500).json({ success: false, error: '語音合成失敗' })
     })
   } catch (err) {
-    console.error('[AI TTS] Stream mode error:', err.message)
+    console.error('[AI TTS] Stream mode error:', err.stack || err.message)
     res.status(500).json({ success: false, error: '語音合成失敗' })
   }
 })

@@ -44,16 +44,26 @@ process.env.FRONTEND_URL = 'http://localhost:5173';
 import Module from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { query, pool, runMigrations, migrationsReady } from '../db/__mocks__/index.js';
 import { fetchUserRepos, fetchRepoLanguages, fetchRepoReadme } from '../services/__mocks__/githubService.js';
 import passportStub from '../config/__mocks__/passport.js';
+import { MsEdgeTTS, OUTPUT_FORMAT } from './__mocks__/msedge-tts.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// `msedge-tts` is a third-party package resolved via node_modules, not a
+// project-relative file — createRequire gives a genuine native `require`
+// whose `.resolve()` walks node_modules exactly like ai.js's own
+// `require('msedge-tts')` does, so both sides resolve to the identical
+// absolute path (verified: both resolve to
+// backend/node_modules/msedge-tts/dist/index.js).
+const nodeRequire = createRequire(import.meta.url);
 
 const redirects = [
   { realPath: path.resolve(__dirname, '../db/index.js'), mockExports: { query, pool, runMigrations, migrationsReady } },
   { realPath: path.resolve(__dirname, '../services/githubService.js'), mockExports: { fetchUserRepos, fetchRepoLanguages, fetchRepoReadme } },
   { realPath: path.resolve(__dirname, '../config/passport.js'), mockExports: passportStub },
+  { realPath: nodeRequire.resolve('msedge-tts'), mockExports: { MsEdgeTTS, OUTPUT_FORMAT } },
 ];
 
 if (!Module._load.__gsdDbMockPatched) {
