@@ -33,6 +33,34 @@ const completeOAuthLogin = async (req, res, provider) => {
   }
 };
 
+// 四家 provider 共用的 callback 守衛。
+//
+// passport.authenticate 的 failureRedirect 只接住「驗證失敗」(done(null, false))，
+// 接不住 strategy 自己拋出的例外——例如 token 交換階段的 FacebookTokenError。
+// 那類例外會往下走到 Express 的錯誤處理器，回傳一頁 500 JSON。
+//
+// 實務上最常觸發的是授權碼被重放：使用者按上一頁、重新整理 callback 網址、
+// 瀏覽器預先載入連結、或安全軟體掃描該連結，都會讓同一組 code 被送第二次。
+// provider 端的授權碼是一次性的，第二次必定失敗——但此時第一次其實已經
+// 登入成功了，使用者卻看到一頁錯誤 JSON。
+//
+// 改為一律導回登入頁：真正的失敗會看到錯誤提示，重放的情況則因為 cookie
+// 已經設好，前端 silentRefresh 會直接把人帶進已登入狀態。
+const oauthCallbackGuard = (provider) => (req, res, next) => {
+  passport.authenticate(provider, { session: false }, (err, user) => {
+    if (err) {
+      console.error(`[Auth] OAuth callback 失敗 (${provider}):`, err.message);
+      return res.redirect(`${getPrimaryFrontendUrl()}/login?error=oauth_failed`);
+    }
+    if (!user) {
+      // done(null, false) —— 例如 SEC-07 的未驗證 email 阻擋。
+      return res.redirect(`${getPrimaryFrontendUrl()}/login?error=oauth_failed`);
+    }
+    req.user = user;
+    next();
+  })(req, res, next);
+};
+
 // POST /auth/register
 router.post('/register', async (req, res) => {
   const { email, password, display_name } = req.body;
@@ -282,7 +310,7 @@ router.post('/reset-password', async (req, res) => {
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'], session: false }));
 
 // GET /auth/google/callback
-router.get('/google/callback', passport.authenticate('google', { session: false, failureRedirect: `${getPrimaryFrontendUrl()}/login?error=oauth_failed` }), async (req, res) => {
+router.get('/google/callback', oauthCallbackGuard('google'), async (req, res) => {
   await completeOAuthLogin(req, res, 'google');
 });
 
@@ -290,7 +318,7 @@ router.get('/google/callback', passport.authenticate('google', { session: false,
 router.get('/github', passport.authenticate('github', { scope: ['user:email'], session: false }));
 
 // GET /auth/github/callback
-router.get('/github/callback', passport.authenticate('github', { session: false, failureRedirect: `${getPrimaryFrontendUrl()}/login?error=oauth_failed` }), async (req, res) => {
+router.get('/github/callback', oauthCallbackGuard('github'), async (req, res) => {
   await completeOAuthLogin(req, res, 'github');
 });
 
@@ -307,10 +335,7 @@ router.get('/line/callback', (req, res, next) => {
   if (!process.env.LINE_CHANNEL_ID) {
     return res.redirect(`${getPrimaryFrontendUrl()}/login?error=line_not_configured`);
   }
-  passport.authenticate('line', {
-    session: false,
-    failureRedirect: `${getPrimaryFrontendUrl()}/login?error=oauth_failed`,
-  })(req, res, next);
+  oauthCallbackGuard('line')(req, res, next);
 }, async (req, res) => {
   await completeOAuthLogin(req, res, 'line');
 });
@@ -349,10 +374,7 @@ router.get('/facebook/callback', (req, res, next) => {
   if (!process.env.FACEBOOK_APP_ID) {
     return res.redirect(`${getPrimaryFrontendUrl()}/login?error=facebook_not_configured`);
   }
-  passport.authenticate('facebook', {
-    session: false,
-    failureRedirect: `${getPrimaryFrontendUrl()}/login?error=oauth_failed`,
-  })(req, res, next);
+  oauthCallbackGuard('facebook')(req, res, next);
 }, async (req, res) => {
   await completeOAuthLogin(req, res, 'facebook');
 });
