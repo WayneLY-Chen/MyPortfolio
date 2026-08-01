@@ -202,6 +202,7 @@ router.post('/generate-image', async (req, res) => {
     const imageUrl = `data:image/png;base64,${data.artifacts[0].base64}`
     res.json({ success: true, imageUrl })
   } catch (err) {
+    console.error('[AI Image]', err.stack || err.message)
     res.status(500).json({ success: false, error: err.message })
   }
 })
@@ -343,7 +344,9 @@ router.post('/chat', async (req, res) => {
         }),
         new Promise(resolve => setTimeout(() => resolve(null), 3000))
       ])
-    } catch (e) { }
+    } catch (e) {
+      console.warn('[AI Chat] Error-path TTS regeneration failed:', e.stack || e.message)
+    }
 
     res.status(500).json({ success: false, reply, audio: audioBase64, error: err.message })
   }
@@ -367,6 +370,7 @@ router.post('/summarize', async (req, res) => {
     const result = await model.generateContent(prompt)
     res.json({ success: true, summary: result.response.text() })
   } catch (err) {
+    console.error('[AI Summarize]', err.stack || err.message)
     res.status(500).json({ success: false, error: err.message })
   }
 })

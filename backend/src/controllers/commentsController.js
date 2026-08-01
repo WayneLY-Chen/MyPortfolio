@@ -11,7 +11,10 @@ const getComments = async (req, res) => {
       [type, String(id)]
     )
     res.json({ success: true, data: result.rows })
-  } catch (err) { res.status(500).json({ success: false, message: err.message }) }
+  } catch (err) {
+    console.error('[GetComments Error]', err.stack || err.message)
+    res.status(500).json({ success: false, message: err.message })
+  }
 }
 
 const addComment = async (req, res) => {
@@ -53,6 +56,7 @@ const deleteComment = async (req, res) => {
     await query(`UPDATE comments SET is_deleted = true WHERE id = $1`, [id]);
     res.json({ success: true, message: '已刪除留言' });
   } catch (err) {
+    console.error('[DeleteComment Error]', err.stack || err.message)
     res.status(500).json({ success: false, message: err.message });
   }
 }
