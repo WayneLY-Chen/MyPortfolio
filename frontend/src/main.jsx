@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import { Analytics } from '@vercel/analytics/react'
 import App from './App.jsx'
 import './index.css'
 
@@ -15,5 +16,8 @@ if ('scrollRestoration' in window.history) {
 window.scrollTo(0, 0)
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <App />
+  <>
+    <App />
+    <Analytics />
+  </>
 )
