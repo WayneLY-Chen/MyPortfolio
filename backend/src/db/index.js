@@ -15,6 +15,16 @@ pool.on('connect', () => {
   console.log('[DB] PostgreSQL 連線成功');
 });
 
+// REL-07 / D-13：把「這個部署連到哪個資料庫主機」變成一行可讀證據。只印
+// hostname —— 絕不可印出完整連線字串、使用者名稱、密碼或 query string。
+// dbUrl 為空字串或格式錯誤時 new URL 會拋錯，因此包在 try/catch 內做無害
+// 處理，不得影響啟動流程。
+try {
+  console.log(`[DB] Target host: ${new URL(dbUrl).hostname}`);
+} catch {
+  console.log('[DB] Target host: (無法解析 DATABASE_URL)');
+}
+
 // 自動執行資料庫欄位遷移，確保新增欄位存在
 const runMigrations = async () => {
   await pool.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS language_stats JSONB DEFAULT '{}'::jsonb;`);

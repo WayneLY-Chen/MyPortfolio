@@ -4,7 +4,7 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const http = require('http');
-const { migrationsReady } = require('./db');
+const { migrationsReady, pool } = require('./db');
 
 const projectsRouter = require('./routes/projects');
 const profileRouter = require('./routes/profile');
@@ -89,6 +89,26 @@ app.get('/health', (_req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
   });
+});
+
+// GET /health/db — REL-07 / D-13：讓「production 的 DATABASE_URL 指向哪個
+// 主機」與「資料庫是否可連線」變成一次可讀的請求。host 只取 hostname，
+// 回應中絕不含帳號或密碼。實際的 production 判定（hostname 是否結尾為
+// .neon.tech）是人工動作，見 user_setup 與 D-14。
+app.get('/health/db', async (_req, res) => {
+  let host = '';
+  try {
+    host = new URL(process.env.DATABASE_URL || '').hostname;
+  } catch {
+    host = '';
+  }
+
+  try {
+    await pool.query('SELECT 1');
+    res.json({ success: true, host, connected: true });
+  } catch (err) {
+    res.status(503).json({ success: false, host, connected: false, message: err.message });
+  }
 });
 
 // API Routes
