@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Trophy } from 'lucide-react'
 import { API_URL } from '../../config/api'
 import { useToast } from '../ui/Toast'
 import { ZH_SENTENCES, EN_SENTENCES } from './typingCorpus'
@@ -10,6 +11,8 @@ import {
   calcWpmEn,
   calcCpmZh,
   calcElapsedMs,
+  pickNextSentence,
+  ACCURACY_THRESHOLD,
   MIN_ELAPSED_FOR_LIVE_SPEED_MS,
 } from './typingEngine'
 
@@ -59,6 +62,12 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
 
   const [paused, setPaused] = useState(false)
   const [, setLiveTick] = useState(0) // D-16:每 200ms 遞增以驅動即時統計列重新渲染
+
+  // D-26:榜首資料由本元件自行抓取,與左側 Leaderboard 各自獨立、不共用 state
+  // (Leaderboard 不 export 其內部 scores)。topScoreLoaded 用來避免資料抓回來前
+  // 顯示錯誤的差距情境。
+  const [topScore, setTopScore] = useState(null)
+  const [topScoreLoaded, setTopScoreLoaded] = useState(false)
 
   // D-18:沿用全站唯一既有先例(Footer.jsx:5)的寫法,全站無全域 CSS 層級的
   // prefers-reduced-motion 規則可依賴,必須自己在 JS 層判斷。
@@ -174,6 +183,31 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
     return () => clearTimeout(flashTimeoutRef.current)
   }, [])
 
+  // D-26:測驗結束時才抓一次榜首,與左側 Leaderboard 各自獨立查詢、不共用 state。
+  // 查詢失敗或榜單是空的都退回「排行榜是空的」那個情境的文案。
+  useEffect(() => {
+    if (!finished) return
+    let cancelled = false
+    const gameType = mode === 'zh' ? 'typing_zh' : 'typing_en'
+    fetch(`${API_URL}/leaderboard?game=${gameType}&limit=1`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return
+        const list = Array.isArray(d) ? d : (d?.data && Array.isArray(d.data) ? d.data : [])
+        setTopScore(list.length > 0 ? list[0].score : null)
+        setTopScoreLoaded(true)
+      })
+      .catch((err) => {
+        console.error('[TypingTopScore Error]', err)
+        if (cancelled) return
+        setTopScore(null)
+        setTopScoreLoaded(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [finished, mode])
+
   const resetRun = (list, nextIndex) => {
     setTyped('')
     setSettled('')
@@ -183,6 +217,8 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
     setNickname('')
     setSaved(false)
     setPaused(false)
+    setTopScore(null)
+    setTopScoreLoaded(false)
     isComposingRef.current = false
     startTimeRef.current = null
     everWrongRef.current = new Set()
@@ -199,6 +235,17 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
     const nextList = nextMode === 'zh' ? ZH_SENTENCES : EN_SENTENCES
     resetRun(nextList, Math.floor(Math.random() * nextList.length))
     onModeChange(nextMode)
+  }
+
+  // 「重來」:同一題重新開始,中途重來不計分不上傳。
+  const handleRestartSame = () => {
+    resetRun(sentenceList, sentenceIndex)
+  }
+
+  // 「換一題」/ 結果卡「再玩一次」:抽新題(D-08 保證不連續抽到同一題),
+  // 同模式直接回到測驗畫面——兩者行為相同,只是入口不同。
+  const handleNextSentence = () => {
+    resetRun(sentenceList, pickNextSentence(sentenceList, sentenceIndex))
   }
 
   const handleUpload = async () => {
@@ -238,6 +285,22 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
         : calcWpmEn(toChars(settled).length, finishedElapsedRef.current))
     : 0
   const accuracyValue = finished ? calcAccuracy(target, everWrongRef.current) : 100
+
+  const speedUnitLabel = mode === 'zh' ? '字/分' : 'WPM' // D-29:單位不共用同一個詞
+  const totalSeconds = finished ? Math.round(finishedElapsedRef.current / 1000) : 0
+  const totalChars = targetChars.length
+  const wrongCount = everWrongRef.current.size
+
+  // D-26:榜首差距三種互斥情境——使用者是榜首 / 落後 / 排行榜是空的。
+  // myScore 與 handleUpload 實際送出的 score 口徑一致(四捨五入整數)。
+  const myScore = Math.round(speedValue)
+  let gapState = null
+  if (topScoreLoaded) {
+    if (topScore === null) gapState = 'empty'
+    else if (myScore >= topScore) gapState = 'top'
+    else gapState = 'behind'
+  }
+  const gap = gapState === 'behind' ? topScore - myScore : 0
 
   // D-16:即時統計列——用同一條 getElapsedMs() 路徑(已排除暫停時長)。
   const showStatusLine = started && !finished
@@ -477,20 +540,103 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
           color: var(--accent);
         }
         .typing-result-unit { font-size: 16px; font-weight: 400; color: var(--muted); margin-left: 6px; }
-        .typing-result-accuracy {
-          margin-top: 8px;
+        .typing-result-primary { margin-bottom: 8px; }
+        .typing-result-speed-label,
+        .typing-result-accuracy-label {
           font-family: var(--font-sans);
-          font-size: 16px;
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          color: var(--muted);
+          margin-top: 4px;
+        }
+        .typing-result-accuracy {
+          margin-top: 16px;
+          font-family: var(--font-sans);
+          font-size: 24px;
+          font-weight: 800;
+        }
+
+        .typing-result-rows { margin-top: 24px; text-align: left; }
+        .typing-result-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: baseline;
+          padding: 12px 0;
+          border-bottom: 1px solid var(--border);
+          font-family: var(--font-sans);
+        }
+        .typing-result-row-label {
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.1em;
+          color: var(--muted);
+        }
+        .typing-result-row-value { font-size: 14px; font-weight: 400; color: var(--fg); }
+
+        .typing-review-section { margin-top: 24px; text-align: left; }
+        .typing-review-title {
+          font-family: var(--font-sans);
+          font-size: 14px;
           font-weight: 800;
           color: var(--fg);
+          margin-bottom: 8px;
         }
+        .typing-review-perfect {
+          font-family: var(--font-sans);
+          font-size: 14px;
+          color: var(--typing-correct);
+          margin-bottom: 8px;
+        }
+        .typing-review { font-size: 16px; line-height: 1.8; letter-spacing: 0.02em; color: var(--fg); }
+        .typing-review-char { color: var(--fg); }
+        .typing-review-char--wrong {
+          background: var(--typing-wrong-bg);
+          color: var(--typing-wrong-text);
+          border-radius: 2px;
+        }
+
+        .typing-gap-banner {
+          margin-top: 24px;
+          padding: 14px 20px;
+          border-radius: 8px;
+          border: 1px solid var(--border);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          font-family: var(--font-sans);
+          font-size: 14px;
+          color: var(--fg);
+        }
+        .typing-gap-banner--top { border-color: var(--accent); font-weight: 800; }
+        .typing-gap-banner--behind { border-color: var(--border); }
+
+        .typing-actions {
+          display: flex;
+          gap: 12px;
+          margin-top: 24px;
+          justify-content: center;
+        }
+        .typing-actions--inline { margin-top: 16px; }
+        @media (max-width: 480px) {
+          .typing-actions { flex-direction: column; }
+        }
+
+        .typing-btn--secondary {
+          background: none;
+          border: 1px solid var(--border);
+          color: var(--fg);
+        }
+        .typing-btn--secondary:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 
         .typing-upload-row {
           display: flex;
+          flex-direction: column;
+          align-items: center;
           gap: 8px;
           margin-top: 24px;
-          justify-content: center;
-          flex-wrap: wrap;
         }
         .typing-nickname-input {
           padding: 14px 16px;
@@ -587,41 +733,118 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
       )}
 
       {!finished ? (
-        <div className="typing-input-wrap">
-          <input
-            ref={inputRef}
-            className={`typing-input ${paused ? 'typing-input--paused' : ''}`}
-            type="text"
-            value={typed}
-            onChange={handleChange}
-            onCompositionStart={handleCompositionStart}
-            onCompositionEnd={handleCompositionEnd}
-            onBlur={handlePause}
-            onFocus={handleResume}
-            aria-label="打字輸入框"
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck="false"
-          />
-          {paused && (
-            <button
-              type="button"
-              className="typing-pause-chip"
-              onClick={() => inputRef.current && inputRef.current.focus()}
-            >
-              已暫停 —— 點輸入框繼續
+        <>
+          <div className="typing-input-wrap">
+            <input
+              ref={inputRef}
+              className={`typing-input ${paused ? 'typing-input--paused' : ''}`}
+              type="text"
+              value={typed}
+              onChange={handleChange}
+              onCompositionStart={handleCompositionStart}
+              onCompositionEnd={handleCompositionEnd}
+              onBlur={handlePause}
+              onFocus={handleResume}
+              aria-label="打字輸入框"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+            />
+            {paused && (
+              <button
+                type="button"
+                className="typing-pause-chip"
+                onClick={() => inputRef.current && inputRef.current.focus()}
+              >
+                已暫停 —— 點輸入框繼續
+              </button>
+            )}
+          </div>
+          <div className="typing-actions typing-actions--inline">
+            <button type="button" className="typing-btn typing-btn--secondary" onClick={handleRestartSame}>
+              重來
             </button>
-          )}
-        </div>
+            <button type="button" className="typing-btn typing-btn--secondary" onClick={handleNextSentence}>
+              換一題
+            </button>
+          </div>
+        </>
       ) : (
         <div className="typing-result-card">
           <p className="typing-result-title">測驗完成</p>
-          <div className="typing-result-speed">
-            {Math.round(speedValue)}
-            <span className="typing-result-unit">{mode === 'zh' ? '字/分' : 'WPM'}</span>
+
+          <div className="typing-result-primary">
+            <div className="typing-result-speed">
+              {Math.round(speedValue)}
+              <span className="typing-result-unit">{speedUnitLabel}</span>
+            </div>
+            <p className="typing-result-speed-label">打字速度</p>
+
+            <div
+              className="typing-result-accuracy"
+              style={{
+                color:
+                  Math.round(accuracyValue) >= ACCURACY_THRESHOLD
+                    ? 'var(--typing-correct)'
+                    : 'var(--typing-wrong-text)',
+              }}
+            >
+              {Math.round(accuracyValue)}%
+            </div>
+            <p className="typing-result-accuracy-label">正確率</p>
           </div>
-          <p className="typing-result-accuracy">正確率 {Math.round(accuracyValue)}%</p>
+
+          <div className="typing-result-rows">
+            <div className="typing-result-row">
+              <span className="typing-result-row-label">總秒數</span>
+              <span className="typing-result-row-value">{totalSeconds}</span>
+            </div>
+            <div className="typing-result-row">
+              <span className="typing-result-row-label">總字數</span>
+              <span className="typing-result-row-value">{totalChars}</span>
+            </div>
+            <div className="typing-result-row">
+              <span className="typing-result-row-label">錯字數</span>
+              <span className="typing-result-row-value">{wrongCount}</span>
+            </div>
+          </div>
+
+          <div className="typing-review-section">
+            <p className="typing-review-title">作答回顧</p>
+            {wrongCount === 0 && <p className="typing-review-perfect">完美!全程零失誤</p>}
+            <div className={`typing-review ${mode === 'zh' ? 'typing-passage--zh' : 'typing-passage--en'}`}>
+              {targetChars.map((ch, i) => (
+                <span
+                  key={i}
+                  className={`typing-review-char ${everWrongRef.current.has(i) ? 'typing-review-char--wrong' : ''}`}
+                >
+                  {ch}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {topScoreLoaded && (
+            <div
+              className={`typing-gap-banner ${
+                gapState === 'behind' ? 'typing-gap-banner--behind' : 'typing-gap-banner--top'
+              }`}
+            >
+              {gapState === 'top' && (
+                <>
+                  <Trophy size={18} />
+                  <span>🏆 你就是目前的榜首!</span>
+                </>
+              )}
+              {gapState === 'behind' && (
+                <span>
+                  距離榜首還差 {gap} {speedUnitLabel}
+                </span>
+              )}
+              {gapState === 'empty' && <span>目前還沒有人上榜,你將成為第一位!</span>}
+            </div>
+          )}
 
           <div className="typing-upload-row">
             <input
@@ -632,9 +855,15 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
               onChange={(e) => setNickname(e.target.value)}
               disabled={saving || saved}
             />
+          </div>
+
+          <div className="typing-actions">
+            <button type="button" className="typing-btn typing-btn--primary" onClick={handleNextSentence}>
+              再玩一次
+            </button>
             <button
               type="button"
-              className="typing-btn typing-btn--primary"
+              className="typing-btn typing-btn--secondary"
               onClick={handleUpload}
               disabled={saving || saved || !nickname.trim()}
             >
