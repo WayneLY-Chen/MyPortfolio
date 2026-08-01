@@ -55,9 +55,16 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
   const finishedElapsedRef = useRef(0)
   const pausedAtRef = useRef(null) // D-17:暫停起點時間戳,未暫停時為 null
   const totalPausedMsRef = useRef(0) // D-17:累積暫停毫秒數
+  const flashTimeoutRef = useRef(null) // D-18:reduced-motion 瞬間外框的移除計時器
 
   const [paused, setPaused] = useState(false)
   const [, setLiveTick] = useState(0) // D-16:每 200ms 遞增以驅動即時統計列重新渲染
+
+  // D-18:沿用全站唯一既有先例(Footer.jsx:5)的寫法,全站無全域 CSS 層級的
+  // prefers-reduced-motion 規則可依賴,必須自己在 JS 層判斷。
+  const prefersReducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
   const beginTimerIfNeeded = () => {
     if (startTimeRef.current === null) {
@@ -77,9 +84,36 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
       pausedAt: pausedAtRef.current,
     })
 
+  // D-18:打錯字的一次性視覺回饋。用 ref 直接操作 DOM class 並強制 reflow,
+  // 而非 React state toggle——連續打錯的間隔可能小於動畫時長,state 值不變
+  // 會讓 React 判定不需要重渲染,動畫因此不會重播(03-RESEARCH.md Pattern 3)。
+  const triggerWrongFeedback = () => {
+    const el = inputRef.current
+    if (!el) return
+    if (prefersReducedMotion) {
+      // 降級路徑:紅底本身已持續存在,這裡只疊加一次無過渡效果的瞬間外框
+      clearTimeout(flashTimeoutRef.current)
+      el.classList.remove('typing-flash-wrong')
+      void el.offsetWidth // 強制 reflow
+      el.classList.add('typing-flash-wrong')
+      flashTimeoutRef.current = setTimeout(() => {
+        el.classList.remove('typing-flash-wrong')
+      }, 180)
+    } else {
+      el.classList.remove('typing-shake')
+      void el.offsetWidth // 強制 reflow,讓瀏覽器「忘記」剛剛移除過這個 class
+      el.classList.add('typing-shake')
+    }
+  }
+
   // 全量重算的逐字比對(Pattern 2):每次「值已確定」都拿完整字串重新掃一次。
   const runComparison = (value) => {
+    const wrongCountBefore = everWrongRef.current.size
     markWrongIndices(value, target, everWrongRef.current)
+    if (everWrongRef.current.size > wrongCountBefore) {
+      // 只有「這次輸入產生了新錯字」才觸發回饋,不是「目前存在任何錯字」就抖
+      triggerWrongFeedback()
+    }
     setSettled(value)
     if (isComplete(value, target)) {
       finishedElapsedRef.current = getElapsedMs()
@@ -134,6 +168,11 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
     const id = setInterval(() => setLiveTick((t) => t + 1), 200)
     return () => clearInterval(id)
   }, [started, finished, paused])
+
+  // 元件卸載時清除 reduced-motion 瞬間外框的計時器,避免對已卸載元件操作 DOM。
+  useEffect(() => {
+    return () => clearTimeout(flashTimeoutRef.current)
+  }, [])
 
   const resetRun = (list, nextIndex) => {
     setTyped('')
@@ -392,6 +431,24 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
           font-size: 13px;
           color: var(--fg);
           cursor: pointer;
+        }
+
+        .typing-shake {
+          animation: typing-shake 220ms ease-in-out;
+        }
+        @keyframes typing-shake {
+          0% { transform: translateX(0); }
+          15% { transform: translateX(-4px); }
+          30% { transform: translateX(4px); }
+          45% { transform: translateX(-3px); }
+          60% { transform: translateX(3px); }
+          75% { transform: translateX(-1px); }
+          90% { transform: translateX(1px); }
+          100% { transform: translateX(0); }
+        }
+        .typing-flash-wrong {
+          outline: 2px solid var(--typing-wrong-text);
+          outline-offset: 2px;
         }
 
         .typing-result-card {
