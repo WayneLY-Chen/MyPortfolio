@@ -1,5 +1,4 @@
 const passport = require('passport');
-const jwt = require('jsonwebtoken');
 const LocalStrategy = require('passport-local').Strategy;
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const GitHubStrategy = require('passport-github2').Strategy;
@@ -7,37 +6,16 @@ const LineStrategy = require('passport-line-auth').Strategy;
 const FacebookStrategy = require('passport-facebook').Strategy;
 const { verifyLocalCredentials } = require('./localVerify');
 const { handleOAuth } = require('./oauthAccountLink');
-const { isProviderEmailVerified } = require('./oauthEmailVerification');
+const { isProviderEmailVerified, decodeLineIdToken } = require('./oauthEmailVerification');
 
 // SEC-07/D-16(option-b)/D-17：handleOAuth 已搬到 ./oauthAccountLink.js
 // （見該檔頂端註解說明原因與 D-16 option-a → option-b 的取代紀錄）。
 // isProviderEmailVerified 依 02-PROVIDER-EMAIL-VERIFICATION.md 的事實表
 // 判定各家 provider 是否明確聲明這次的 email 已驗證，四家 strategy 都
 // 必須算出這個值並傳給 handleOAuth——這是 Phase 1 抽出 completeOAuthLogin
-// 要防的同一類「改三家漏一家」問題。
-
-// D-18/追加調查(C)：passport-line-auth@0.2.9 的 userProfile() 從未把 email
-// 寫進 profile（見事實表逐行追蹤 node_modules 原始碼的結論）。真正的 email
-// 落在 token 端點回應裡的 id_token（LINE 簽發的 JWT），此處手動解碼並
-// 驗證簽章——不是單純 base64 解碼，那樣任何人都能偽造 email claim 直接
-// 走過 D-16 的合併閘門。LINE 以 Channel Secret 做 HS256 對稱簽章，額外
-// 比對 issuer 與 audience，三者缺一都視為驗證失敗。
-const decodeLineIdToken = (idToken) => {
-  if (!idToken || !process.env.LINE_CHANNEL_SECRET) return null;
-  try {
-    return jwt.verify(idToken, process.env.LINE_CHANNEL_SECRET, {
-      algorithms: ['HS256'],
-      issuer: 'https://access.line.me',
-      audience: process.env.LINE_CHANNEL_ID,
-    });
-  } catch (err) {
-    // 驗證失敗（簽章不符、issuer/audience 不符、過期、格式錯誤等）一律
-    // 回傳 null，呼叫端會落回既有的合成 email 分支——不得因為 decode
-    // 失敗就中斷整個登入流程。
-    console.error('[Auth] LINE id_token 驗證失敗:', err.message);
-    return null;
-  }
-};
+// 要防的同一類「改三家漏一家」問題。decodeLineIdToken（LINE id_token 的
+// HS256 簽章驗證，見 oauthEmailVerification.js）也搬到同一個模組，理由
+// 相同：這裡會被測試替身整個換掉，邏輯留在這裡就永遠測不到。
 
 // 本地登入
 // 驗證邏輯搬到 ./localVerify.js（見該檔案頂端註解說明原因：測試環境會把
@@ -106,7 +84,7 @@ if (process.env.LINE_CHANNEL_ID) {
     const profileId = profile.id || profile.sub;
     const displayName = profile.displayName || profile.name || `LINE用戶_${profileId}`;
     const avatarUrl = profile.pictureUrl || profile.photos?.[0]?.value || null;
-    const idTokenClaims = decodeLineIdToken(params?.id_token);
+    const idTokenClaims = decodeLineIdToken(params?.id_token, process.env.LINE_CHANNEL_SECRET, process.env.LINE_CHANNEL_ID);
     const email = idTokenClaims?.email || profile.email || `line_${profileId}@noemail.auth`;
     // LINE 的 ID token 是否附帶 email_verified claim 未經即時查證——保守
     // 只在該 claim 明確為 true 時才視為已驗證，其餘一律 false。

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { isProviderEmailVerified, isSyntheticEmail } from './oauthEmailVerification.js';
+import jwt from 'jsonwebtoken';
+import { isProviderEmailVerified, isSyntheticEmail, decodeLineIdToken } from './oauthEmailVerification.js';
 
 // Every profile sample below is constructed to match the shape documented in
 // .planning/phases/02-reliability-hardening/02-PROVIDER-EMAIL-VERIFICATION.md
@@ -90,5 +91,89 @@ describe('isProviderEmailVerified (D-18/SEC-07 fact-table-driven signal extracti
       const profile = { emails: [{ value: 'real.person@example.com' }] };
       expect(isProviderEmailVerified('facebook', profile, {})).toBe(false);
     });
+  });
+});
+
+describe('decodeLineIdToken (D-18 item C: verified, not merely decoded)', () => {
+  const CHANNEL_SECRET = 'test-channel-secret-do-not-use-outside-tests';
+  const CHANNEL_ID = 'test-channel-id-1234567890';
+  const ISSUER = 'https://access.line.me';
+
+  const signValidToken = (overrides = {}) =>
+    jwt.sign(
+      { email: 'user@line-real.example', email_verified: true, ...overrides.claims },
+      overrides.secret ?? CHANNEL_SECRET,
+      {
+        algorithm: overrides.algorithm ?? 'HS256',
+        issuer: overrides.issuer ?? ISSUER,
+        audience: overrides.audience ?? CHANNEL_ID,
+        expiresIn: overrides.expiresIn ?? '1h',
+      }
+    );
+
+  it('a correctly signed token with matching issuer/audience decodes successfully', () => {
+    const token = signValidToken();
+    const claims = decodeLineIdToken(token, CHANNEL_SECRET, CHANNEL_ID);
+    expect(claims).not.toBeNull();
+    expect(claims.email).toBe('user@line-real.example');
+    expect(claims.email_verified).toBe(true);
+  });
+
+  it('rejects a token signed with the WRONG secret — proves this is real signature verification, not a base64 decode', () => {
+    const forgedToken = signValidToken({ secret: 'attacker-controlled-secret' });
+    expect(decodeLineIdToken(forgedToken, CHANNEL_SECRET, CHANNEL_ID)).toBeNull();
+  });
+
+  it('rejects a token with a forged email claim but no valid signature — the exact forgery this fix prevents', () => {
+    // An attacker who can only control the JWT payload (not the Channel
+    // Secret) cannot produce a token this function accepts, even if the
+    // forged claims look identical to a real one.
+    const forgedToken = jwt.sign(
+      { email: 'attacker@evil.example', email_verified: true },
+      'not-the-real-channel-secret',
+      { algorithm: 'HS256', issuer: ISSUER, audience: CHANNEL_ID, expiresIn: '1h' }
+    );
+    expect(decodeLineIdToken(forgedToken, CHANNEL_SECRET, CHANNEL_ID)).toBeNull();
+  });
+
+  it('rejects a correctly signed token with the WRONG issuer', () => {
+    const token = signValidToken({ issuer: 'https://not-line.example' });
+    expect(decodeLineIdToken(token, CHANNEL_SECRET, CHANNEL_ID)).toBeNull();
+  });
+
+  it('rejects a correctly signed token with the WRONG audience (a different channel)', () => {
+    const token = signValidToken({ audience: 'someone-elses-channel-id' });
+    expect(decodeLineIdToken(token, CHANNEL_SECRET, CHANNEL_ID)).toBeNull();
+  });
+
+  it('rejects an expired token', () => {
+    const token = jwt.sign(
+      { email: 'user@line-real.example', email_verified: true },
+      CHANNEL_SECRET,
+      { algorithm: 'HS256', issuer: ISSUER, audience: CHANNEL_ID, expiresIn: '-1h' }
+    );
+    expect(decodeLineIdToken(token, CHANNEL_SECRET, CHANNEL_ID)).toBeNull();
+  });
+
+  it('rejects a token signed with a different algorithm (alg confusion guard: HS256 pinned explicitly)', () => {
+    // jwt.verify's `algorithms` allowlist is what prevents an attacker from
+    // switching to an unintended algorithm (e.g. "none", or an asymmetric
+    // alg misused as HMAC). Simulate a mismatched-alg token by signing with
+    // a different HMAC variant than the one decodeLineIdToken accepts.
+    const token = jwt.sign(
+      { email: 'user@line-real.example', email_verified: true },
+      CHANNEL_SECRET,
+      { algorithm: 'HS512', issuer: ISSUER, audience: CHANNEL_ID, expiresIn: '1h' }
+    );
+    expect(decodeLineIdToken(token, CHANNEL_SECRET, CHANNEL_ID)).toBeNull();
+  });
+
+  it('returns null (not throw) when idToken is missing', () => {
+    expect(decodeLineIdToken(undefined, CHANNEL_SECRET, CHANNEL_ID)).toBeNull();
+  });
+
+  it('returns null (not throw) when channelSecret is missing — never falls back to an unverified decode', () => {
+    const token = signValidToken();
+    expect(decodeLineIdToken(token, undefined, CHANNEL_ID)).toBeNull();
   });
 });
