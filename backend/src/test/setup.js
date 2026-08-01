@@ -29,32 +29,42 @@ process.env.FRONTEND_URL = 'http://localhost:5173';
 // fix). This is a documented deviation from the plan's original "vi.mock
 // alone is sufficient" assumption; see 01-01-SUMMARY.md.
 //
-// Fix: patch Node's Module._load directly so any require of the *real*
-// db/index.js absolute path resolves to the exact same query/pool vi.fn()
-// instances that backend/src/db/__mocks__/index.js exports (the same
-// instances vi.mock('../db') already serves to direct importers). This
+// Fix: patch Node's Module._load directly so any require of a *real*
+// production file's absolute path resolves to the exact same vi.fn()
+// instances its corresponding backend/src/**/__mocks__/*.js exports (the
+// same instances vi.mock(...) already serves to direct importers). This
 // keeps ONE mock object graph shared by both resolution paths, so
-// query.mock.calls assertions see calls made from either side. Every other
-// require (pg, express, jsonwebtoken, ...) falls through to Node's original
-// loader untouched.
+// `*.mock.calls` assertions see calls made from either side. Every other
+// require (pg, express, jsonwebtoken, axios, ...) falls through to Node's
+// original loader untouched.
+//
+// Redirect list: extend this array whenever a new test needs to mock a
+// dependency of a plain-CommonJS production file (per the pattern this
+// file established in plan 01-01 — see 01-01-SUMMARY.md "patterns-established").
 import Module from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { query, pool } from '../db/__mocks__/index.js';
+import { fetchUserRepos, fetchRepoLanguages, fetchRepoReadme } from '../services/__mocks__/githubService.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const realDbPath = path.resolve(__dirname, '../db/index.js');
+
+const redirects = [
+  { realPath: path.resolve(__dirname, '../db/index.js'), mockExports: { query, pool } },
+  { realPath: path.resolve(__dirname, '../services/githubService.js'), mockExports: { fetchUserRepos, fetchRepoLanguages, fetchRepoReadme } },
+];
 
 if (!Module._load.__gsdDbMockPatched) {
   const originalModuleLoad = Module._load;
   const patchedLoad = function (request, parent, isMain) {
     try {
       const resolved = Module._resolveFilename(request, parent, isMain);
-      if (resolved === realDbPath) {
-        return { query, pool };
+      const match = redirects.find((r) => r.realPath === resolved);
+      if (match) {
+        return match.mockExports;
       }
     } catch {
-      // Resolution failed for reasons unrelated to our redirect target —
+      // Resolution failed for reasons unrelated to our redirect targets —
       // fall through to the original loader below.
     }
     return originalModuleLoad.apply(this, arguments);
