@@ -71,3 +71,15 @@ export const SPEED_CAP = { typing_zh: 150, typing_en: 250 }
 // Pitfall 1:已用時間低於此門檻前,即時速度不顯示外推暴衝的數字(改顯示 '--')。
 // 本計畫先匯出常數,實際用於即時統計列渲染是 03-03 的工作範圍。
 export const MIN_ELAPSED_FOR_LIVE_SPEED_MS = 3000
+
+// D-17:計算「排除暫停時間」後的實際經過毫秒數。純函式,刻意不讀取任何 ref、
+// 不呼叫 Date.now()——所有時間值皆由呼叫端傳入,才能用 node --test 直接驗證
+// 暫停扣除的算術(03-RESEARCH.md「Common Pitfalls - Pitfall 2」)。
+// 目前正在暫停中時(pausedAt 有值),連同這段進行中的暫停也要即時扣除,
+// 否則暫停時畫面上的秒數會繼續跳。結果永不為負。
+export function calcElapsedMs({ now, startTime, totalPausedMs, pausedAt }) {
+  if (startTime === null || startTime === undefined) return 0
+  const ongoingPauseMs = pausedAt ? now - pausedAt : 0
+  const elapsed = (now - startTime) - totalPausedMs - ongoingPauseMs
+  return elapsed < 0 ? 0 : elapsed
+}

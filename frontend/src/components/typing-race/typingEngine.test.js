@@ -24,6 +24,7 @@ import {
   pickNextSentence,
   ACCURACY_THRESHOLD,
   SPEED_CAP,
+  calcElapsedMs,
 } from './typingEngine.js'
 
 describe('D-11: 逐字切割依 code point,不用 split(\'\')', () => {
@@ -138,5 +139,31 @@ describe('D-22: 速度硬上限常數', () => {
 describe('D-20: 正確率門檻常數', () => {
   it('ACCURACY_THRESHOLD 為 90', () => {
     assert.equal(ACCURACY_THRESHOLD, 90)
+  })
+})
+
+describe('D-17: calcElapsedMs 排除暫停時間的算術', () => {
+  it('startTime 為 null(尚未開始)時回傳 0', () => {
+    assert.equal(calcElapsedMs({ now: 61000, startTime: null, totalPausedMs: 0, pausedAt: null }), 0)
+  })
+
+  it('未暫停過時回傳完整經過時間', () => {
+    assert.equal(calcElapsedMs({ now: 61000, startTime: 1000, totalPausedMs: 0, pausedAt: null }), 60000)
+  })
+
+  it('曾暫停並已恢復時,扣除累積暫停時長', () => {
+    assert.equal(calcElapsedMs({ now: 61000, startTime: 1000, totalPausedMs: 5000, pausedAt: null }), 55000)
+  })
+
+  it('目前正在暫停中時,連同進行中的這一段也即時扣除', () => {
+    assert.equal(calcElapsedMs({ now: 61000, startTime: 1000, totalPausedMs: 0, pausedAt: 31000 }), 30000)
+  })
+
+  it('同時有歷史暫停與進行中暫停時,兩者都扣除', () => {
+    assert.equal(calcElapsedMs({ now: 61000, startTime: 1000, totalPausedMs: 5000, pausedAt: 41000 }), 35000)
+  })
+
+  it('結果永不為負,即使參數組合異常導致算出負數', () => {
+    assert.equal(calcElapsedMs({ now: 1000, startTime: 1000, totalPausedMs: 5000, pausedAt: null }), 0)
   })
 })
