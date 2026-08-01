@@ -7,6 +7,8 @@ import {
   toChars,
   markWrongIndices,
   isComplete,
+  deletesCommitted,
+  clampToTarget,
   calcAccuracy,
   calcWpmEn,
   calcCpmZh,
@@ -22,7 +24,15 @@ import {
 // 不能被組字打斷);`settled` 只在組字結束或非組字輸入時才更新,是比對/著色/
 // 完成判定的唯一依據。isComposingRef 是「目前是否在組字中」的唯一真相來源
 // (見 03-RESEARCH.md Pattern 1)。everWrongRef 用全量重算模型(Pattern 2),
-// 只增不刪,對應 D-14「錯過一次就記一次,改對不還清白」。
+// 只增不刪。
+//
+// 嚴格模式(D-31/D-32,2026-08-02,取代 D-13/D-14):已上屏字元(settledRef)一律
+// 不可刪除——handleChange 前置一道用 deletesCommitted() 判斷的前綴不變式守衛,
+// 命中即擋下並把 DOM value 寫回,IME 組字緩衝區內的編輯不受影響。completion 條件
+// 也從「逐字完全相等」改為「輸入字數達到題目字數」(isComplete),未修正的錯字
+// 不再擋住測驗結束;超長輸入由 clampToTarget() 截斷。everWrongRef 的永久性因此
+// 從「規則規定不還清白」變成「結構上根本改不了」——已上屏字元既然不可修改,
+// 全量重算結果天然只增不減。
 //
 // 03-03 新增:即時統計列(D-16,由 setInterval 驅動的 tick state 逼出重新渲染,
 // 實際時間計算走 calcElapsedMs 純函式)、失焦暫停(D-17,pausedAtRef/
@@ -64,6 +74,11 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
   const pausedAtRef = useRef(null) // D-17:暫停起點時間戳,未暫停時為 null
   const totalPausedMsRef = useRef(0) // D-17:累積暫停毫秒數
   const flashTimeoutRef = useRef(null) // D-18:reduced-motion 瞬間外框的移除計時器
+  // D-31:settled 的 ref 版本,守衛必須讀這個而不是 settled state——組字相關事件
+  // 是連續多個原生事件,同一輪事件內讀 state 會拿到舊值,與 isComposingRef 是
+  // 同一個理由的先例。runComparison 設定 settled 的同時同步寫入這裡。
+  const settledRef = useRef('')
+  const lockedFlashTimeoutRef = useRef(null) // D-33:刪除被擋下的中性外框移除計時器(獨立於 flashTimeoutRef,兩者可能同時在計時)
 
   const [paused, setPaused] = useState(false)
   const [, setLiveTick] = useState(0) // D-16:每 200ms 遞增以驅動即時統計列重新渲染
@@ -120,8 +135,36 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
     }
   }
 
+  // D-33:被擋下的刪除給「中性」回饋,刻意不重用 triggerWrongFeedback()——那個
+  // 回饋在 D-18 語意裡等同「你剛剛打錯一個字」的計分事件訊號,拿來表示刪除被擋
+  // 會讓使用者誤以為又被扣了一次分,正是這次要消滅的困惑。手法沿用同一套
+  // classList.remove → 強制 reflow → classList.add(連續觸發時才會重播),但用
+  // 獨立的 class 與獨立的 timeout ref,不與 flashTimeoutRef 共用(兩者可能同時
+  // 在計時)。
+  const triggerLockedFeedback = () => {
+    const el = inputRef.current
+    if (!el) return
+    clearTimeout(lockedFlashTimeoutRef.current)
+    el.classList.remove('typing-locked-flash')
+    void el.offsetWidth // 強制 reflow
+    el.classList.add('typing-locked-flash')
+    lockedFlashTimeoutRef.current = setTimeout(() => {
+      el.classList.remove('typing-locked-flash')
+    }, 200)
+  }
+
   // 全量重算的逐字比對(Pattern 2):每次「值已確定」都拿完整字串重新掃一次。
-  const runComparison = (value) => {
+  // D-31:進入函式後先截斷超長輸入,markWrongIndices/setSettled/isComplete 全部
+  // 改用截斷後的值——截斷值同時也是速度計算的來源(settled),否則超打的字元
+  // 會灌水 calcCpmZh/calcWpmEn 的字元數。截斷一旦發生也把受控值同步成截斷值,
+  // 避免輸入框留下超過題目長度的文字。這條路徑不需要額外的 DOM value 回寫
+  // (與 handleChange 的前綴守衛不同):長度一旦達標就立刻進入結果卡、輸入框
+  // 隨之卸載。runComparison 只會在非組字或 compositionEnd 時被呼叫,符合
+  // clampToTarget 「不得在組字進行中呼叫」的使用前提。
+  const runComparison = (rawValue) => {
+    const value = clampToTarget(rawValue, target)
+    if (value !== rawValue) setTyped(value)
+
     const wrongCountBefore = everWrongRef.current.size
     markWrongIndices(value, target, everWrongRef.current)
     if (everWrongRef.current.size > wrongCountBefore) {
@@ -129,6 +172,7 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
       triggerWrongFeedback()
     }
     setSettled(value)
+    settledRef.current = value
     if (isComplete(value, target)) {
       finishedElapsedRef.current = getElapsedMs()
       setFinished(true)
@@ -151,11 +195,30 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
 
   const handleChange = (e) => {
     const value = e.target.value
+    const composing = isComposingRef.current || e.nativeEvent?.isComposing
+
+    // D-31:前綴不變式守衛——必須放在 beginTimerIfNeeded() 之前,一次被拒絕的
+    // 按鍵不應該啟動計時器。組字進行中(composing 為 true)一律不執行這段拒絕/
+    // 還原邏輯,維持現行的純鏡射行為:若在組字中強制把 DOM value 寫回已上屏
+    // 字串,會直接破壞 IME 狀態,這是不可妥協的約束(注音組字緩衝區的
+    // Backspace 必須能用)。不新增 onKeyDown 或任何按鍵層攔截器——判斷準則是
+    // 前綴不變式,天生與按鍵事件、組字狀態的判斷正確與否無關。
+    if (!composing && deletesCommitted(value, settledRef.current)) {
+      const settledValue = settledRef.current
+      // 兩件事都要做,不能只做 setter:受控 input 在「新 state 與現有 state
+      // 相等」時 React 會跳過重新渲染,DOM 就會停留在使用者剛剛刪掉的那個值,
+      // 守衛表面上生效實際上沒生效——這是這個任務最容易寫錯的一行。
+      e.target.value = settledValue
+      setTyped(settledValue)
+      triggerLockedFeedback()
+      return
+    }
+
     setTyped(value) // 永遠鏡射,不論是否組字中——避免打斷 IME 候選字視窗
     beginTimerIfNeeded()
 
     // 優先信任自己的 ref;e.nativeEvent.isComposing 當次要保險(Safari 不穩定)
-    if (isComposingRef.current || e.nativeEvent?.isComposing) return
+    if (composing) return
     runComparison(value) // 非組字輸入(英文直接鍵入、刪除鍵、貼上)才即時比對
   }
 
@@ -191,9 +254,12 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
     return () => clearInterval(id)
   }, [started, finished, paused])
 
-  // 元件卸載時清除 reduced-motion 瞬間外框的計時器,避免對已卸載元件操作 DOM。
+  // 元件卸載時清除瞬間外框的計時器,避免對已卸載元件操作 DOM。
   useEffect(() => {
-    return () => clearTimeout(flashTimeoutRef.current)
+    return () => {
+      clearTimeout(flashTimeoutRef.current)
+      clearTimeout(lockedFlashTimeoutRef.current)
+    }
   }, [])
 
   // D-26:測驗結束時才抓一次榜首,與左側 Leaderboard 各自獨立查詢、不共用 state。
@@ -238,6 +304,7 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
     finishedElapsedRef.current = 0
     pausedAtRef.current = null
     totalPausedMsRef.current = 0
+    settledRef.current = ''
     setSentenceIndex(nextIndex)
     void list
   }
@@ -541,6 +608,14 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
           outline: 2px solid var(--typing-wrong-text);
           outline-offset: 2px;
         }
+        .typing-locked-flash {
+          /* D-33:被擋下的刪除,中性瞬時外框——沒有位移也沒有補間動畫(刻意不宣告
+             transition),語彙是「這裡是鎖著的」而非「你錯了」,因此不需要
+             prefers-reduced-motion 分支。不得使用 --typing-wrong-bg / --typing-wrong-text
+             這組錯誤色票,以免使用者誤讀成又被扣分。 */
+          outline: 2px solid var(--muted);
+          outline-offset: 2px;
+        }
 
         .typing-result-card {
           max-width: 640px;
@@ -806,6 +881,10 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
               autoCapitalize="off"
               spellCheck="false"
             />
+            {/* D-33:常駐說明文字——事先講清楚規則,第一次被擋下時就不會意外;
+                也是無障礙路徑,螢幕閱讀器使用者靠這行常駐文字取得規則,不依賴
+                視覺閃動。重用既有 .typing-hint class,不新增樣式。 */}
+            <p className="typing-hint">不能退格 —— 打錯的字會直接算進錯字數</p>
             {paused && (
               <button
                 type="button"
