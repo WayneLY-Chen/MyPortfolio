@@ -181,3 +181,34 @@ describe('GET /api/projects', () => {
     expect(Array.isArray(res.body.data)).toBe(true);
   });
 });
+
+describe('PUT /api/projects/:id (D-02 — was previously unauthenticated)', () => {
+  // "Rejected" and "rejected before ever writing" are two different claims —
+  // asserting only the status code would miss the actual risk D-02 closes
+  // (an unauthenticated caller reaching the UPDATE statement at all). Every
+  // case below asserts both: the rejection status, and that `query`'s mock
+  // call history contains no UPDATE-prefixed SQL.
+  const assertNoUpdateWasIssued = () => {
+    const updateCalls = query.mock.calls.filter(([sql]) => /^\s*UPDATE\b/i.test(sql));
+    expect(updateCalls).toHaveLength(0);
+  };
+
+  it('returns 401 and never issues an UPDATE without an Authorization header', async () => {
+    const res = await request(buildApp())
+      .put('/api/projects/1')
+      .send({ description: 'attempted unauthenticated edit' });
+
+    expect(res.status).toBe(401);
+    assertNoUpdateWasIssued();
+  });
+
+  it('returns 403 and never issues an UPDATE for a valid non-admin (visitor) token', async () => {
+    const res = await request(buildApp())
+      .put('/api/projects/1')
+      .set('Authorization', `Bearer ${visitorToken()}`)
+      .send({ description: 'attempted visitor-role edit' });
+
+    expect(res.status).toBe(403);
+    assertNoUpdateWasIssued();
+  });
+});
