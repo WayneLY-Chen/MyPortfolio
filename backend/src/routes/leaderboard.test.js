@@ -1,0 +1,296 @@
+import { describe, it, expect, vi } from 'vitest';
+
+// Must be the first statements, before every other import — see
+// backend/src/routes/auth.test.js for why vi.mock('../db') must precede the
+// import of the router under test.
+vi.mock('../db');
+
+import express from 'express';
+import request from 'supertest';
+import leaderboardRouter from './leaderboard.js';
+import { query } from '../db';
+
+// Build a fresh, minimal Express app per call, mounting only the leaderboard
+// router at the same path backend/src/index.js uses (index.js:122) — never
+// import backend/src/index.js itself, which calls server.listen()/initSockets()
+// at module load and would bind a real port / boot a real Socket.io server.
+const buildApp = () => {
+  const app = express();
+  app.use(express.json());
+  app.use('/api/leaderboard', leaderboardRouter);
+  return app;
+};
+
+describe('POST /api/leaderboard game_type allowlist (D-24)', () => {
+  it('rejects an unknown game_type with 400 and never calls query', async () => {
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'not-a-real-game',
+      player_name: 'test',
+      score: 10,
+    });
+    expect(res.status).toBe(400);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('accepts game_type snake with 200', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'snake',
+      player_name: 'test',
+      score: 10,
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it('accepts game_type typing_zh with legal fields with 200', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'typing_zh',
+      player_name: '小明',
+      score: 100,
+      accuracy: 95,
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it('missing game_type falls back to the existing snake default and still succeeds', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      player_name: 'test',
+      score: 10,
+    });
+    expect(res.status).toBe(200);
+    expect(query).toHaveBeenCalledWith(expect.any(String), ['snake', 'test', 10]);
+  });
+});
+
+describe('POST /api/leaderboard 暱稱規則僅套用在 typing (D-23)', () => {
+  it('typing_zh + 合法暱稱 → 200', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'typing_zh',
+      player_name: 'ok_name',
+      score: 100,
+      accuracy: 95,
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it('typing_zh + 含 emoji 的暱稱 → 400', async () => {
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'typing_zh',
+      player_name: 'hi🎉',
+      score: 100,
+      accuracy: 95,
+    });
+    expect(res.status).toBe(400);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('typing_zh + 13 字暱稱 → 400', async () => {
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'typing_zh',
+      player_name: '一二三四五六七八九十十一十二十三',
+      score: 100,
+      accuracy: 95,
+    });
+    expect(res.status).toBe(400);
+    expect(query).not.toHaveBeenCalled();
+  });
+});
+
+describe('D-24 迴歸:snake/2048 的既有寬鬆行為完全未變', () => {
+  it('snake + 含 emoji 且長度 25 字的暱稱 → 仍然 200,且寫入值截斷至 20 字', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    const longNickname = 'a'.repeat(24) + '🎉'; // 25 個「使用者感知字元」概念上的長暱稱
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'snake',
+      player_name: longNickname,
+      score: 10,
+    });
+    expect(res.status).toBe(200);
+    const [, params] = query.mock.calls[0];
+    expect(params[1]).toBe(longNickname.substring(0, 20));
+    expect(params[1].length).toBeLessThanOrEqual(20);
+  });
+
+  it('snake + score: 999999 → 仍然 200(舊遊戲無上限)', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'snake',
+      player_name: 'test',
+      score: 999999,
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it('snake 不帶 accuracy → 仍然 200', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'snake',
+      player_name: 'test',
+      score: 10,
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it('2048 + 含 emoji 的暱稱與極端分數 → 仍然 200(第二個既有呼叫端同樣不受影響)', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: '2048',
+      player_name: 'weird🎉name_with_more_than_twenty_chars',
+      score: 123456,
+    });
+    expect(res.status).toBe(200);
+  });
+});
+
+describe('D-22 分數上限', () => {
+  it('typing_zh + score: 150 → 200', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'typing_zh',
+      player_name: 'ok_name',
+      score: 150,
+      accuracy: 95,
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it('typing_zh + score: 151 → 400', async () => {
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'typing_zh',
+      player_name: 'ok_name',
+      score: 151,
+      accuracy: 95,
+    });
+    expect(res.status).toBe(400);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('typing_en + score: 250 → 200', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'typing_en',
+      player_name: 'ok_name',
+      score: 250,
+      accuracy: 95,
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it('typing_en + score: 251 → 400', async () => {
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'typing_en',
+      player_name: 'ok_name',
+      score: 251,
+      accuracy: 95,
+    });
+    expect(res.status).toBe(400);
+    expect(query).not.toHaveBeenCalled();
+  });
+});
+
+describe('D-20 正確率門檻', () => {
+  it('typing_en + accuracy: 90 → 200', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'typing_en',
+      player_name: 'ok_name',
+      score: 100,
+      accuracy: 90,
+    });
+    expect(res.status).toBe(200);
+  });
+
+  it('typing_en + accuracy: 89 → 400', async () => {
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'typing_en',
+      player_name: 'ok_name',
+      score: 100,
+      accuracy: 89,
+    });
+    expect(res.status).toBe(400);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('typing_en 缺 accuracy 欄位 → 400', async () => {
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'typing_en',
+      player_name: 'ok_name',
+      score: 100,
+    });
+    expect(res.status).toBe(400);
+    expect(query).not.toHaveBeenCalled();
+  });
+});
+
+describe('零 schema 變更:accuracy 不入庫', () => {
+  it('成功的 typing 寫入時,query 第二個參數的陣列長度為 3(不含 accuracy)', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'typing_zh',
+      player_name: '小明',
+      score: 100,
+      accuracy: 95,
+    });
+    expect(res.status).toBe(200);
+    const [, params] = query.mock.calls[0];
+    expect(params.length).toBe(3);
+    expect(params).toEqual(['typing_zh', '小明', 100]);
+  });
+});
+
+describe('既有行為(必填欄位與分數格式,本計畫未改動)', () => {
+  it('缺 player_name → 400「缺少必要欄位」', async () => {
+    const res = await request(buildApp()).post('/api/leaderboard').send({ score: 10 });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ success: false, error: '缺少必要欄位' });
+  });
+
+  it('缺 score → 400「缺少必要欄位」', async () => {
+    const res = await request(buildApp()).post('/api/leaderboard').send({ player_name: 'test' });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ success: false, error: '缺少必要欄位' });
+  });
+
+  it('score 為負數 → 400「分數無效」', async () => {
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      player_name: 'test',
+      score: -1,
+    });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ success: false, error: '分數無效' });
+  });
+
+  it('score 為非數字 → 400「分數無效」', async () => {
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      player_name: 'test',
+      score: 'not-a-number',
+    });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ success: false, error: '分數無效' });
+  });
+
+  it('query reject 時 → 500 且回應形狀為 { success: false, error }', async () => {
+    query.mockRejectedValueOnce(new Error('DB 掛了'));
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      player_name: 'test',
+      score: 10,
+    });
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ success: false, error: 'DB 掛了' });
+  });
+});
+
+describe('GET /api/leaderboard 未受影響', () => {
+  it('GET /api/leaderboard?game=typing_zh&limit=10 在 query 回傳 rows 時 → 200', async () => {
+    const rows = [{ player_name: '小明', score: 100, created_at: '2026-08-02T00:00:00.000Z' }];
+    query.mockResolvedValueOnce({ rows });
+
+    const res = await request(buildApp()).get('/api/leaderboard?game=typing_zh&limit=10');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ success: true, data: rows });
+  });
+});
