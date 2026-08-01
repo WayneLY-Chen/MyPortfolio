@@ -42,14 +42,27 @@ app.use(cors({
   credentials: true,
 }));
 
+// 部署平台為 Render（D-12），單層 edge proxy，信任一跳 —— 讓 req.ip 反映真實
+// client IP 而非 proxy 位址。必須在任何以 IP 計量的 rate limiter 掛載之前生效
+// （02-04 會在 auth.js / comments.js / projects.js 掛上限流器，D-09）。
+app.set('trust proxy', 1);
+
 // 解析 JSON 請求 body
 app.use(express.json());
 
 // 解析 Cookie
 app.use(cookieParser());
 
+// [Startup] SESSION_SECRET 為必要環境變數：缺少即中止啟動。不再與
+// JWT 存取權杖的密鑰共用備援 —— 兩者屬於不同信任域，共用正是 D-01
+// 要消滅的問題。
+if (!process.env.SESSION_SECRET) {
+  console.error('[Startup] 缺少 SESSION_SECRET 環境變數，伺服器中止啟動');
+  process.exit(1);
+}
+
 app.use(session({
-  secret: process.env.SESSION_SECRET || process.env.JWT_ACCESS_SECRET,
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {

@@ -29,18 +29,22 @@ const BANNER_MARKER = 'Portfolio Backend 啟動成功';
 /**
  * Spawns `node backend/src/index.js` with a fully explicit env and waits for
  * it to exit. backend/.env genuinely exists on dev machines, and dotenv
- * (called at the top of index.js) never overwrites a var already present in
- * process.env — so every var this test cares about is set explicitly here
- * rather than relying on (or being contaminated by) the real .env file.
- *
- * `omit` deletes keys that may have been inherited from this test runner's
- * own process.env (e.g. via `{ ...process.env }`) before the child spawns,
- * so a case that wants a variable genuinely ABSENT cannot accidentally
- * inherit it.
+ * (called at the top of index.js) only fills in a key that is NOT already a
+ * key on process.env — checked via presence (hasOwnProperty), not
+ * truthiness. That means simply omitting a key from `envOverrides` is NOT
+ * enough to force it "missing" in the child: dotenv will backfill it from
+ * the real .env file the moment the key doesn't exist yet. To reliably
+ * simulate "this var is unset", callers must pass it as an explicit empty
+ * string (e.g. `SESSION_SECRET: ''`) — the key then already exists on the
+ * child's process.env before dotenv.config() runs, so dotenv leaves the
+ * empty value alone, and app code's `if (!process.env.X)` guards still see
+ * it as falsy. (Discovered empirically: an earlier version of this helper
+ * used delete-based omission and the SESSION_SECRET case below silently
+ * picked up this machine's real secret from backend/.env instead of testing
+ * the missing-var path.)
  */
-function runBackend(envOverrides, { omit = [] } = {}) {
+function runBackend(envOverrides) {
   const env = { ...process.env, ...envOverrides };
-  for (const key of omit) delete env[key];
 
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [indexPath], { cwd: backendRoot, env });
@@ -96,6 +100,29 @@ describe('Startup gate (REL-01, D-10, D-11)', () => {
       // (c) stderr 含 [DB] 標籤與遷移失敗字樣 —— 原因可診斷，不是靜默中止
       expect(stderr).toContain('[DB]');
       expect(stderr).toContain('資料庫遷移失敗');
+    },
+    STARTUP_TIMEOUT_MS + 5000
+  );
+
+  it(
+    'rejects startup when SESSION_SECRET is missing: non-zero exit, no banner, [Startup] stderr',
+    async () => {
+      // SESSION_SECRET: '' (not omitted — see runBackend's docstring) forces
+      // the child to see it as genuinely empty rather than backfilled from
+      // this machine's real backend/.env. Also supplies a guaranteed-
+      // unreachable DATABASE_URL so that even if the SESSION_SECRET guard
+      // were ever accidentally removed, this case still cannot proceed to a
+      // real database connection.
+      const { code, stdout, stderr } = await runBackend({
+        DATABASE_URL: BROKEN_DB_URL,
+        SESSION_SECRET: '',
+        NODE_ENV: 'development',
+        PORT: '39002',
+      });
+
+      expect(code).not.toBe(0);
+      expect(stdout).not.toContain(BANNER_MARKER);
+      expect(stderr).toContain('[Startup]');
     },
     STARTUP_TIMEOUT_MS + 5000
   );
