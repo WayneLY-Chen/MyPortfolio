@@ -498,6 +498,9 @@ export default function AIAssistant() {
   }, [])
 
   // TTS Functionality（分句串流：第一句先合成先播，其餘句子邊播邊預載）
+  // 註：/tts 收到 429 時會在此 throw，被呼叫端 catch 後只寫 console —— 這是刻意的安靜降級
+  // （D-08 明確記錄的取捨）：文字回覆照常顯示，只是沒有語音，比在對話框裡多插一句
+  // 「語音太頻繁」更好，不另外處理。
   const fetchTtsUrl = async (text) => {
     const res = await fetch(`${API_URL}/ai/tts`, {
       method: 'POST',
@@ -633,7 +636,10 @@ export default function AIAssistant() {
       })
 
       const data = await res.json()
-      const fullText = data.reply || '大腦伺服器發呆中，請再試一次！'
+      // 429（後端限流，D-08）優先讀 message key 並補一句 Wobot 語氣；否則沿用既有邏輯。
+      const fullText = res.status === 429
+        ? `${data.message} 喵～讓 Wobot 喘口氣，等一下再聊！`
+        : (data.reply || '大腦伺服器發呆中，請再試一次！')
 
       // Reset placeholder to empty, ready for typing animation
       setChatHistory((prev) => {
