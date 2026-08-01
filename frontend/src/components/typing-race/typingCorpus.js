@@ -1,0 +1,73 @@
+// 打字競速題庫 —— 靜態常數,零 React 依賴,不匯入任何外部套件(D-07)。
+// 中文題庫:D-08(約 30 句)、D-11(標點與大小寫需完全照打,全形標點需使用者實際打出來)、
+// D-12(內容調性中性:日常句、名言、短段描述,不放個人技術經歷或自我介紹句)。
+// 英文題庫:D-08(約 30 句)、D-10(一般英文句子,不放程式碼片段)、D-11(標點與大小寫完全照打)。
+//
+// 形狀採 { text: '...' } 物件而非裸字串,方便日後加難度/字數欄位而不必改資料型別
+// (比照 About.jsx 的 SKILLS/TIMELINE 陣列寫法慣例)。
+
+export const ZH_SENTENCES = [
+  { text: '清晨的陽光灑落在窗台上,空氣裡帶著淡淡的花香,讓人忍不住想要深呼吸一口。' },
+  { text: '圖書館的角落總是特別安靜,只有翻書的聲音伴隨著窗外偶爾傳來的鳥鳴。' },
+  { text: '每一次旅行都像是一場冒險,你永遠不知道下一個轉角會遇見什麼樣的風景。' },
+  { text: '咖啡的香氣瀰漫在整間屋子裡,那是屬於週末早晨最放鬆的一種味道。' },
+  { text: '山頂的風很大,吹得人幾乎站不穩,但眼前的雲海讓一切辛苦都值得了。' },
+  { text: '老街上的石板路被歲月磨得光滑,兩旁的店家仍保留著幾十年前的樣貌。' },
+  { text: '下雨的夜晚特別適合窩在家裡,泡一杯熱茶,靜靜地看著窗外的燈光。' },
+  { text: '孩子們在公園裡追逐嬉鬧,笑聲清脆得像是夏天裡最動聽的一首歌。' },
+  { text: '「失敗並不可怕,可怕的是還沒開始就放棄。」這句話一直提醒著我。' },
+  { text: '深夜的城市褪去了白天的喧囂,只剩下路燈與偶爾駛過的車輛聲響。' },
+  { text: '廚房裡飄出陣陣飯菜香,那是媽媽準備晚餐時最熟悉的家的味道。' },
+  { text: '海邊的日落總是讓人捨不得離開,金黃色的光灑滿了整片沙灘。' },
+  { text: '「時間就像海綿裡的水,只要願意擠,總還是有的。」這是魯迅的名言。' },
+  { text: '火車緩緩駛出月台,窗外的景色一幕幕往後退去,心情也跟著平靜下來。' },
+  { text: '秋天的楓葉紅得像火一樣,踩在落葉堆上發出沙沙的清脆聲響。' },
+  { text: '一杯溫熱的牛奶配上幾片餅乾,是許多人童年最深刻的睡前記憶。' },
+  { text: '「態度決定高度,細節決定成敗。」這句話常被用來勉勵年輕人努力。' },
+  { text: '夜市裡人聲鼎沸,各種小吃的香氣交織在一起,讓人食指大動。' },
+  { text: '微風輕輕吹過稻田,金黃色的稻穗隨風搖曳,形成一片美麗的波浪。' },
+  { text: '「知足常樂」是老一輩常掛在嘴邊的一句話,提醒人們珍惜眼前所有。' },
+  { text: '冬天的第一場雪悄悄落下,整座城市彷彿被裹上了一層柔軟的白紗。' },
+  { text: '圖書館新到的書籍總是很快就被借閱一空,可見大家對知識的渴望。' },
+  { text: '「三人行,必有我師焉。」孔子的這句話至今仍被許多人奉為圭臬。' },
+  { text: '巷口的早餐店每天清晨五點就開始忙碌,飄出陣陣蛋餅的香氣。' },
+  { text: '星空下的露營帳篷裡,大家圍著營火分享著各自旅途中的趣事。' },
+  { text: '「工欲善其事,必先利其器。」做任何事情之前準備都相當重要。' },
+  { text: '老爺爺每天傍晚都會牽著他的老狗,慢慢散步經過社區的小公園。' },
+  { text: '一場突如其來的驟雨打亂了原本的野餐計畫,大家只好躲進涼亭。' },
+  { text: '「路遙知馬力,日久見人心。」時間往往是檢驗一切最好的方法。' },
+  { text: '陽台上的多肉植物在陽光照射下顯得格外翠綠,充滿了生命力。' },
+]
+
+export const EN_SENTENCES = [
+  { text: 'The early morning light filtered gently through the curtains, casting soft shadows across the wooden floor while the whole city slowly began to wake from its quiet sleep.' },
+  { text: 'Success is not final and failure is never fatal, because it is the simple courage to keep moving forward that truly matters most in the end, no matter how hard the path.' },
+  { text: 'A journey of a thousand miles begins with a single step, and every small effort you make today will eventually add up to something far greater than you ever imagined.' },
+  { text: 'The old library smelled of dust and paper, and the only sounds were the soft rustle of turning pages and the occasional creak of the wooden floor beneath tired feet.' },
+  { text: 'Rain tapped gently against the window all night long, and somehow that steady rhythm made it easier to fall asleep than any lullaby anyone had ever sung before.' },
+  { text: 'Every sunrise brings a new opportunity to start again, no matter how difficult yesterday may have been, and that simple thought alone can change how someone faces today.' },
+  { text: 'The mountain trail was steep and rocky, but the view from the top made every single tired step along the way feel completely and utterly worth the effort.' },
+  { text: 'Children laughed and chased each other across the park, their voices carrying through the warm afternoon air like the happiest song anyone could ever hope to hear.' },
+  { text: 'Coffee brewing in the kitchen filled the entire house with a warm, comforting aroma that instantly made the quiet weekend morning feel a little more special.' },
+  { text: 'The train pulled slowly out of the station while the scenery outside the window began to blur into gentle streaks of green, brown, and soft golden light.' },
+  { text: 'Autumn leaves drifted quietly to the ground, painting the sidewalk in shades of red and orange as the cool evening breeze carried the scent of fallen rain.' },
+  { text: 'A warm cup of tea and a good book can turn even the most ordinary evening into something quietly wonderful, especially when the rain keeps falling outside.' },
+  { text: 'The night market buzzed with energy, filled with sizzling street food, bright neon lights, and the constant chatter of people enjoying a warm summer evening.' },
+  { text: "Kindness costs nothing yet means everything, and a single small act of thoughtfulness can brighten someone's entire day in ways you might never fully realize." },
+  { text: 'The old wooden bridge creaked softly underfoot as it stretched across the quiet river, connecting the sleepy village to the fields on the opposite side.' },
+  { text: "Winter's first snowfall covered the entire town in a soft white blanket, muffling every sound until the whole world seemed to pause and hold its breath." },
+  { text: 'A gentle breeze swept across the golden wheat field, making the tall stalks sway together like waves rolling slowly and steadily across a calm ocean.' },
+  { text: 'The campfire crackled softly beneath a sky full of stars while everyone gathered around shared quiet stories from their favorite adventures of the summer.' },
+  { text: 'Patience is a virtue that grows stronger with practice, and learning to wait calmly for good things often brings far greater rewards than rushing ever could.' },
+  { text: 'The grandfather walked his old dog slowly through the neighborhood park every evening, pausing often to greet familiar faces along the quiet tree lined path.' },
+  { text: 'A sudden afternoon shower sent everyone scrambling for shelter, laughing as they ducked beneath the nearest awning to wait out the brief summer storm.' },
+  { text: 'Time heals most wounds, but patience and honest effort are usually what truly help a person move forward and rebuild something meaningful from the pieces.' },
+  { text: 'The lighthouse stood tall against the crashing waves, its steady beam of light guiding fishing boats safely home through the darkest hours of the night.' },
+  { text: 'Fresh bread baking in the oven filled the small bakery with a warm and inviting scent that drew curious customers in from the busy street outside.' },
+  { text: 'The garden bloomed with color every spring, filling the quiet backyard with the gentle hum of bees and the sweet fragrance of freshly opened flowers.' },
+  { text: 'A good friend is someone who understands your silence just as well as your words, and that quiet understanding is often worth more than anything else.' },
+  { text: 'The city skyline glowed softly at dusk as the last rays of sunlight reflected off the glass windows of towering buildings scattered across the horizon.' },
+  { text: 'Reading before bed has always been one of the simplest pleasures in life, offering a quiet escape into another world just before drifting off to sleep.' },
+  { text: 'The farmers rose before dawn to tend their fields, working steadily through the cool morning air long before the rest of the town had even woken up.' },
+  { text: 'Music has the power to turn an ordinary moment into something unforgettable, carrying memories and emotions that words alone could never fully express.' },
+]

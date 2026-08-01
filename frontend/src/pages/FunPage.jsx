@@ -13,6 +13,7 @@ import { Confetti } from '../components/ui/Confetti'
 import { cn } from '../lib/utils'
 import MoneyCalculator from '../components/MoneyCalculator'
 import TodoList from '../components/TodoList'
+import TypingRace from '../components/typing-race/TypingRace'
 
 // Snake Game
 const CELL = 32
@@ -1528,6 +1529,7 @@ const GAMES = [
   { id: '2048',    emoji: '🟩', name: '2048',       desc: '方向鍵滑動合併數字磚塊。',     color: '#edc22e' },
   { id: 'boss',    emoji: '⚔️', name: '尾刀爭奪戰', desc: '打出卡牌消滅骷髏王！',         color: '#a855f7' },
   { id: 'portal',  emoji: '🔵', name: '陣營大戰',   desc: '雙人同台搶佔格子領土。',       color: '#00a2ff' },
+  { id: 'typing',  emoji: '⌨️', name: '打字競速',   desc: '中英文題庫,即時速度與正確率,你能打贏榜首嗎?', color: '#4ade80' },
 ]
 
 // FunPage Component
@@ -1536,6 +1538,7 @@ export default function FunPage() {
   const [activeTab, setActiveTab] = useState('games')
   const [selectedGame, setSelectedGame] = useState(null) // null = show menu
   const [lbRefresh, setLbRefresh] = useState(0)
+  const [typingMode, setTypingMode] = useState('zh') // D-09: 預設中文
 
   return (
     <>
@@ -1968,6 +1971,26 @@ export default function FunPage() {
                     <div className="game-centered">
                       <p className="game-area-title">陣營大戰</p>
                       <PortalWarGame onBack={() => setSelectedGame(null)} />
+                    </div>
+                  )}
+
+                  {/* Typing Race */}
+                  {selectedGame === 'typing' && (
+                    <div className="snake-game-layout">
+                      <div style={{ width: '100%' }}>
+                        <TypingRace
+                          mode={typingMode}
+                          onModeChange={setTypingMode}
+                          onNewScore={() => setLbRefresh(r => r + 1)}
+                        />
+                      </div>
+                      <div style={{ alignSelf: 'start', marginTop: '54px' }}>
+                        <Leaderboard
+                          refresh={lbRefresh}
+                          gameType={typingMode === 'zh' ? 'typing_zh' : 'typing_en'}
+                          title={typingMode === 'zh' ? '中文打字排行榜' : '英文打字排行榜'}
+                        />
+                      </div>
                     </div>
                   )}
                 </>
