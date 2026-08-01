@@ -31,3 +31,7 @@ backend/migrate.js
 # ¤¹³\½d¨ÒÀÉ¤W¶Ç¡]µL¾÷±K¡^
 !.env.example
 !backend/.env.example
+
+# é–‹ç™¼ç”¨çš„è¦åŠƒèˆ‡ AI åŠ©ç†è¨­å®šï¼Œä¸é€²ç‰ˆæ§
+.planning/
+.claude/
