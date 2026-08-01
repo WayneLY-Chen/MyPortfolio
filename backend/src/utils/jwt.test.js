@@ -15,7 +15,14 @@ vi.mock('../db');
 
 import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
-import { generateAccessToken, generateRefreshToken, verifyAccessToken, setRefreshTokenCookie } from './jwt.js';
+import {
+  generateAccessToken,
+  generateRefreshToken,
+  verifyAccessToken,
+  setRefreshTokenCookie,
+  generateGuestSessionToken,
+  verifyGuestSessionToken,
+} from './jwt.js';
 import { query } from '../db';
 
 describe('generateAccessToken / verifyAccessToken', () => {
@@ -122,6 +129,79 @@ describe('generateRefreshToken', () => {
     // wording ("roughly 30 days") signals this is not meant to be exact.
     expect(expiresAtMs).toBeGreaterThanOrEqual(before + thirtyDaysMs - 5000);
     expect(expiresAtMs).toBeLessThanOrEqual(after + thirtyDaysMs + 5000);
+  });
+});
+
+describe('generateGuestSessionToken / verifyGuestSessionToken (SEC-04, SEC-05, D-04, D-05)', () => {
+  it('round-trips a signed guest session token to its original session identifier', () => {
+    const token = generateGuestSessionToken('session-abc');
+    const decoded = verifyGuestSessionToken(token);
+
+    expect(decoded.sid).toBe('session-abc');
+    expect(decoded.type).toBe('guest');
+  });
+
+  it('rejects a token signed with a different secret (signature failure)', () => {
+    const forgedToken = jwt.sign(
+      { sid: 'session-abc', type: 'guest' },
+      'a-different-secret-not-the-configured-one',
+      { expiresIn: '24h' }
+    );
+
+    expect(() => verifyGuestSessionToken(forgedToken)).toThrow();
+  });
+
+  it('rejects a structurally malformed token string', () => {
+    expect(() => verifyGuestSessionToken('not-a-real-jwt')).toThrow();
+  });
+
+  it('rejects an already-expired guest token', () => {
+    const expiredToken = jwt.sign(
+      { sid: 'session-abc', type: 'guest' },
+      process.env.JWT_ACCESS_SECRET,
+      { expiresIn: -10 }
+    );
+
+    let caught;
+    try {
+      verifyGuestSessionToken(expiredToken);
+    } catch (err) {
+      caught = err;
+    }
+
+    expect(caught).toBeDefined();
+    expect(caught.name).toBe('TokenExpiredError');
+  });
+
+  it('issues a guest session token with a 24-hour lifetime', () => {
+    const token = generateGuestSessionToken('session-abc');
+    const decoded = jwt.decode(token);
+
+    expect(decoded.exp - decoded.iat).toBe(24 * 60 * 60);
+  });
+
+  // T-01-06: both credential kinds are signed with the same secret (RESEARCH.md
+  // assumption A2), so the `type` claim check is the ONLY thing preventing a
+  // guest token and a user access token from being interchangeable.
+  it('rejects a real user access token when handed to verifyGuestSessionToken (cross-use)', () => {
+    const accessToken = generateAccessToken('user-123', 'admin');
+
+    expect(() => verifyGuestSessionToken(accessToken)).toThrow();
+  });
+
+  it('rejects a real guest session token when handed to verifyAccessToken (cross-use)', () => {
+    const guestToken = generateGuestSessionToken('session-abc');
+
+    expect(() => verifyAccessToken(guestToken)).toThrow();
+  });
+
+  it('verifyAccessToken still accepts a token produced by generateAccessToken (regression guard for the tightened type check)', () => {
+    const accessToken = generateAccessToken('user-123', 'admin');
+    const decoded = verifyAccessToken(accessToken);
+
+    expect(decoded.sub).toBe('user-123');
+    expect(decoded.role).toBe('admin');
+    expect(decoded.type).toBe('access');
   });
 });
 

@@ -4,7 +4,7 @@ const passport = require('../config/passport');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const { query } = require('../db');
-const { generateAccessToken, generateRefreshToken, setRefreshTokenCookie, verifyAccessToken } = require('../utils/jwt');
+const { generateAccessToken, generateRefreshToken, setRefreshTokenCookie, verifyAccessToken, generateGuestSessionToken } = require('../utils/jwt');
 const { authenticate } = require('../middlewares/authenticate');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/mailer');
  
@@ -337,6 +337,18 @@ router.post('/refresh', async (req, res) => {
   } catch (err) {
     return res.status(500).json({ success: false, error: '伺服器錯誤' });
   }
+});
+
+// GET /auth/guest-session
+// SEC-04/SEC-05/D-04/D-05: 功能頁的訪客身分簽發端點。刻意不需要驗證、
+// 不查詢資料庫——維持訪客免登入即可遊玩，同時讓 Socket.io 握手時能驗證
+// 這個由伺服器簽發的簽章，而非像現況一樣盲信 client 端自己產生的
+// sessionId。sessionId 一律由伺服器產生，永遠不採信 request 上的任何值。
+router.get('/guest-session', (req, res) => {
+  const sessionId = crypto.randomUUID();
+  const token = generateGuestSessionToken(sessionId);
+  console.log('[Auth] 已簽發訪客 session');
+  return res.json({ success: true, sessionId, token });
 });
 
 // POST /auth/logout

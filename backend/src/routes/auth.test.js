@@ -9,7 +9,7 @@ import express from 'express';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import authRouter from './auth.js';
-import { generateAccessToken } from '../utils/jwt.js';
+import { generateAccessToken, verifyGuestSessionToken } from '../utils/jwt.js';
 import { query } from '../db';
 
 // backend/src/routes/auth.js's LINE and Facebook callback routes gate on
@@ -74,6 +74,37 @@ describe('OAuth callback redirects (SEC-01, D-01, TEST-03)', () => {
       expect(setCookieHeader.some((c) => c.startsWith('refresh_token='))).toBe(true);
     }
   );
+});
+
+describe('GET /auth/guest-session (SEC-04, SEC-05, D-04, D-05)', () => {
+  it('returns 200 with a success flag, a session identifier, and a signed token, requiring no credentials', async () => {
+    const res = await request(buildApp()).get('/auth/guest-session');
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(typeof res.body.sessionId).toBe('string');
+    expect(res.body.sessionId.length).toBeGreaterThan(0);
+    expect(typeof res.body.token).toBe('string');
+
+    // The returned token must verify as a guest session token binding the
+    // exact sessionId returned alongside it.
+    const decoded = verifyGuestSessionToken(res.body.token);
+    expect(decoded.sid).toBe(res.body.sessionId);
+  });
+
+  it('returns two different session identifiers on two consecutive calls', async () => {
+    const app = buildApp();
+    const first = await request(app).get('/auth/guest-session');
+    const second = await request(app).get('/auth/guest-session');
+
+    expect(first.body.sessionId).not.toBe(second.body.sessionId);
+  });
+
+  it('performs no database query — a guest session is never persisted', async () => {
+    await request(buildApp()).get('/auth/guest-session');
+
+    expect(query).not.toHaveBeenCalled();
+  });
 });
 
 describe('POST /auth/refresh', () => {
