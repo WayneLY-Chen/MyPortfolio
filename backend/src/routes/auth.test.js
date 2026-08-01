@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
 
 // Must be the first statements, before every other import.
 vi.mock('../db');
@@ -167,6 +167,111 @@ describe('POST /auth/refresh', () => {
 
     const setCookieHeader = res.headers['set-cookie'] || [];
     expect(setCookieHeader.some((c) => c.startsWith('refresh_token='))).toBe(true);
+  });
+});
+
+describe('POST /auth/register (D-17 second site: admin role deferred to verification)', () => {
+  // backend/src/routes/auth.js:52 used to write role:'admin' directly at
+  // registration whenever email === ADMIN_EMAIL, even though is_verified
+  // was simultaneously set to false — a dormant unverified admin row, same
+  // root cause as passport.js:26's OAuth elevation path (D-17). Fixed by
+  // always inserting role:'visitor' here and promoting only in GET
+  // /auth/verify, below.
+  const ADMIN_EMAIL = 'admin@example.com';
+  let originalAdminEmail;
+
+  beforeAll(() => {
+    originalAdminEmail = process.env.ADMIN_EMAIL;
+    process.env.ADMIN_EMAIL = ADMIN_EMAIL;
+  });
+
+  afterAll(() => {
+    if (originalAdminEmail === undefined) delete process.env.ADMIN_EMAIL;
+    else process.env.ADMIN_EMAIL = originalAdminEmail;
+  });
+
+  it('always inserts role visitor, even when the submitted email matches ADMIN_EMAIL', async () => {
+    query.mockResolvedValueOnce({ rows: [] }); // existing-email check: no match
+    query.mockResolvedValueOnce({
+      rows: [{ id: 'u-1', email: ADMIN_EMAIL, display_name: 'Admin Wannabe', avatar_url: null, role: 'visitor', is_verified: false, created_at: new Date() }],
+    }); // INSERT
+
+    const res = await request(buildApp())
+      .post('/auth/register')
+      .send({ email: ADMIN_EMAIL, password: 'password123', display_name: 'Admin Wannabe' });
+
+    // The real mailer module runs unmocked here (no SMTP configured in the
+    // test env), so it throws and the route's catch responds 201 with
+    // mailError:true — this assertion only cares that registration itself
+    // succeeded, not the mail outcome.
+    expect([200, 201]).toContain(res.status);
+
+    const insertCall = query.mock.calls.find(([sql]) => /INSERT INTO users/i.test(sql));
+    expect(insertCall).toBeDefined();
+    const [insertSql] = insertCall;
+    // role is now a SQL literal ('visitor'), not a bound parameter fed by
+    // an isAdmin computed at registration time — assert the literal is
+    // present and unconditional, independent of the submitted email.
+    expect(insertSql).toMatch(/VALUES \(\$1, \$2, \$3, 'visitor', false/);
+  });
+});
+
+describe('GET /auth/verify (D-17 second site: admin role granted only at verification)', () => {
+  const ADMIN_EMAIL = 'admin@example.com';
+  let originalAdminEmail;
+
+  beforeAll(() => {
+    originalAdminEmail = process.env.ADMIN_EMAIL;
+    process.env.ADMIN_EMAIL = ADMIN_EMAIL;
+  });
+
+  afterAll(() => {
+    if (originalAdminEmail === undefined) delete process.env.ADMIN_EMAIL;
+    else process.env.ADMIN_EMAIL = originalAdminEmail;
+  });
+
+  it('promotes role to admin in the same UPDATE only when the just-verified email matches ADMIN_EMAIL', async () => {
+    const future = new Date(Date.now() + 60_000).toISOString();
+    query.mockResolvedValueOnce({
+      rows: [{ id: 'u-1', email: ADMIN_EMAIL, display_name: 'Admin Wannabe', role: 'visitor', is_verified: false, verification_expires_at: future }],
+    });
+    query.mockResolvedValueOnce({}); // UPDATE
+
+    const res = await request(buildApp()).get('/auth/verify').query({ token: 'sometoken' });
+
+    expect(res.status).toBe(200);
+    const [updateSql, updateParams] = query.mock.calls[1];
+    expect(updateSql).toMatch(/UPDATE users/i);
+    expect(updateSql).toMatch(/role = CASE WHEN \$2 THEN 'admin' ELSE role END/i);
+    expect(updateParams[1]).toBe(true);
+  });
+
+  it('does not promote when the verified email does not match ADMIN_EMAIL — role stays whatever it already was', async () => {
+    const future = new Date(Date.now() + 60_000).toISOString();
+    query.mockResolvedValueOnce({
+      rows: [{ id: 'u-2', email: 'nobody@example.com', display_name: 'Nobody', role: 'visitor', is_verified: false, verification_expires_at: future }],
+    });
+    query.mockResolvedValueOnce({});
+
+    const res = await request(buildApp()).get('/auth/verify').query({ token: 'sometoken' });
+
+    expect(res.status).toBe(200);
+    const [, updateParams] = query.mock.calls[1];
+    expect(updateParams[1]).toBe(false);
+  });
+
+  it('still enforces the existing expiry gate: an expired token is rejected before any promotion logic runs (proves the gate itself was not weakened)', async () => {
+    const past = new Date(Date.now() - 60_000).toISOString();
+    query.mockResolvedValueOnce({
+      rows: [{ id: 'u-3', email: ADMIN_EMAIL, display_name: 'Admin Wannabe', role: 'visitor', is_verified: false, verification_expires_at: past }],
+    });
+
+    const res = await request(buildApp()).get('/auth/verify').query({ token: 'expiredtoken' });
+
+    expect(res.status).toBe(400);
+    // Only the SELECT ran — the UPDATE (and therefore any admin promotion)
+    // never happens for an expired token.
+    expect(query).toHaveBeenCalledTimes(1);
   });
 });
 
