@@ -50,6 +50,16 @@ const oauthCallbackGuard = (provider) => (req, res, next) => {
   passport.authenticate(provider, { session: false }, (err, user) => {
     if (err) {
       console.error(`[Auth] OAuth callback 失敗 (${provider}):`, err.message);
+      // 重放判定：授權碼已被用掉而使用者身上又有 refresh cookie，代表
+      // 前一次請求其實已經登入成功，這只是同一組 code 的第二次送達。
+      // 把人導去前端 callback 頁，讓 silentRefresh 用既有 cookie 把
+      // 登入狀態接起來——而不是讓一個「已經登入的人」看到登入失敗。
+      // cookie 若其實無效，silentRefresh 會失敗，前端仍會退回登入頁，
+      // 所以這條捷徑不會讓未登入者矇混過關。
+      if (req.cookies?.refresh_token) {
+        console.log(`[Auth] OAuth callback 重放 (${provider})，以既有 cookie 續用登入狀態`);
+        return res.redirect(`${getPrimaryFrontendUrl()}/login/callback`);
+      }
       return res.redirect(`${getPrimaryFrontendUrl()}/login?error=oauth_failed`);
     }
     if (!user) {
