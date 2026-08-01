@@ -1,4 +1,5 @@
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = rateLimit;
 
 // 集中管理本專案所有的 rate limiter。四組端點（登入 / AI / TTS / 留言 / 專案同步）
 // 共用同一組回應格式與 header 設定，避免各自維護一份、格式日後漂移時要改四處。
@@ -21,4 +22,60 @@ const loginLimiter = rateLimit({
   limit: 10,
 });
 
-module.exports = { loginLimiter };
+// D-06: AI 端點以 req.userId 優先、IP 為輔計量，訪客不需登入即可使用 —— req.userId
+// 只有 optionalAuthenticate 先執行過且帶有效 token 時才存在，沒有的話退回 IP，
+// 絕不能變成登入牆。
+// 查證（安裝完成後讀 express-rate-limit@8.6.1 的實際原始碼，非憑印象判斷）：
+// node_modules/express-rate-limit/dist/index.cjs 內建一個 validations.keyGeneratorIpFallback
+// 檢查——對自訂 keyGenerator 的原始碼字串做比對，若含有 "req.ip"/"request.ip"
+// 卻沒有呼叫 ipKeyGenerator，會印出警告「Custom keyGenerator appears to use
+// request IP without calling the ipKeyGenerator helper function for IPv6
+// addresses. This could allow IPv6 users to bypass limits.」。套件本身也確實
+// 匯出 ipKeyGenerator（會把 IPv4-mapped IPv6、以及純 IPv6 位址正規化成穩定的
+// key，避免同一位訪客用不同位址格式繞過額度），因此 IP 分支一律包這一層。
+const aiOrIpKeyGenerator = (req) => req.userId || ipKeyGenerator(req.ip);
+
+// REL-05/D-07: 三個會消耗 Gemini 配額的端點（/chat、/generate-image、/summarize）
+// 合計每小時 40 次。
+const aiLimiter = rateLimit({
+  ...commonOptions,
+  windowMs: 60 * 60 * 1000,
+  limit: 40,
+  keyGenerator: aiOrIpKeyGenerator,
+});
+
+// REL-05 的一處明確細分（非縮減範圍，理由記錄於此並同步寫進本計畫 SUMMARY）：
+// /tts 走 msedge-tts（微軟 Edge 朗讀服務），完全不碰 Gemini 配額，D-07 的
+// 「AI 40 次／小時」針對的是會消耗 Gemini 配額的呼叫，不包含它。前端 Wobot
+// 會把一則回覆切成多個分句、每個分句各打一次 /tts —— 若與 aiLimiter 共用
+// 40 次／小時，訪客講不到十句話就會被自己的朗讀功能鎖死，直接違反
+// PROJECT.md 的 Core Value（訪客免登入即可互動）。300 次／小時 約等於
+// 40 則回覆 × 每則約 7 個分句，與 aiLimiter 的實際可用量對齊。
+const ttsLimiter = rateLimit({
+  ...commonOptions,
+  windowMs: 60 * 60 * 1000,
+  limit: 300,
+  keyGenerator: aiOrIpKeyGenerator,
+});
+
+// REL-06/D-07: 留言每 10 分鐘 20 次，以 req.userId 計量。必須掛在 authenticate
+// 之後——該 middleware 才會產生 req.userId，掛在前面時所有人共用同一個
+// undefined 桶。
+const commentsLimiter = rateLimit({
+  ...commonOptions,
+  windowMs: 10 * 60 * 1000,
+  limit: 20,
+  keyGenerator: (req) => req.userId,
+});
+
+// REL-06/D-07: 專案強制同步每小時 5 次，同樣以 req.userId 計量，必須掛在
+// authenticate + requireAdmin 之後。合法呼叫者本來就是管理員手動觸發的低頻
+// 操作，額度可以嚴一點，不影響一般訪客。
+const syncLimiter = rateLimit({
+  ...commonOptions,
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  keyGenerator: (req) => req.userId,
+});
+
+module.exports = { loginLimiter, aiLimiter, ttsLimiter, commentsLimiter, syncLimiter };

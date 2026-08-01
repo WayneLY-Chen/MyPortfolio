@@ -7,6 +7,8 @@ const { query } = require('../db')
 const os = require('os')
 const path = require('path')
 const fs = require('fs')
+const { optionalAuthenticate } = require('../middlewares/authenticate')
+const { aiLimiter, ttsLimiter } = require('../middlewares/rateLimiters')
 
 // Profile data cache mechanism
 const CACHE_TTL = 5 * 60 * 1000;
@@ -85,7 +87,7 @@ function buildSystemPrompt(mode, p) {
 const TTS_TIMEOUT_MS = 8000
 
 // POST /api/ai/tts
-router.post('/tts', async (req, res) => {
+router.post('/tts', optionalAuthenticate, ttsLimiter, async (req, res) => {
   const { text, voice = 'zh-CN-XiaoxiaoNeural' } = req.body
   if (!text) return res.status(400).json({ success: false, error: '缺少文字' })
 
@@ -145,7 +147,7 @@ const SDXL_VALID = new Set([
 ])
 
 // POST /api/ai/generate-image
-router.post('/generate-image', async (req, res) => {
+router.post('/generate-image', optionalAuthenticate, aiLimiter, async (req, res) => {
   let { prompt, width = 1024, height = 1024 } = req.body
   if (!prompt) return res.status(400).json({ success: false, error: '缺少 prompt' })
   width = Number(width); height = Number(height)
@@ -208,7 +210,7 @@ router.post('/generate-image', async (req, res) => {
 })
 
 // POST /api/ai/chat
-router.post('/chat', async (req, res) => {
+router.post('/chat', optionalAuthenticate, aiLimiter, async (req, res) => {
   const { message, history = [], mode = 'normal', wantAudio = true } = req.body
   if (!message) return res.status(400).json({ success: false, error: '缺少訊息' })
 
@@ -353,7 +355,7 @@ router.post('/chat', async (req, res) => {
 })
 
 // POST /api/ai/summarize
-router.post('/summarize', async (req, res) => {
+router.post('/summarize', optionalAuthenticate, aiLimiter, async (req, res) => {
   const { type, title, content } = req.body
   if (!content) return res.status(400).json({ success: false, error: '缺少內容' })
 
