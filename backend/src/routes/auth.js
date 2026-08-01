@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { query } = require('../db');
 const { generateAccessToken, generateRefreshToken, setRefreshTokenCookie, verifyAccessToken, generateGuestSessionToken } = require('../utils/jwt');
 const { authenticate } = require('../middlewares/authenticate');
+const { loginLimiter } = require('../middlewares/rateLimiters');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/mailer');
  
 // 解析多個前端網址，取第一個作為跳轉目的地
@@ -165,7 +166,7 @@ router.post('/resend-verification', async (req, res) => {
 });
 
 // POST /auth/login
-router.post('/login', (req, res, next) => {
+router.post('/login', loginLimiter, (req, res, next) => {
   passport.authenticate('local', { session: false }, async (err, user, info) => {
     if (err) return next(err);
     if (!user) return res.status(401).json({ success: false, error: info?.message || '登入失敗' });
