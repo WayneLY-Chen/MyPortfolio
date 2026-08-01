@@ -29,8 +29,13 @@ import {
 // totalPausedMsRef 排除暫停時長)、打錯字視覺回饋(D-18,ref 直接操作 class
 // 強制 reflow,並依 prefers-reduced-motion 切換抖動/瞬時外框兩種路徑)。
 //
-// 本計畫刻意不實作:完整結果卡的總秒數/總字數/錯字數/作答回顧紅標/榜首差距
-// (D-26)、上傳門檻灰化(D-25)——這些是 03-04 的範圍。
+// 03-04 補完:完整結果卡(D-26)、上傳門檻事前灰化(D-25)、暱稱前端驗證
+// (D-23)、行動裝置適配(D-06/INT-02)。
+//
+// D-23:暱稱規則逐字沿用 backend/src/config/leaderboardValidation.js 的
+// NICKNAME_STRICT_RE——專案沒有 monorepo,前後端規則各自維護一份,任何一邊
+// 改動都要同步修改另一邊,否則會出現「前端擋不住、後端擋得住」或反過來的落差。
+const NICKNAME_STRICT_RE = /^[一-鿿A-Za-z0-9_]{1,12}$/
 
 export default function TypingRace({ mode, onModeChange, onNewScore }) {
   const { addToast } = useToast()
@@ -162,12 +167,20 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
   }
 
   // D-17:輸入框重新取得焦點時恢復,並把這段暫停時長累加進總計。
+  // 行動裝置(D-06/INT-02):同一個 onFocus 事件也負責把輸入框捲到軟體鍵盤
+  // 彈出後仍可見的位置——這兩件事共用同一個焦點事件,不需要另外綁一個 handler。
   const handleResume = () => {
     if (pausedAtRef.current) {
       totalPausedMsRef.current += Date.now() - pausedAtRef.current
       pausedAtRef.current = null
     }
     setPaused(false)
+    if (inputRef.current) {
+      inputRef.current.scrollIntoView({
+        block: 'center',
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      })
+    }
   }
 
   // D-16:測驗進行中(未暫停、未結束)每 200ms 逼出一次重新渲染,驅動即時統計列。
@@ -248,9 +261,12 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
     resetRun(sentenceList, pickNextSentence(sentenceList, sentenceIndex))
   }
 
+  // D-25:正確率門檻與暱稱格式都是事前 UX 層攔阻,後端仍是最終把關——這裡的
+  // 兩個 guard 只是防禦性重複檢查(按鈕本身已經 disabled),不取代後端驗證。
   const handleUpload = async () => {
     const name = nickname.trim()
-    if (!name || saving) return
+    if (!name || !NICKNAME_STRICT_RE.test(name) || saving) return
+    if (Math.round(accuracyValue) < ACCURACY_THRESHOLD) return
     setSaving(true)
     try {
       const res = await fetch(`${API_URL}/leaderboard`, {
@@ -265,6 +281,11 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
       })
       if (!res.ok) throw new Error('伺服器回應錯誤')
       setSaved(true)
+      addToast({
+        title: '上傳成功',
+        description: `你的成績已加入${mode === 'zh' ? '中文' : '英文'}排行榜!`,
+        variant: 'success',
+      })
       if (onNewScore) onNewScore()
     } catch (err) {
       console.error('[TypingRaceUploadError]', err)
@@ -301,6 +322,13 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
     else gapState = 'behind'
   }
   const gap = gapState === 'behind' ? topScore - myScore : 0
+
+  // D-23:前端暱稱格式驗證,與後端 NICKNAME_STRICT_RE 逐字一致。
+  const nicknameTrimmed = nickname.trim()
+  const nicknameValid = NICKNAME_STRICT_RE.test(nicknameTrimmed)
+  // D-25:正確率門檻取自 typingEngine.js 的 ACCURACY_THRESHOLD,不寫死 90。
+  const accuracyMet = Math.round(accuracyValue) >= ACCURACY_THRESHOLD
+  const canUpload = !saving && !saved && nicknameValid && accuracyMet
 
   // D-16:即時統計列——用同一條 getElapsedMs() 路徑(已排除暫停時長)。
   const showStatusLine = started && !finished
@@ -649,6 +677,21 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
           outline: none;
         }
         .typing-nickname-input:focus { border-color: var(--accent); }
+        .typing-hint {
+          font-family: var(--font-sans);
+          font-size: 12px;
+          color: var(--muted);
+          text-align: center;
+          margin: 0;
+        }
+        .typing-hint--warning { color: var(--typing-wrong-text); }
+        .typing-nickname-error {
+          font-family: var(--font-sans);
+          font-size: 12px;
+          color: var(--typing-wrong-text);
+          text-align: center;
+          margin: 0;
+        }
         .typing-btn {
           padding: 12px 28px;
           border: none;
@@ -662,11 +705,20 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
           transition: opacity 0.3s;
         }
         .typing-btn--primary { background: var(--accent); color: var(--bg); }
-        .typing-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .typing-btn:disabled,
+        .typing-btn--disabled { opacity: 0.4; cursor: not-allowed; }
         .typing-upload-success { margin-top: 12px; color: var(--accent); font-size: 14px; }
 
+        .typing-mobile-hint {
+          display: none;
+          font-family: var(--font-sans);
+          font-size: 14px;
+          color: var(--muted);
+          margin: 0 0 16px;
+        }
         @media (max-width: 768px) {
           .typing-mode-btn, .typing-btn { min-height: 44px; }
+          .typing-mobile-hint { display: block; }
         }
       `}</style>
 
@@ -688,6 +740,9 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
           英文
         </button>
       </div>
+
+      {/* D-06:不偵測裝置,純 CSS 媒體查詢在 ≤768px 顯示;開始測驗後不佔用版面。 */}
+      {!started && <p className="typing-mobile-hint">建議使用電腦鍵盤以取得最佳成績</p>}
 
       <div className={`typing-passage ${mode === 'zh' ? 'typing-passage--zh' : 'typing-passage--en'}`}>
         {targetChars.map((ch, i) => {
@@ -783,12 +838,7 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
 
             <div
               className="typing-result-accuracy"
-              style={{
-                color:
-                  Math.round(accuracyValue) >= ACCURACY_THRESHOLD
-                    ? 'var(--typing-correct)'
-                    : 'var(--typing-wrong-text)',
-              }}
+              style={{ color: accuracyMet ? 'var(--typing-correct)' : 'var(--typing-wrong-text)' }}
             >
               {Math.round(accuracyValue)}%
             </div>
@@ -855,6 +905,15 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
               onChange={(e) => setNickname(e.target.value)}
               disabled={saving || saved}
             />
+            <p className="typing-hint">1–12 字,限中文、英數字或底線</p>
+            {nicknameTrimmed.length > 0 && !nicknameValid && (
+              <p className="typing-nickname-error">暱稱格式不符(1–12 字,限中文/英數字/底線)</p>
+            )}
+            {!accuracyMet && (
+              <p className="typing-hint typing-hint--warning">
+                正確率需達 {ACCURACY_THRESHOLD}% 才能上榜(你的成績:{Math.round(accuracyValue)}%)
+              </p>
+            )}
           </div>
 
           <div className="typing-actions">
@@ -863,9 +922,9 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
             </button>
             <button
               type="button"
-              className="typing-btn typing-btn--secondary"
+              className={`typing-btn typing-btn--secondary ${!canUpload ? 'typing-btn--disabled' : ''}`}
               onClick={handleUpload}
-              disabled={saving || saved || !nickname.trim()}
+              disabled={!canUpload}
             >
               {saving ? '儲存中...' : '上傳排名'}
             </button>
