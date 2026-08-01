@@ -4,8 +4,8 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const GitHubStrategy = require('passport-github2').Strategy;
 const LineStrategy = require('passport-line-auth').Strategy;
 const FacebookStrategy = require('passport-facebook').Strategy;
-const bcrypt = require('bcrypt');
 const { query } = require('../db');
+const { verifyLocalCredentials } = require('./localVerify');
 
 // 共用 OAuth 處理
 const handleOAuth = async (provider, profileId, email, displayName, avatarUrl, done) => {
@@ -45,20 +45,9 @@ const handleOAuth = async (provider, profileId, email, displayName, avatarUrl, d
 };
 
 // 本地登入
-passport.use(new LocalStrategy({ usernameField: 'email' }, async (email, password, done) => {
-  try {
-    const result = await query('SELECT * FROM users WHERE email = $1 AND is_active = true', [email]);
-    if (result.rows.length === 0) return done(null, false, { message: 'Email 或密碼錯誤' });
-    const user = result.rows[0];
-    if (!user.password_hash) return done(null, false, { message: '請使用第三方登入' });
-    const match = await bcrypt.compare(password, user.password_hash);
-    if (!match) return done(null, false, { message: 'Email 或密碼錯誤' });
-    if (!user.is_verified) return done(null, false, { message: '請先至 Email 收取驗證信以啟用帳號' });
-    return done(null, user);
-  } catch (err) {
-    return done(err);
-  }
-}));
+// 驗證邏輯搬到 ./localVerify.js（見該檔案頂端註解說明原因：測試環境會把
+// 整個 passport.js 換成替身，驗證邏輯留在這裡就永遠測不到）。
+passport.use(new LocalStrategy({ usernameField: 'email' }, verifyLocalCredentials));
 
 // Google OAuth
 if (process.env.GOOGLE_CLIENT_ID) {
