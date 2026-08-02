@@ -30,7 +30,7 @@
 // 英文 token**(網路 API 名稱、儲存 API 名稱、URL 操作 API 名稱)—— 掃描不分辨程式碼
 // 與註解,一段「說明我們不用某某 API」的註解會讓閘門抓到自己而永遠失敗。這件事在
 // 開發過程中真的發生過兩次,描述概念就好。
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
 import Base64Tool from './Base64Tool'
 import ColorTool from './ColorTool'
@@ -75,6 +75,90 @@ export default function DevToolsTab() {
     })
   }
 
+  // ── chip 列的桌機捲動手段 ───────────────────────────────────────────────
+  // 為什麼需要這一段:chip 列本身有 overflow-x: auto,手機用手指滑就好,但桌機
+  // 兩個手段都被擋住了 —— 捲軸被我們藏起來(D-05 的視覺決定),而滑鼠滾輪預設只捲
+  // 垂直。結果是視窗一縮小,使用者看得到被切掉的 chip 卻沒有任何辦法把它拉過來。
+  // 這不是版面 bug,是「可以捲動但沒有捲動的方法」。
+  const rowRef = useRef(null)
+  const drag = useRef({ active: false, moved: false, startX: 0, startScroll: 0 })
+  const [atStart, setAtStart] = useState(true)
+  const [atEnd, setAtEnd] = useState(false)
+
+  // 兩側漸層的顯隱。原本 UI-SPEC 只在右緣放漸層,理由是「列永遠從第一顆開始,
+  // 左側不會有隱藏內容」—— 一旦真的能捲動,這句話就不成立了,所以改成兩側都有、
+  // 各自依實際捲動位置顯隱。
+  const syncEdges = () => {
+    const el = rowRef.current
+    if (!el) return
+    const max = el.scrollWidth - el.clientWidth
+    setAtStart(el.scrollLeft <= 1)
+    setAtEnd(max <= 1 || el.scrollLeft >= max - 1)
+  }
+
+  useEffect(() => {
+    syncEdges()
+    window.addEventListener('resize', syncEdges)
+    return () => window.removeEventListener('resize', syncEdges)
+  }, [])
+
+  const onPointerDown = (e) => {
+    const el = rowRef.current
+    if (!el || e.button !== 0) return
+    // 沒有可捲動空間就不要攔截,否則會平白吃掉 chip 的點擊手感。
+    if (el.scrollWidth <= el.clientWidth + 1) return
+    drag.current = { active: true, moved: false, startX: e.clientX, startScroll: el.scrollLeft }
+  }
+
+  const onPointerMove = (e) => {
+    const d = drag.current
+    if (!d.active) return
+    const el = rowRef.current
+    const dx = e.clientX - d.startX
+    // 5px 門檻:低於這個距離視為「手抖的點擊」而不是拖曳,否則使用者會發現
+    // 明明是想點 chip,卻因為手指移動兩三個 pixel 就變成沒反應。
+    if (!d.moved && Math.abs(dx) < 5) return
+    if (!d.moved) {
+      d.moved = true
+      el.setPointerCapture?.(e.pointerId)
+    }
+    el.scrollLeft = d.startScroll - dx
+    syncEdges()
+  }
+
+  const endDrag = (e) => {
+    const d = drag.current
+    if (d.active && d.moved) rowRef.current?.releasePointerCapture?.(e.pointerId)
+    // 不要在這裡把 moved 清掉 —— 緊接著觸發的 click 要靠它判斷「這是拖曳的尾巴,
+    // 不是一次點擊」。清除交給 onClickCapture。
+    d.active = false
+  }
+
+  // 拖曳結束後瀏覽器仍會補一個 click,若不攔下來,放開手的位置剛好在某顆 chip 上
+  // 就會意外切換工具。
+  const onClickCapture = (e) => {
+    if (drag.current.moved) {
+      e.stopPropagation()
+      e.preventDefault()
+      drag.current.moved = false
+    }
+  }
+
+  // 滑鼠滾輪轉成水平捲動。只在「該方向真的還有得捲」時才 preventDefault ——
+  // 到底了就把事件放行給頁面,否則指標停在這條 44px 的窄帶上時整頁會捲不動。
+  const onWheel = (e) => {
+    const el = rowRef.current
+    if (!el || el.scrollWidth <= el.clientWidth + 1) return
+    const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX
+    if (delta === 0) return
+    const max = el.scrollWidth - el.clientWidth
+    const canScroll = delta > 0 ? el.scrollLeft < max - 1 : el.scrollLeft > 1
+    if (!canScroll) return
+    e.preventDefault()
+    el.scrollLeft += delta
+    syncEdges()
+  }
+
   const ActiveTool = TOOLS.find((tool) => tool.id === activeSubTab)?.Component
 
   return (
@@ -108,13 +192,28 @@ export default function DevToolsTab() {
         /* D-05:chip 列。外層負責右緣漸層提示(無條件渲染,不做 JS 捲動偵測),
            內層負責橫向捲動。明文排除下拉選單與自動換行排多行。 */
         .dt-chip-row-wrap { position: relative; }
+        /* 兩側漸層,各自只在「那一邊真的還有被藏起來的 chip」時才出現。
+           原本只做右側、而且無條件顯示,結果是最後一顆的邊框永遠被淡掉;
+           改成可捲動之後左側也可能有隱藏內容,所以兩側都要,且都要跟著捲動位置走。 */
+        .dt-chip-row-wrap::before,
         .dt-chip-row-wrap::after {
           content: '';
           position: absolute;
-          top: 0; right: 0; bottom: 0;
+          top: 0; bottom: 0;
           width: 32px;
-          background: linear-gradient(to right, transparent, var(--bg) 80%);
           pointer-events: none;
+          opacity: 0;
+          transition: opacity 0.2s;
+        }
+        .dt-chip-row-wrap::before {
+          left: 0;
+          background: linear-gradient(to left, transparent, var(--bg) 80%);
+        }
+        .dt-chip-row-wrap--more-left::before { opacity: 1; }
+        .dt-chip-row-wrap--more-right::after { opacity: 1; }
+        .dt-chip-row-wrap::after {
+          right: 0;
+          background: linear-gradient(to right, transparent, var(--bg) 80%);
         }
         .dt-chip-row {
           display: flex;
@@ -124,6 +223,14 @@ export default function DevToolsTab() {
           scrollbar-width: none;
         }
         .dt-chip-row::-webkit-scrollbar { display: none; }
+        /* 拖曳捲動的視覺提示。只有真的還有內容藏著時才變成抓手 —— 放不下時才需要拖,
+           剛好放得下卻顯示抓手等於在騙使用者這裡可以拖。
+           user-select: none 是必要的:少了它,拖曳時會把 chip 的文字一起選起來。 */
+        .dt-chip-row { user-select: none; touch-action: pan-x; }
+        .dt-chip-row-wrap--more-left .dt-chip-row,
+        .dt-chip-row-wrap--more-right .dt-chip-row { cursor: grab; }
+        .dt-chip-row-wrap--more-left .dt-chip-row:active,
+        .dt-chip-row-wrap--more-right .dt-chip-row:active { cursor: grabbing; }
         /* 最後一顆 chip 必須讓開右緣那道 32px 的漸層,否則它的右邊框會被漸層淡掉。
            04-UI-SPEC.md 原本的判斷是「沒東西可遮的時候,漸層對著背景是視覺上惰性的」——
            這句話錯了:漸層底下不是背景,是最後一顆 chip,而且不管有沒有溢出都蓋著。
@@ -965,6 +1072,8 @@ export default function DevToolsTab() {
           .dt-btn { transition: none; }
           .dt-dropzone { transition: none; }
           .dt-chip-row { scroll-behavior: auto; }
+          .dt-chip-row-wrap::before,
+          .dt-chip-row-wrap::after { transition: none; }
         }
       `}</style>
 
@@ -976,8 +1085,20 @@ export default function DevToolsTab() {
         </span>
       </div>
 
-      <div className="dt-chip-row-wrap">
-        <div className="dt-chip-row" role="tablist" aria-label="開發者工具">
+      <div className={`dt-chip-row-wrap ${atStart ? '' : 'dt-chip-row-wrap--more-left'} ${atEnd ? '' : 'dt-chip-row-wrap--more-right'}`}>
+        <div
+          className="dt-chip-row"
+          role="tablist"
+          aria-label="開發者工具"
+          ref={rowRef}
+          onScroll={syncEdges}
+          onWheel={onWheel}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onClickCapture={onClickCapture}
+        >
           {TOOLS.map((tool) => (
             <button
               key={tool.id}
