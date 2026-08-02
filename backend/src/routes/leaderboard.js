@@ -7,6 +7,7 @@ const {
   isValidNickname,
   isScoreWithinCap,
   isAccuracyAcceptable,
+  containsBlockedTerm,
   ACCURACY_THRESHOLD,
 } = require('../config/leaderboardValidation')
 const { buildLeaderboardSelect } = require('../config/leaderboardQuery')
@@ -54,6 +55,17 @@ router.post('/', async (req, res) => {
     safeName = trimmedName
   } else {
     safeName = String(player_name).trim().substring(0, 20)
+  }
+
+  // D-35：內容黑名單檢查點。刻意放在這裡而非塞進 isValidNickname()：
+  // (a) 兩條 safeName 分支（typing 嚴格、舊遊戲寬鬆）在此匯流，四個
+  //     game_type 全部覆蓋，沒有換榜繞過的縫隙——這與 D-24 補
+  //     game_type 白名單是同一條推論(留一個榜不擋等於沒擋)。
+  // (b) 檢查的是即將寫進資料庫的那個字串；舊遊戲分支已經 trim + 截斷到
+  //     20 字，截斷只會移除字元、不會憑空造出匹配，檢查截斷後的值正確。
+  // (c) 排在分數驗證之前，讓使用者先拿到最可行動的那則錯誤。
+  if (containsBlockedTerm(safeName)) {
+    return res.status(400).json({ success: false, error: '暱稱包含不適當的字詞，請換一個' })
   }
 
   const safeScore = parseInt(score)

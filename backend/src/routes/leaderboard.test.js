@@ -343,6 +343,31 @@ describe('GET /api/leaderboard 打字榜去重查詢(D-34)', () => {
   });
 });
 
+describe('POST /api/leaderboard 暱稱內容黑名單(D-35) — 端到端最薄一刀', () => {
+  it("player_name: 'fuck' + typing_zh → 400，訊息逐字為指定文案，且 query 未被呼叫", async () => {
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'typing_zh',
+      player_name: 'fuck',
+      score: 100,
+      accuracy: 95,
+    });
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ success: false, error: '暱稱包含不適當的字詞，請換一個' });
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it("player_name: 'Yamashita' + typing_zh → 200(這一刀沒有順手擋掉無辜名字)", async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'typing_zh',
+      player_name: 'Yamashita',
+      score: 100,
+      accuracy: 95,
+    });
+    expect(res.status).toBe(200);
+  });
+});
+
 describe('GET /api/leaderboard 舊遊戲查詢逐字未變迴歸(D-27 未被推翻的部分)', () => {
   it('?game=snake → query 收到的 SQL 與 LEGACY_SELECT 逐字相等,不含 DISTINCT,參數為 [snake, 10]', async () => {
     query.mockResolvedValueOnce({ rows: [] });
