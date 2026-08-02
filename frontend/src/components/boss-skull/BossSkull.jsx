@@ -30,15 +30,105 @@ const FRAG = /* glsl */ `
   uniform vec2 uResolution;
   varying vec2 vUv;
 
-  // Task 3 會把這顆橢球雕成骷髏(下顎、眼窩、鼻腔、牙列、顴骨)。
-  // 現在先留顱骨的雛形 —— 一顆略微前後壓扁的橢球。
-  // 造型換掉的時候,底下的 normal / 打光 / raymarch 迴圈一行都不用動。
-  float sdSkull(vec3 p) {
-    vec3 q = p / vec3(1.0, 1.15, 0.90);
-    return (length(q) - 1.0) * 0.90;
+  // ── SDF 基本件 ──
+  float sdEllipsoid(vec3 p, vec3 r) {
+    float k0 = length(p / r);
+    float k1 = length(p / (r * r));
+    return k0 * (k0 - 1.0) / k1;
+  }
+  float sdRoundBox(vec3 p, vec3 b, float r) {
+    vec3 q = abs(p) - b;
+    return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0) - r;
+  }
+  // 平滑聯集 / 平滑差集。骷髏的各部件不能是硬邊拼起來的,
+  // 顱骨接顴骨、顴骨接上顎都要有骨頭該有的圓弧過渡。
+  float smin(float a, float b, float k) {
+    float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+    return mix(b, a, h) - k * h * (1.0 - h);
+  }
+  float smax(float a, float b, float k) {
+    float h = clamp(0.5 - 0.5 * (b - a) / k, 0.0, 1.0);
+    return mix(b, a, h) + k * h * (1.0 - h);
+  }
+  // 倒三角柱(頂點朝上、底邊較寬),用來挖鼻腔 —— 梨狀孔就是這個形狀。
+  float sdTriPrism(vec3 p, float w, float h, float d) {
+    vec2 q = vec2(abs(p.x), p.y);
+    vec2 n = normalize(vec2(h, w));
+    float tri = max(-q.y, dot(q - vec2(w, 0.0), n));
+    vec2 dd = vec2(tri, abs(p.z) - d);
+    return min(max(dd.x, dd.y), 0.0) + length(max(dd, 0.0));
   }
 
-  // 中央差分梯度求法線 —— 眼窩與鼻腔的深度感之後就是靠這個出來的。
+  // 兩個眼窩(x 取絕對值 → 左右鏡射)。
+  // 單獨拉成一個函式,因為打光時還要用它判斷「這個點在不在眼窩裡」來加餘燼。
+  float eyeHole(vec3 p) {
+    vec3 q = vec3(abs(p.x), p.y, p.z);
+    return sdEllipsoid(q - vec3(0.30, 0.28, 0.42), vec3(0.215, 0.20, 0.32));
+  }
+
+  // ── 骷髏本體 ──
+  // 顱骨(略微前後壓扁的橢球)→ 顴骨隆起 → 上顎 → 下顎(較窄,收出下巴)
+  // → 挖嘴部凹槽 → 填回牙列 → 挖眼窩 → 挖鼻腔。
+  float sdSkull(vec3 p) {
+    float d = sdEllipsoid(p - vec3(0.0, 0.30, 0.0), vec3(0.70, 0.75, 0.66));
+
+    // 顴骨:細長橢球,再一道 smin 融出臉頰的隆起
+    vec3 c = vec3(abs(p.x), p.y, p.z);
+    float cheek = sdEllipsoid(c - vec3(0.42, 0.06, 0.22), vec3(0.17, 0.13, 0.25));
+    d = smin(d, cheek, 0.18);
+
+    // 上顎
+    float maxilla = sdRoundBox(p - vec3(0.0, -0.26, 0.10), vec3(0.32, 0.19, 0.33), 0.10);
+    d = smin(d, maxilla, 0.20);
+
+    // 下顎:用橢球而不是圓角方塊 —— 方塊會做出一塊方形的下巴磚,
+    // 骷髏的下頜是往中間收的弧線。半寬 0.30 明顯小於顱骨的 0.70,
+    // 「上寬下窄」就是從這裡來的。
+    float mandible = sdEllipsoid(p - vec3(0.0, -0.54, 0.06), vec3(0.33, 0.22, 0.31));
+    d = smin(d, mandible, 0.22);
+    // 下巴尖:再一顆小橢球把下緣收成圓弧
+    float chin = sdEllipsoid(p - vec3(0.0, -0.66, 0.11), vec3(0.22, 0.13, 0.22));
+    d = smin(d, chin, 0.18);
+
+    // 嘴部凹槽:先挖一條帶狀凹陷,牙齒等一下填回去,牙縫才讀得出來
+    float mouth = sdRoundBox(p - vec3(0.0, -0.45, 0.40), vec3(0.27, 0.085, 0.16), 0.02);
+    d = smax(d, -mouth, 0.03);
+
+    // 牙列:沿 x 軸做定義域重複,再與嘴部帶狀區取交集限制重複範圍,
+    // 否則這排牙齒會沿著 x 軸無限延伸出去。
+    float sp = 0.084;
+    vec3 t = p;
+    t.x = mod(t.x + 0.5 * sp, sp) - 0.5 * sp;
+    float tooth = sdRoundBox(t - vec3(0.0, -0.45, 0.36), vec3(0.027, 0.058, 0.07), 0.010);
+    float band = sdRoundBox(p - vec3(0.0, -0.45, 0.36), vec3(0.245, 0.068, 0.10), 0.0);
+    d = min(d, max(tooth, band));
+
+    // 眼窩:挖得夠深,內部才進得了陰影 —— 這是「看起來像骷髏」的關鍵
+    d = smax(d, -eyeHole(p), 0.045);
+
+    // 鼻腔
+    float nose = sdTriPrism(p - vec3(0.0, -0.11, 0.40), 0.10, 0.25, 0.30);
+    d = smax(d, -nose, 0.03);
+
+    return d;
+  }
+
+  // 沿法線方向取樣的環境遮蔽。原本用步進次數近似太粗糙,眼窩會亮得像眼球 ——
+  // 而骷髏之所以讀得出來是骷髏,關鍵就在眼窩與鼻腔必須是暗的。
+  // 5 個取樣點,相對於 48 步的 raymarch 只是很小的加項。
+  float calcAO(vec3 p, vec3 n) {
+    float occ = 0.0;
+    float sca = 1.0;
+    for (int i = 0; i < 5; i++) {
+      float h = 0.02 + 0.13 * float(i) / 4.0;
+      float d = sdSkull(p + n * h);
+      occ += (h - d) * sca;
+      sca *= 0.82;
+    }
+    return clamp(1.0 - 1.9 * occ, 0.0, 1.0);
+  }
+
+  // 中央差分梯度求法線 —— 眼窩與鼻腔的深度感就是靠這個出來的。
   vec3 calcNormal(vec3 p) {
     vec2 e = vec2(0.0015, 0.0);
     return normalize(vec3(
@@ -67,8 +157,12 @@ const FRAG = /* glsl */ `
     for (int i = 0; i < ${MAX_STEPS}; i++) {
       vec3 pos = ro + rd * t;
       float d = sdSkull(pos);
-      if (d < 0.0015) { hit = 1.0; break; }
-      t += d;
+      // 命中門檻隨距離放寬。用固定的極小值時,掠射角的邊緣光線會在步數用完前
+      // 一直「差一點點」,導致輪廓出現一圈斷斷續續的雜點。
+      if (d < 0.0012 * t) { hit = 1.0; break; }
+      // 0.85 的步進係數:smin / smax 會讓 SDF 略微高估真實距離,
+      // 直接走滿會穿過薄的地方(牙縫、眼窩邊緣)造成破洞。
+      t += d * 0.85;
       steps = i;
       if (t > 6.0) break;
     }
@@ -83,9 +177,12 @@ const FRAG = /* glsl */ `
     vec3 n = calcNormal(pos);
     vec3 v = -rd;
 
-    // 步進次數近似的環境遮蔽:凹處要走比較多步,自然就比較暗。
-    float ao = 1.0 - float(steps) / float(${MAX_STEPS}) * 0.85;
-    ao = clamp(ao, 0.35, 1.0);
+    float ao = calcAO(pos, n);
+
+    // 眼窩 / 鼻腔的額外壓暗。單靠 AO 還不夠 —— 這兩個孔洞必須明確地暗下去,
+    // 否則在 320px 上會讀成「兩顆亮眼珠」而不是「兩個深洞」。
+    float cavity = min(eyeHole(pos), sdTriPrism(pos - vec3(0.0, -0.11, 0.40), 0.10, 0.25, 0.30));
+    float inCavity = smoothstep(0.10, -0.05, cavity);
 
     // 主光:暖金色方向光,與卡片既有的 #C8942A 主題一致
     vec3 keyDir = normalize(vec3(0.55, 0.75, 0.65));
@@ -98,11 +195,24 @@ const FRAG = /* glsl */ `
 
     // 冷色 fresnel 邊光,把輪廓從深色背景上提出來
     float fres = pow(1.0 - max(dot(n, v), 0.0), 2.5);
-    vec3 rim = vec3(0.42, 0.55, 0.78) * fres * 0.9;
+    vec3 rim = vec3(0.42, 0.55, 0.78) * fres * 1.15;
 
-    vec3 col = bone * (0.16 + 0.95 * diff) * ao;
-    col += keyCol * spec * 0.55;
-    col += rim;
+    // 主光的顏色必須真的乘進漫反射,不能只拿去做高光 ——
+    // 只餵高光的話,整顆骷髏會是沒有色溫的灰白,跟卡片的金色主題對不起來。
+    // 這裡把白光與金色調和成暖奶油色:骨頭仍是骨頭,但明確被金光打亮。
+    vec3 keyLight = mix(vec3(1.0), keyCol, 0.55) * 1.55;
+    vec3 ambient = vec3(0.16, 0.15, 0.18);
+
+    float shade = mix(1.0, 0.10, inCavity);
+    vec3 col = bone * (ambient + diff * keyLight) * ao * shade;
+    col += keyCol * spec * 0.5 * (1.0 - inCavity);
+    col += rim * (1.0 - 0.7 * inCavity);
+
+    // 眼窩深處的金色餘燼。刻意壓得很弱:一開始給到 0.85,結果整個眼窩被填成
+    // 發光的金色圓盤,看起來像眼球而不是空洞。餘燼要像洞裡剩下的一點火光,
+    // 只在最深處透出來,不能把洞照亮。
+    float ember = smoothstep(0.0, -0.18, eyeHole(pos));
+    col += vec3(0.95, 0.66, 0.20) * ember * 0.42;
 
     gl_FragColor = vec4(col, 1.0);
   }
