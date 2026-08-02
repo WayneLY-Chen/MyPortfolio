@@ -9,6 +9,7 @@ import express from 'express';
 import request from 'supertest';
 import leaderboardRouter from './leaderboard.js';
 import { query } from '../db';
+import { LEGACY_SELECT } from '../config/leaderboardQuery.js';
 
 // Build a fresh, minimal Express app per call, mounting only the leaderboard
 // router at the same path backend/src/index.js uses (index.js:122) — never
@@ -283,7 +284,11 @@ describe('既有行為(必填欄位與分數格式,本計畫未改動)', () => {
   });
 });
 
-describe('GET /api/leaderboard 未受影響', () => {
+// 這個 describe 原名「GET /api/leaderboard 未受影響」——D-34 之後這個說法已經
+// 不成立(打字榜的查詢與回傳列數確實改變了),留著原名會誤導下一個讀者。這裡
+// 驗的其實是「route 不對 query 回傳的 rows 做任何額外的 JS 端過濾或轉換,
+// 原樣穿透」,改名反映真正的斷言內容,斷言本身不動。
+describe('GET /api/leaderboard 回應形狀原樣穿透(route 不做額外過濾或轉換)', () => {
   it('GET /api/leaderboard?game=typing_zh&limit=10 在 query 回傳 rows 時 → 200', async () => {
     const rows = [{ player_name: '小明', score: 100, created_at: '2026-08-02T00:00:00.000Z' }];
     query.mockResolvedValueOnce({ rows });
@@ -292,5 +297,85 @@ describe('GET /api/leaderboard 未受影響', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ success: true, data: rows });
+  });
+});
+
+describe('GET /api/leaderboard 打字榜去重查詢(D-34)', () => {
+  it('?game=typing_zh → query 收到含 DISTINCT ON (player_name) 的 SQL,參數為 [typing_zh, 10]', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(buildApp()).get('/api/leaderboard?game=typing_zh');
+
+    expect(res.status).toBe(200);
+    const [sql, params] = query.mock.calls[0];
+    expect(sql).toContain('DISTINCT ON (player_name)');
+    expect(params).toEqual(['typing_zh', 10]);
+  });
+
+  it('?game=typing_en → query 收到含 DISTINCT ON (player_name) 的 SQL,參數為 [typing_en, 10]', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(buildApp()).get('/api/leaderboard?game=typing_en');
+
+    expect(res.status).toBe(200);
+    const [sql, params] = query.mock.calls[0];
+    expect(sql).toContain('DISTINCT ON (player_name)');
+    expect(params).toEqual(['typing_en', 10]);
+  });
+
+  it('?game=typing_zh&limit=999 → limit 仍被夾制為 50(既有行為未變)', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(buildApp()).get('/api/leaderboard?game=typing_zh&limit=999');
+
+    expect(res.status).toBe(200);
+    const [, params] = query.mock.calls[0];
+    expect(params).toEqual(['typing_zh', 50]);
+  });
+
+  it('?game=typing_zh 時 query reject → 仍回 200 與 { success: true, data: [] }(既有吞錯行為未變)', async () => {
+    query.mockRejectedValueOnce(new Error('DB 掛了'));
+
+    const res = await request(buildApp()).get('/api/leaderboard?game=typing_zh');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ success: true, data: [] });
+  });
+});
+
+describe('GET /api/leaderboard 舊遊戲查詢逐字未變迴歸(D-27 未被推翻的部分)', () => {
+  it('?game=snake → query 收到的 SQL 與 LEGACY_SELECT 逐字相等,不含 DISTINCT,參數為 [snake, 10]', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(buildApp()).get('/api/leaderboard?game=snake');
+
+    expect(res.status).toBe(200);
+    const [sql, params] = query.mock.calls[0];
+    expect(sql).toBe(LEGACY_SELECT);
+    expect(sql).not.toContain('DISTINCT');
+    expect(params).toEqual(['snake', 10]);
+  });
+
+  it('?game=2048 → query 收到的 SQL 與 LEGACY_SELECT 逐字相等,不含 DISTINCT,參數為 [2048, 10]', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(buildApp()).get('/api/leaderboard?game=2048');
+
+    expect(res.status).toBe(200);
+    const [sql, params] = query.mock.calls[0];
+    expect(sql).toBe(LEGACY_SELECT);
+    expect(sql).not.toContain('DISTINCT');
+    expect(params).toEqual(['2048', 10]);
+  });
+
+  it('不帶 game 參數 → 沿用既有的 snake 預設,走舊路徑', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+
+    const res = await request(buildApp()).get('/api/leaderboard');
+
+    expect(res.status).toBe(200);
+    const [sql, params] = query.mock.calls[0];
+    expect(sql).toBe(LEGACY_SELECT);
+    expect(params).toEqual(['snake', 10]);
   });
 });
