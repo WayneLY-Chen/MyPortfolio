@@ -12,6 +12,7 @@
 //   3. 使用者輸入不得寫進網址(路徑、查詢字串、片段皆禁止)。
 import { useRef, useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
+import Base64Tool from './Base64Tool'
 import JsonTool from './JsonTool'
 import UuidTool from './UuidTool'
 
@@ -20,6 +21,7 @@ import UuidTool from './UuidTool'
 // 後續每個工具各自把自己那筆插進正確的 FEAT 位置。
 const TOOLS = [
   { id: 'json', label: 'JSON 格式化', Component: JsonTool },
+  { id: 'base64', label: 'Base64 轉換', Component: Base64Tool },
   { id: 'uuid', label: 'UUID 產生', Component: UuidTool },
 ]
 
@@ -305,6 +307,30 @@ export default function DevToolsTab() {
           overflow-wrap: anywhere;
           overflow-y: auto;
           max-height: 480px;
+        }
+
+        /* ── FEAT-09 Base64 工具專屬 ── 只追加,不改動上方任何共用值。 */
+        .dt-base64-tool {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          width: 100%;
+        }
+        /* min-width: 0 讓兩欄的 minmax(0, 1fr) 真的生效 —— 沒有它,一長串沒有空白的
+           Base64 會把自己那一欄撐爆。 */
+        .dt-base64-pane {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          min-width: 0;
+        }
+        .dt-mode-toggle { display: flex; gap: 8px; }
+        /* 模式切換沿用 chip 家族,只縮一號 —— 它跟上方的工具 chip 是同一種控制項,
+           不該長成第三種樣子。@media 的 44px 觸控下限由 .dt-chip 一併涵蓋。 */
+        .dt-chip--sm {
+          padding: 6px 14px;
+          font-size: 12px;
+          letter-spacing: 0.08em;
         }
 
         .dt-uuid-controls {
