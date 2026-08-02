@@ -368,6 +368,48 @@ describe('POST /api/leaderboard 暱稱內容黑名單(D-35) — 端到端最薄�
   });
 });
 
+describe('POST /api/leaderboard 暱稱內容黑名單(D-35) — 四個 game_type 全部受保護', () => {
+  // 直接證明決策 G 的「沒有換榜繞過的縫隙」——想罵髒話的人換個 game_type
+  // 也上不了榜。snake/2048 走舊遊戲寬鬆分支、typing_zh/typing_en 走嚴格
+  // 分支,但兩條分支在 D-35 的檢查點匯流,四個榜共用同一道防線。
+  it.each(['snake', '2048', 'typing_zh', 'typing_en'])(
+    "game_type: %s + player_name: 'fuck' → 400,query 未被呼叫",
+    async (gameType) => {
+      const payload = { game_type: gameType, player_name: 'fuck', score: 10 };
+      if (gameType === 'typing_zh' || gameType === 'typing_en') {
+        payload.accuracy = 95;
+      }
+      const res = await request(buildApp()).post('/api/leaderboard').send(payload);
+      expect(res.status).toBe(400);
+      expect(query).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(['Dick Van Dyke', 'Michelle Yeoh'])(
+    '舊遊戲(snake)的無辜長暱稱 %s(含空白、超過 12 字)仍然 200(寬鬆行為與新檢查並存)',
+    async (name) => {
+      query.mockResolvedValueOnce({ rows: [] });
+      const res = await request(buildApp()).post('/api/leaderboard').send({
+        game_type: 'snake',
+        player_name: name,
+        score: 10,
+      });
+      expect(res.status).toBe(200);
+    }
+  );
+
+  it("中文髒話 '幹你娘' 走 typing_zh → 400", async () => {
+    const res = await request(buildApp()).post('/api/leaderboard').send({
+      game_type: 'typing_zh',
+      player_name: '幹你娘',
+      score: 100,
+      accuracy: 95,
+    });
+    expect(res.status).toBe(400);
+    expect(query).not.toHaveBeenCalled();
+  });
+});
+
 describe('GET /api/leaderboard 舊遊戲查詢逐字未變迴歸(D-27 未被推翻的部分)', () => {
   it('?game=snake → query 收到的 SQL 與 LEGACY_SELECT 逐字相等,不含 DISTINCT,參數為 [snake, 10]', async () => {
     query.mockResolvedValueOnce({ rows: [] });
