@@ -9,16 +9,19 @@ const {
   isAccuracyAcceptable,
   ACCURACY_THRESHOLD,
 } = require('../config/leaderboardValidation')
+const { buildLeaderboardSelect } = require('../config/leaderboardQuery')
 
 // GET /api/leaderboard?game=snake&limit=10
+// D-34:打字榜(typing_zh/typing_en)改為每位玩家只回傳個人最佳成績,SQL 形狀
+// 由 buildLeaderboardSelect(game) 依 isTypingGameType() 分岔;其餘 game_type
+// (snake/2048 等舊遊戲)取得的查詢字串與改動前逐字相同,不受影響。未知的
+// game_type 沿用既有行為,經 isTypingGameType() 判為 false 後自然走舊路徑,
+// 本 handler 不另加白名單驗證。
 router.get('/', async (req, res) => {
   const game = req.query.game || 'snake'
   const limit = Math.min(parseInt(req.query.limit) || 10, 50)
   try {
-    const result = await query(
-      `SELECT player_name, score, created_at FROM leaderboard WHERE game_type = $1 ORDER BY score DESC LIMIT $2`,
-      [game, limit]
-    )
+    const result = await query(buildLeaderboardSelect(game), [game, limit])
     res.json({ success: true, data: result.rows })
   } catch (err) {
     console.error('[Leaderboard] 查詢失敗:', err.message)
