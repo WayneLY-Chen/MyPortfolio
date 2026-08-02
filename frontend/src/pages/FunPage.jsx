@@ -2021,8 +2021,14 @@ export default function FunPage() {
               <TodoList />
             </div>
           )}
+          {/* width: '100%' 是必要的,不是保險寫法:.tab-content 是
+              flex-direction: column + align-items: center,這種容器裡的子項寬度由
+              「內容」決定(fit-content),既不會被拉寬也不會被壓縮。工具箱的 chip 列
+              內容約 917px,少了這行,整條祖先鏈在 320px 視窗下都會變成 917px,
+              chip 列的 overflow-x: auto 因為寬度沒被限制而完全失效 ——
+              第 4~7 顆 chip 會被上層的 overflow-x: hidden 裁掉且滑不到。 */}
           {activeTab === 'tools' && (
-            <div style={{ marginTop: '20px' }}>
+            <div style={{ marginTop: '20px', width: '100%' }}>
               <DevToolsTab />
             </div>
           )}

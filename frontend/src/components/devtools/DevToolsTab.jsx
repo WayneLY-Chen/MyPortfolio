@@ -124,6 +124,13 @@ export default function DevToolsTab() {
           scrollbar-width: none;
         }
         .dt-chip-row::-webkit-scrollbar { display: none; }
+        /* 最後一顆 chip 必須讓開右緣那道 32px 的漸層,否則它的右邊框會被漸層淡掉。
+           04-UI-SPEC.md 原本的判斷是「沒東西可遮的時候,漸層對著背景是視覺上惰性的」——
+           這句話錯了:漸層底下不是背景,是最後一顆 chip,而且不管有沒有溢出都蓋著。
+           實際回報現象就是最後一顆(顏色轉換)的右邊框不見。
+           用 margin 而不是在捲動容器上加 padding-right:部分瀏覽器對橫向捲動容器的
+           padding-right 處理不一致,margin-right 在各家都可靠。 */
+        .dt-chip:last-child { margin-right: 32px; }
 
         /* 視覺值逐字取自已上線的 .typing-mode-btn(TypingRace.jsx:452-468),
            padding 10px 24px 是刻意對齊,不得「修正」成 8px 或 12px。 */
