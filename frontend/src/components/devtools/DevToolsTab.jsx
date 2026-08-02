@@ -14,6 +14,7 @@ import { useRef, useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
 import Base64Tool from './Base64Tool'
 import JsonTool from './JsonTool'
+import JwtTool from './JwtTool'
 import UuidTool from './UuidTool'
 
 // D-01:工具註冊表。順序固定為 FEAT-07~13(json / jwt / base64 / regex / uuid / hash / color)。
@@ -21,6 +22,7 @@ import UuidTool from './UuidTool'
 // 後續每個工具各自把自己那筆插進正確的 FEAT 位置。
 const TOOLS = [
   { id: 'json', label: 'JSON 格式化', Component: JsonTool },
+  { id: 'jwt', label: 'JWT 解碼', Component: JwtTool },
   { id: 'base64', label: 'Base64 轉換', Component: Base64Tool },
   { id: 'uuid', label: 'UUID 產生', Component: UuidTool },
 ]
@@ -307,6 +309,116 @@ export default function DevToolsTab() {
           overflow-wrap: anywhere;
           overflow-y: auto;
           max-height: 480px;
+        }
+
+        /* ── FEAT-08 JWT 工具專屬 ── 只追加,不改動上方任何共用值。 */
+        .dt-jwt-tool {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          width: 100%;
+        }
+        /* min-width: 0 讓兩欄的 minmax(0, 1fr) 真的生效 —— 沒有它,一長串沒有空白的
+           token 會把自己那一欄撐爆。 */
+        .dt-jwt-pane {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          min-width: 0;
+        }
+        /* D-17 的界線寫在畫面上,免得訪客以為驗簽壞掉了。 */
+        .dt-jwt-note {
+          margin: 0;
+          color: var(--muted);
+          font-size: 14px;
+          line-height: 1.5;
+        }
+        .dt-jwt-section {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          min-width: 0;
+        }
+        .dt-jwt-section-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin: 0;
+          color: var(--muted);
+          font-size: 13px;
+          font-weight: 700;
+          line-height: 1.2;
+          letter-spacing: 0.1em;
+        }
+        /* 「未驗證」標記 —— 用中性的邊框而不是紅色:沒驗簽是這個工具的設計,不是錯誤狀態。 */
+        .dt-jwt-badge {
+          padding: 2px 8px;
+          border: 1px solid var(--border);
+          border-radius: 999px;
+          color: var(--muted);
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: 0;
+        }
+        /* header / payload / 簽章都是一長串可能沒有空白的字元,overflow-wrap 是必要的。 */
+        .dt-jwt-output {
+          margin: 0;
+          padding: 12px 14px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          color: var(--fg);
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+          overflow-y: auto;
+          max-height: 320px;
+        }
+        .dt-jwt-signature { color: var(--muted); max-height: 140px; }
+
+        .dt-jwt-claims {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .dt-jwt-claim {
+          display: grid;
+          grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+          gap: 4px 12px;
+          padding: 10px 12px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          font-size: 13px;
+          line-height: 1.5;
+        }
+        .dt-jwt-claim-name {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          color: var(--fg);
+          font-weight: 700;
+        }
+        .dt-jwt-claim-key {
+          color: var(--muted);
+          font-family: var(--dt-font-mono);
+          font-size: 12px;
+          font-weight: 400;
+        }
+        .dt-jwt-claim-moment {
+          color: var(--fg);
+          font-family: var(--dt-font-mono);
+          overflow-wrap: anywhere;
+        }
+        .dt-jwt-claim-status { color: var(--muted); }
+        /* 已過期 / 尚未生效走警示色 —— 這兩種狀態是使用者打開這個工具最想知道的事。 */
+        .dt-jwt-claim-status--warn { color: #ef4444; font-weight: 700; }
+        .dt-jwt-claim-raw {
+          color: var(--muted);
+          font-family: var(--dt-font-mono);
+          font-size: 12px;
         }
 
         /* ── FEAT-09 Base64 工具專屬 ── 只追加,不改動上方任何共用值。 */
