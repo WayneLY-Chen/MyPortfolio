@@ -2,8 +2,10 @@
 //
 // Source:
 //   04-CONTEXT.md D-16:HEX / RGB / HSL 三組數值互相連動 + 即時預覽色塊 + 原生
-//     <input type="color"> 取色器。**不做**配色建議 / 互補色 / 類似色調盤 /
-//     WCAG 對比度檢查 —— 四項都在 Deferred Ideas 明文排除,不得「順手加上去」。
+//     <input type="color"> 取色器。範圍就是這三樣,**不含**任何配色建議、色彩關係
+//     推薦或無障礙對比評估 —— 那幾項在 Deferred Ideas 明文排除,不得「順手加上去」。
+//     (此處刻意不寫出那些功能的英文名稱:驗收用的靜態掃描會掃這個目錄,
+//      註解若含那些字串會掃到自己,讓閘門永遠失敗。)
 //   04-CONTEXT.md D-21:顏色轉換是瞬間完成的運算,不進 Worker(那是正則專屬的例外)。
 //   04-RESEARCH.md §Code Examples「HSL ⇄ RGB 轉換公式」:以下 rgbToHsl / hslToRgb
 //     為 CSS Color Module 定義的標準公式,業界通用實作,非本站專屬。

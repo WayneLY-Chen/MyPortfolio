@@ -13,6 +13,7 @@
 import { useRef, useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
 import Base64Tool from './Base64Tool'
+import ColorTool from './ColorTool'
 import HashTool from './HashTool'
 import JsonTool from './JsonTool'
 import JwtTool from './JwtTool'
@@ -29,6 +30,7 @@ const TOOLS = [
   { id: 'regex', label: '正則測試', Component: RegexTool },
   { id: 'uuid', label: 'UUID 產生', Component: UuidTool },
   { id: 'hash', label: '雜湊計算', Component: HashTool },
+  { id: 'color', label: '顏色轉換', Component: ColorTool },
 ]
 
 export default function DevToolsTab() {
@@ -822,6 +824,102 @@ export default function DevToolsTab() {
           color: var(--muted);
           white-space: pre-wrap;
           overflow-wrap: anywhere;
+        }
+
+        /* ── 顏色轉換(FEAT-13)────────────────────────────────────────────
+           色塊的尺寸與邊框是 04-UI-SPEC.md 的逐字契約,不是可調的視覺偏好:
+           那道 1px accent 邊框是「保留給主色的七個用途」名單裡的第 7 項,
+           而且只准用在邊框、不准用在填色 —— 填色永遠是使用者選的顏色本身。 */
+        .dt-color-swatch {
+          width: 100%;
+          height: 96px;
+          border-radius: 8px;
+          border: 1px solid var(--accent);
+        }
+        .dt-color-picker-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        /* 原生取色器各家瀏覽器的預設外觀差異很大(Chrome 有內距、Firefox 沒有),
+           把 padding 歸零並自己給邊框,三家看起來才會是同一顆控制項。 */
+        .dt-color-picker {
+          width: 48px;
+          height: 36px;
+          padding: 0;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 4px;
+          cursor: pointer;
+        }
+        .dt-color-picker::-webkit-color-swatch-wrapper { padding: 2px; }
+        .dt-color-picker::-webkit-color-swatch { border: none; border-radius: 2px; }
+        .dt-color-hint {
+          color: var(--muted);
+          font-size: 12px;
+        }
+        .dt-color-field {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          min-width: 0;
+        }
+        .dt-color-legend {
+          font-size: 13px;
+          font-weight: 700;
+          line-height: 1.2;
+          color: var(--muted);
+          letter-spacing: 0.08em;
+        }
+        .dt-color-row {
+          display: flex;
+          align-items: flex-end;
+          gap: 8px;
+          min-width: 0;
+        }
+        .dt-color-text {
+          flex: 1;
+          min-width: 0;
+          padding: 8px 10px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 4px;
+          color: var(--fg);
+          font-size: 13px;
+          outline: none;
+        }
+        .dt-color-text:focus-visible,
+        .dt-color-num:focus-visible { border-color: var(--accent); }
+        /* minmax(0, 1fr) 而非 1fr:數字欄位在窄螢幕上才不會把整列撐破,
+           與 .dt-layout-split 用的是同一個理由。 */
+        .dt-color-triple {
+          flex: 1;
+          min-width: 0;
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 8px;
+        }
+        .dt-color-cell {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          min-width: 0;
+        }
+        .dt-color-cell-label {
+          color: var(--muted);
+          font-size: 12px;
+        }
+        .dt-color-num {
+          width: 100%;
+          min-width: 0;
+          padding: 8px 10px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 4px;
+          color: var(--fg);
+          font-size: 13px;
+          outline: none;
         }
 
         /* 行動裝置基線:斷點沿用全站慣例(768px 主、480px 次),
