@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { io } from 'socket.io-client'
 import { API_URL, AUTH_URL, SOCKET_URL } from '../config/api'
@@ -15,6 +15,19 @@ import MoneyCalculator from '../components/MoneyCalculator'
 import TodoList from '../components/TodoList'
 import TypingRace from '../components/typing-race/TypingRace'
 import DevToolsTab from '../components/devtools/DevToolsTab'
+
+// 骷髏王的 3D 畫布。ogl 只有約 10KB,但選一個小函式庫的全部意義就在於
+// 首屏不用付這筆錢 —— 訪客沒點開尾刀爭奪戰,就不該下載它。
+// 這是專案第一次用 React.lazy;BossSkull.jsx 是全站唯一 import ogl 的檔案。
+const BossSkull = lazy(() => import('../components/boss-skull/BossSkull'))
+
+// 骷髏王的 emoji 降級版。全站只留這一份標記,同時擔任
+// <Suspense fallback>(chunk 還在下載)與 <BossSkull> 的 children(WebGL 不可用)。
+function BossEmoji({ anim }) {
+  return (
+    <div className={cn("text-[140px] leading-none mb-6 drop-shadow-[0_0_30px_rgba(200,148,42,0.3)]", `boss-${anim}`)}>💀</div>
+  )
+}
 
 // Snake Game
 const CELL = 32
@@ -946,7 +959,9 @@ function BossRaidGame() {
           </div>
 
           <h3 className="text-[#C8942A] text-2xl font-black mb-6 tracking-[0.4em] uppercase">骷髏王</h3>
-          <div className={cn("text-[140px] leading-none mb-6 drop-shadow-[0_0_30px_rgba(200,148,42,0.3)]", `boss-${bossAnim}`)}>💀</div>
+          <Suspense fallback={<BossEmoji anim={bossAnim} />}>
+            <BossSkull anim={bossAnim}><BossEmoji anim={bossAnim} /></BossSkull>
+          </Suspense>
           
           <div className="relative h-10 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/40 blur-xl rounded-full" />
