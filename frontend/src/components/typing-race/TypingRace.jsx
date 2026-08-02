@@ -346,7 +346,23 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
           accuracy: Math.round(accuracyValue),
         }),
       })
-      if (!res.ok) throw new Error('伺服器回應錯誤')
+      if (!res.ok) {
+        // D-35:內容檢查刻意只在伺服器端做(黑名單本身不進前端 bundle),
+        // 所以後端 400 的 error 訊息必須原樣呈現給使用者——這裡也順帶修好
+        // 分數上限、正確率門檻、game_type 三種既有 400,原本全部被下面
+        // catch 的回退字串蓋掉,誤導成「連線失敗」。
+        let serverMessage = '連線伺服器失敗,請稍後再試'
+        try {
+          const body = await res.json()
+          if (body && typeof body.error === 'string' && body.error) {
+            serverMessage = body.error
+          }
+        } catch {
+          // 回應不是合法 JSON 或空 body,保留上面的回退字串。
+        }
+        addToast({ title: '上傳失敗', description: serverMessage, variant: 'error' })
+        return
+      }
       setSaved(true)
       addToast({
         title: '上傳成功',
