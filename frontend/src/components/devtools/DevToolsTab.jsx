@@ -139,6 +139,91 @@ export default function DevToolsTab() {
           max-width: 640px;
           margin: 0 auto;
         }
+
+        /* D-10:四顆便利按鈕的共用 ghost 家族。.dt-btn 是唯一的值來源,
+           .dt-copy-btn / .dt-paste-btn / .dt-clear-btn 只保留語意,不重複宣告視覺值,
+           避免七個工具各自漂移出不同的按鈕。 */
+        .dt-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          align-items: center;
+        }
+        .dt-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 8px 14px;
+          background: none;
+          border: 1px solid var(--border);
+          border-radius: 4px;
+          color: var(--muted);
+          cursor: pointer;
+          font-family: var(--font-sans);
+          font-size: 13px;
+          font-weight: 700;
+          line-height: 1.2;
+          transition: border-color 0.2s, color 0.2s;
+        }
+        .dt-btn:hover { border-color: var(--accent); color: var(--fg); }
+        .dt-btn--icon { padding: 6px; gap: 0; }
+
+        /* 唯一一顆 primary CTA:idle 就吃 accent,其餘三顆只在 hover 才吃。 */
+        .dt-example-btn {
+          border-color: var(--accent);
+          color: var(--accent);
+        }
+        .dt-example-btn:hover { border-color: var(--accent); color: var(--fg); }
+
+        .dt-uuid-controls {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 8px;
+        }
+        .dt-field-label {
+          font-size: 13px;
+          font-weight: 700;
+          line-height: 1.2;
+          color: var(--muted);
+        }
+        .dt-count-input {
+          width: 80px;
+          padding: 8px 10px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 4px;
+          color: var(--fg);
+          font-family: var(--dt-font-mono);
+          font-size: 13px;
+          outline: none;
+        }
+        .dt-count-input:focus { border-color: var(--accent); outline: 1px solid var(--accent); }
+
+        .dt-uuid-list {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        .dt-uuid-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          padding: 8px 12px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          color: var(--fg);
+        }
+        .dt-uuid-item .dt-code {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
       `}</style>
 
       <div className="dt-privacy-banner">
