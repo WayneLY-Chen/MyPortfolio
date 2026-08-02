@@ -16,6 +16,7 @@ import Base64Tool from './Base64Tool'
 import HashTool from './HashTool'
 import JsonTool from './JsonTool'
 import JwtTool from './JwtTool'
+import RegexTool from './RegexTool'
 import UuidTool from './UuidTool'
 
 // D-01:工具註冊表。順序固定為 FEAT-07~13(json / jwt / base64 / regex / uuid / hash / color)。
@@ -25,6 +26,7 @@ const TOOLS = [
   { id: 'json', label: 'JSON 格式化', Component: JsonTool },
   { id: 'jwt', label: 'JWT 解碼', Component: JwtTool },
   { id: 'base64', label: 'Base64 轉換', Component: Base64Tool },
+  { id: 'regex', label: '正則測試', Component: RegexTool },
   { id: 'uuid', label: 'UUID 產生', Component: UuidTool },
   { id: 'hash', label: '雜湊計算', Component: HashTool },
 ]
