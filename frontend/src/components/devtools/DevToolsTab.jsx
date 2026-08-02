@@ -250,6 +250,50 @@ export default function DevToolsTab() {
           gap: 8px;
           min-width: 0;
         }
+        /* D-22:行號槽。與 textarea 併排,行高與內距必須逐項對齊,否則整片行號會歪掉:
+           font-size 13px + line-height 1.5 + padding-top 12px 三個值都取自 .dt-textarea。
+           自己不捲動(overflow: hidden),捲動位置由 JS 跟著 textarea 同步。 */
+        .dt-json-input-row {
+          display: flex;
+          align-items: stretch;
+          min-width: 0;
+        }
+        .dt-line-gutter {
+          flex-shrink: 0;
+          overflow: hidden;
+          min-width: 44px;
+          padding: 12px 8px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-right: none;
+          border-radius: 8px 0 0 8px;
+          color: var(--muted);
+          font-family: var(--dt-font-mono);
+          font-size: 13px;
+          line-height: 1.5;
+          text-align: right;
+          user-select: none;
+          /* 刻意不加 transition —— .dt-textarea 的 focus 邊框是瞬間變色的,
+             這半邊如果做漸變,兩半會不同步。順帶也不必再處理減少動態偏好。 */
+        }
+        .dt-gutter-seg {
+          margin: 0;
+          font: inherit;
+          white-space: pre;
+        }
+        /* 出錯的那一行:紅底 + 紅字 + 粗體。因為是 block 元素,紅底會鋪滿整個行號槽
+           的寬度,而不是只包住那幾個數字。 */
+        .dt-gutter-seg--error {
+          background: rgba(239, 68, 68, 0.18);
+          color: #ef4444;
+          font-weight: 700;
+        }
+        /* 行號槽與 textarea 是同一個輸入框的兩半,邊框狀態必須一起變,
+           否則聚焦時會出現「三邊金色、左邊灰色」的破圖。 */
+        .dt-json-input-row:focus-within .dt-line-gutter { border-color: var(--accent); }
+        .dt-json-input-row--error .dt-line-gutter { border-color: #ef4444; }
+        .dt-json-textarea { border-radius: 0 8px 8px 0; }
+
         .dt-json-output {
           margin: 0;
           padding: 12px 14px;
