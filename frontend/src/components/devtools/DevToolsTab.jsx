@@ -12,12 +12,14 @@
 //   3. 使用者輸入不得寫進網址(路徑、查詢字串、片段皆禁止)。
 import { useRef, useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
+import JsonTool from './JsonTool'
 import UuidTool from './UuidTool'
 
 // D-01:工具註冊表。順序固定為 FEAT-07~13(json / jwt / base64 / regex / uuid / hash / color)。
 // 註冊表有幾筆,chip 列就渲染幾顆 —— 絕不允許出現「點了沒有東西」的空殼 chip。
 // 後續每個工具各自把自己那筆插進正確的 FEAT 位置。
 const TOOLS = [
+  { id: 'json', label: 'JSON 格式化', Component: JsonTool },
   { id: 'uuid', label: 'UUID 產生', Component: UuidTool },
 ]
 
@@ -232,6 +234,34 @@ export default function DevToolsTab() {
           color: var(--accent);
         }
         .dt-example-btn:hover { border-color: var(--accent); color: var(--fg); }
+
+        /* ── FEAT-07 JSON 工具專屬 ── 只追加,不改動上方任何共用值。 */
+        .dt-json-tool {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          width: 100%;
+        }
+        /* min-width: 0 讓兩欄的 minmax(0, 1fr) 真的生效 —— 沒有它,一長串沒有空白的
+           JSON 會把自己那一欄撐爆。 */
+        .dt-json-pane {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          min-width: 0;
+        }
+        .dt-json-output {
+          margin: 0;
+          padding: 12px 14px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          color: var(--fg);
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+          overflow-y: auto;
+          max-height: 480px;
+        }
 
         .dt-uuid-controls {
           display: flex;
