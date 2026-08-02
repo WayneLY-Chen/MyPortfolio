@@ -359,7 +359,7 @@ function DinoGame() {
   }, [active, canvasW])
 
   return (
-    <div ref={containerRef} style={{ width: '100%', maxWidth: 800, margin: '0 auto' }}>
+    <div ref={containerRef} style={{ width: '100%', maxWidth: 'var(--game-canvas-max)', margin: '0 auto' }}>
       <div className="game-header-row">
         <span className="game-label">DINO RUNNER</span>
         <span className="game-score-display">分數：{score}</span>
@@ -1331,7 +1331,10 @@ function PortalWarGame({ onBack }) {
   }
 
   return (
-    <div style={{ width: '100%', maxWidth: 1100, margin: '0 auto' }}>
+    // 這裡刻意不跟著用 --game-max。盤面是 10x10 且每格 aspect-ratio: 1/1,
+    // 寬度等於高度;拉到 1600 會做出一個比任何視窗都高的盤面,必須捲動才看得完。
+    // 這是物理限制,不是漏改 —— 請不要「順手統一」掉它。
+    <div style={{ width: '100%', maxWidth: 'var(--game-board-max)', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', gap: 20, fontWeight: 700, fontSize: 14 }}>
           <span style={{ color: '#3b82f6', textShadow: '0 0 8px rgba(59,130,246,0.5)' }}>藍隊 {blueName || '未加入'}: {blueCount}</span>
@@ -1575,7 +1578,26 @@ export default function FunPage() {
         }
         .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
         .tab-btn:hover { color: var(--fg); }
-        .tab-content { padding: 60px 6vw; display: flex; flex-direction: column; align-items: center; }
+        .tab-content {
+          padding: 60px 6vw; display: flex; flex-direction: column; align-items: center;
+
+          /* ── 遊戲區的三個寬度尺度 ──
+             集中在這裡定義,而不是散在六個 class 裡各寫一個魔術數字。
+             自訂屬性會往下繼承,所以底下的 React inline style 也能用 var(...) 取用。 */
+
+          /* 所有遊戲版面外框的統一上限。超寬螢幕上兩側留白是刻意保留的:
+             行長超過這個寬度後可讀性會變差,盤面也會被拉成不合理的長條。 */
+          --game-max: 1600px;
+
+          /* 恐龍避障專用。畫布高度寫死 400px,再寬就會變成過扁的長條;
+             而且障礙物是從 canvasW + 50 以固定速度飛過來的,
+             拉寬等於延長飛行時間,實質降低了難度。 */
+          --game-canvas-max: 1200px;
+
+          /* 陣營大戰專用。10x10 且每格 aspect-ratio: 1/1,
+             盤面的寬度就等於它的高度,再放大會高過任何視窗。 */
+          --game-board-max: 1100px;
+        }
 
         /* Game selection menu */
         .game-select-title {
@@ -1635,7 +1657,10 @@ export default function FunPage() {
         .back-btn:hover { border-color: var(--fg); color: var(--fg); }
 
         /* Active game area */
-        .game-centered { max-width: fit-content; margin: 0 auto; }
+        /* 這裡原本是 max-width: fit-content,那會讓外框縮到「內容有多寬就多寬」,
+           底下所有 width: 100% 的子項都是對著一個已經被壓扁的盒子解析百分比 ——
+           尾刀爭奪戰宣告了 max-width 卻只拿到 958px、中央欄只剩 358px,根因就在這一行。 */
+        .game-centered { width: 100%; max-width: var(--game-max); margin: 0 auto; }
         .game-area-title {
           font-family: var(--font-sans); font-size: 13px; letter-spacing: 0.25em;
           text-transform: uppercase; color: var(--muted); margin-bottom: 32px;
@@ -1644,22 +1669,32 @@ export default function FunPage() {
         .game-area-title span { font-size: 20px; }
 
         /* Snake layout */
-        .games-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: start; width: 100%; max-width: 1200px; margin: 0 auto; }
+        /* 目前沒有任何 JSX 引用這條規則,是留下來的死 CSS。
+           仍然一併對齊尺度,免得日後有人撿起來用又踩回 fit-content 那個坑。 */
+        .games-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: start; width: 100%; max-width: var(--game-max); margin: 0 auto; }
         @media (max-width: 900px) { .games-layout { grid-template-columns: 1fr; } }
-        
+
         /* Mobile responsive game layouts */
-        .snake-game-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 32px; max-width: 1100px; margin: 0 auto; }
+        /* 主欄上限 800px 是貪吃蛇畫布的原生解析度(CELL 32 x COLS 25),
+           超過就只是把 800x800 的點陣圖放大糊掉。打字競速共用這個 class,
+           800px 與它原本實得的 788px 幾乎相同,行長不會變差。 */
+        .snake-game-layout { display: grid; grid-template-columns: minmax(0, 800px) 280px; gap: 32px; justify-content: center; width: 100%; max-width: var(--game-max); margin: 0 auto; }
         @media (max-width: 768px) {
           .snake-game-layout { grid-template-columns: 1fr; gap: 24px; }
-          .snake-canvas { width: 100% !important; height: auto !important; aspect-ratio: 1/1; }
+          /* 這裡原本有一條帶 !important 的 .snake-canvas 覆寫,
+             現在 base 規則已經有 width: 100%; height: auto; aspect-ratio: 1/1,
+             行為完全相同,重複的覆寫已刪除。 */
         }
-        
-        .game-2048-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 32px; width: 100%; max-width: 700px; margin: 0 auto; }
+
+        /* 盤面是 aspect-ratio: 1/1 的 4x4,560px 已經讓每塊磚約 125px,再大就荒謬了。
+           相對於原本實得的 388px 仍是明顯放大。 */
+        .game-2048-layout { display: grid; grid-template-columns: minmax(0, 560px) 280px; gap: 32px; justify-content: center; width: 100%; max-width: var(--game-max); margin: 0 auto; }
         @media (max-width: 768px) {
           .game-2048-layout { grid-template-columns: 1fr; gap: 24px; }
         }
-        
-        .boss-raid-layout { display: grid; grid-template-columns: 240px 1fr 300px; gap: 30px; width: 100%; max-width: 1200px; margin: 0 auto; }
+
+        /* 中央欄維持 1fr,吃掉外框放大後多出來的空間:1600 - 240 - 300 - 兩道 30px gap = 1000px。 */
+        .boss-raid-layout { display: grid; grid-template-columns: 240px 1fr 300px; gap: 30px; width: 100%; max-width: var(--game-max); margin: 0 auto; }
         @media (max-width: 1024px) {
           .boss-raid-layout { grid-template-columns: 1fr 300px; gap: 20px; }
           .boss-raid-layout > div:first-child { display: none; }
@@ -1764,7 +1799,10 @@ export default function FunPage() {
         .snake-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
         .snake-label { font-family: var(--font-sans); font-size: 11px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--muted); }
         .snake-score { font-family: var(--font-sans); font-size: 18px; font-weight: 800; color: var(--accent); }
-        .snake-canvas { display: block; border: 1px solid #222; }
+        /* backing store 仍是 width={W} height={H}(800x800),這裡只用 CSS 縮放,畫面依然銳利。
+           畫布上沒有任何座標型的滑鼠事件(只有鍵盤與 dpad 按鈕),所以縮放是安全的。
+           在此之前畫布是寫死的 800px 而欄位只有 788px,一直溢出 12px。 */
+        .snake-canvas { display: block; border: 1px solid #222; width: 100%; height: auto; aspect-ratio: 1/1; max-width: 800px; }
         .snake-overlay {
           position: absolute; inset: 36px 0 0; display: flex; flex-direction: column;
           align-items: center; justify-content: center; gap: 16px;
