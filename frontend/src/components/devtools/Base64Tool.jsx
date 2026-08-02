@@ -7,7 +7,7 @@
 // 所有 .dt-* 樣式都住在 DevToolsTab.jsx 的 scoped <style> 內(全工具箱共用一份樣式表),
 // 這個檔案不自己開 <style>,也不重新定義 04-01 已交付的共用 class。
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, Upload } from 'lucide-react'
 import {
   ClearButton,
   CopyButton,
@@ -20,6 +20,7 @@ import {
   isValidBase64,
   measureBytes,
   textToBase64,
+  MAX_FILE_BYTES,
   MAX_TEXT_BYTES,
 } from './base64Utils'
 
@@ -32,6 +33,14 @@ const EXAMPLE_TEXT = 'Hello, 世界!這行中英混排的字會原封不動轉�
 const EMPTY_HINT = '尚未輸入內容 —— 貼上文字或拖放檔案到這裡開始轉換。'
 const OVER_LIMIT_NOTICE = '輸入內容超過 200 KB 上限,已停止即時運算,請縮短內容。'
 const DECODE_ERROR_NOTICE = '無法解碼:內容不是合法的 Base64 字串。'
+const FILE_OVER_LIMIT_NOTICE = '檔案超過 5 MB 上限,請改用較小的檔案。'
+const FILE_READ_ERROR_NOTICE = '讀取檔案時發生問題,請再試一次或換一個檔案。'
+
+// data URI 的「顯示」上限,與 D-25 的 5 MB 讀取上限是兩件事。
+// 5 MB 的檔案編碼後約 6.7 M 個字元,整串塞進一個文字節點會讓瀏覽器在版面計算上卡住 ——
+// 而畫面上根本看不完那麼長的字串。因此超過這個長度就只渲染前段並明講,
+// 「複製」拿到的**永遠是完整的 data URI**,不受這個顯示上限影響。
+const DATA_URI_PREVIEW_LIMIT = 100000
 
 // 錯誤狀態的進出刻意不對稱(沿用 JsonTool.jsx 建立的慣例):
 // 【進場】延遲 500ms —— 使用者手打 Base64 時,幾乎每一個中間狀態的長度都還不合法,
@@ -44,7 +53,8 @@ const ERROR_DEBOUNCE_MS = 500
 // 為了它去動 04-02 已上線的檔案結構反而是更大的代價。
 function formatByteLabel(bytes) {
   if (bytes < 1024) return `${bytes} 位元組`
-  return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
 }
 
 export default function Base64Tool() {
@@ -60,6 +70,83 @@ export default function Base64Tool() {
   // D-07:只存在 React state,離開分頁即消失,不寫任何瀏覽器端儲存,也不進網址(D-27)。
   const [shownError, setShownError] = useState(null)
   const errorTimerRef = useRef(null)
+
+  // 檔案模式的狀態。dataUri 可能很長,切換模式或清空時一律歸零(T-04-14:不讓大字串
+  // 留在記憶體裡)。這些值同樣只活在 React state 內。
+  const [fileEntry, setFileEntry] = useState(null)
+  const [fileError, setFileError] = useState(null)
+  const [dragOver, setDragOver] = useState(false)
+  const fileInputRef = useRef(null)
+
+  const releaseFile = () => {
+    setFileEntry(null)
+    setFileError(null)
+    setDragOver(false)
+  }
+
+  // 切回文字模式就把已讀取的 data URI 放掉。
+  useEffect(() => {
+    if (mode !== 'file') {
+      setFileEntry(null)
+      setFileError(null)
+      setDragOver(false)
+    }
+  }, [mode])
+
+  /**
+   * 唯一的檔案入口(拖放與點選都走這裡)。
+   * D-19 / D-25:大小檢查必須發生在 FileReader 開始讀之前 —— 超過 5 MB 就直接顯示
+   * 上限提示,連讀都不讀。先讀再判斷等於把要防的那件事先做一次。
+   * FEAT-14:檔案只交給 FileReader 在本機讀取,不存在任何把它送出去的路徑。
+   */
+  const handleFile = (file) => {
+    if (!file) return
+    if (file.size > MAX_FILE_BYTES) {
+      setFileEntry(null)
+      setFileError(FILE_OVER_LIMIT_NOTICE)
+      return
+    }
+    setFileError(null)
+    const reader = new FileReader()
+    reader.onload = () => {
+      setFileEntry({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        dataUri: typeof reader.result === 'string' ? reader.result : '',
+      })
+    }
+    reader.onerror = () => {
+      setFileEntry(null)
+      setFileError(FILE_READ_ERROR_NOTICE)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  // onDragOver 一定要 preventDefault,否則瀏覽器會用預設行為接管這次拖放
+  // (直接把檔案開成新分頁),drop 事件根本不會送到這裡來。
+  const handleDragOver = (e) => {
+    e.preventDefault()
+    setDragOver(true)
+  }
+
+  // 拖過子元素時 dragleave 會往上冒泡,不判斷 relatedTarget 的話邊框會一直閃。
+  const handleDragLeave = (e) => {
+    if (e.currentTarget.contains(e.relatedTarget)) return
+    setDragOver(false)
+  }
+
+  const handleDrop = (e) => {
+    e.preventDefault()
+    setDragOver(false)
+    handleFile(e.dataTransfer?.files?.[0])
+  }
+
+  const handlePick = (e) => {
+    handleFile(e.target.files?.[0])
+    // 清掉 value,否則連續選同一個檔案不會再觸發 change。
+    e.target.value = ''
+  }
 
   const entryBytes = measureBytes(entry.value)
   const overLimit = entryBytes > MAX_TEXT_BYTES
@@ -223,7 +310,93 @@ export default function Base64Tool() {
         </>
       )}
 
-      {mode === 'file' && <p className="dt-empty">{EMPTY_HINT}</p>}
+      {mode === 'file' && (
+        <>
+          <div className="dt-layout-split">
+            <div className="dt-base64-pane">
+              <span className="dt-field-label">本機檔案</span>
+              {/* 用 button 而不是加了 role 的 div:鍵盤聚焦、Enter / 空白鍵觸發、
+                  焦點樣式全部是原生行為,不必自己補一套。 */}
+              <button
+                type="button"
+                className={`dt-dropzone${dragOver ? ' dt-dropzone--over' : ''}`}
+                onDragEnter={handleDragOver}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload size={24} className="dt-dropzone-icon" />
+                <span>把檔案拖到這裡,或點一下選擇檔案</span>
+                <span className="dt-dropzone-hint">
+                  上限 5 MB。檔案只在這台電腦上讀取,不會被送到任何地方。
+                </span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="dt-file-input"
+                onChange={handlePick}
+                aria-label="選擇要轉換的檔案"
+                tabIndex={-1}
+              />
+
+              {fileError && (
+                <div className="dt-error-banner">
+                  <AlertCircle size={16} className="dt-error-icon" />
+                  <span>{fileError}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="dt-base64-pane">
+              <span className="dt-field-label">data URI</span>
+              {fileEntry ? (
+                <div className="dt-file-preview">
+                  {/* T-04-13:只有 MIME 屬於影像類別時才丟給 <img> 由瀏覽器的影像解碼器
+                      處理;其他型別一律只顯示文字,不猜、不試著預覽,也不存在任何
+                      繞過 JSX 直接塞 HTML 的路徑。 */}
+                  {fileEntry.type.startsWith('image/') && (
+                    <img className="dt-file-img" src={fileEntry.dataUri} alt="拖入檔案的預覽" />
+                  )}
+                  <div className="dt-file-meta">
+                    <span>
+                      <strong>檔名</strong> {fileEntry.name}
+                    </span>
+                    <span>
+                      <strong>類型</strong> {fileEntry.type || '未知'}
+                    </span>
+                    <span>
+                      <strong>原始大小</strong> {formatByteLabel(fileEntry.size)}
+                    </span>
+                  </div>
+                  <pre className="dt-code dt-base64-output">
+                    {fileEntry.dataUri.length > DATA_URI_PREVIEW_LIMIT
+                      ? fileEntry.dataUri.slice(0, DATA_URI_PREVIEW_LIMIT)
+                      : fileEntry.dataUri}
+                  </pre>
+                  {fileEntry.dataUri.length > DATA_URI_PREVIEW_LIMIT && (
+                    <span className="dt-counter">
+                      {`只顯示前 ${DATA_URI_PREVIEW_LIMIT.toLocaleString('en-US')} 個字元(共 ${fileEntry.dataUri.length.toLocaleString('en-US')} 個),按「複製」會取得完整內容。`}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <p className="dt-empty">{EMPTY_HINT}</p>
+              )}
+            </div>
+          </div>
+
+          {/* 檔案模式沒有「載入範例」—— 這個工具的範例應該是一個真的檔案,
+              端一段預先寫死的 data URI 出來只是在假裝讀過檔案。
+              也沒有「貼上」—— 把剪貼簿文字貼進檔案模式沒有意義(D-10 的按鈕列
+              本來就依工具需要排列)。 */}
+          <ToolActions>
+            {fileEntry && <CopyButton text={fileEntry.dataUri} label="複製 data URI" />}
+            <ClearButton onClear={releaseFile} />
+          </ToolActions>
+        </>
+      )}
     </div>
   )
 }

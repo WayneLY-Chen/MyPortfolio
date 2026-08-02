@@ -333,6 +333,93 @@ export default function DevToolsTab() {
           letter-spacing: 0.08em;
         }
 
+        /* 拖放區。虛線邊框是 04-UI-SPEC.md 鎖定的值,也是「這裡可以丟東西進來」
+           的唯一視覺線索,只在檔案模式渲染。
+           min-height 200px 與 .dt-textarea 對齊,並且刻意不在 ≤768px 縮小 ——
+           它是這個工具在手機上唯一的點擊目標,遠高於 44px 的觸控下限才夠好按。 */
+        .dt-dropzone {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          width: 100%;
+          min-height: 200px;
+          padding: 24px;
+          background: var(--surface);
+          border: 1px dashed var(--border);
+          border-radius: 8px;
+          color: var(--muted);
+          cursor: pointer;
+          font-family: var(--font-sans);
+          font-size: 14px;
+          line-height: 1.5;
+          text-align: center;
+          transition: border-color 0.2s, color 0.2s, background-color 0.2s;
+        }
+        .dt-dropzone:hover { border-color: var(--accent); color: var(--fg); }
+        .dt-dropzone:focus-visible { border-color: var(--accent); outline: 1px solid var(--accent); }
+        /* 拖曳進入時的狀態改由 class 切換,不用 JS 直接改 style。 */
+        .dt-dropzone--over {
+          border-color: var(--accent);
+          color: var(--fg);
+          background: rgba(200, 148, 42, 0.08);
+        }
+        .dt-dropzone-icon { color: var(--accent); }
+        .dt-dropzone-hint { font-size: 12px; color: var(--muted); }
+        /* 原生檔案選擇器由拖放區代為觸發,自己不出現在畫面上,
+           但仍留在 DOM 內(display: none 會讓部分瀏覽器忽略程式觸發的點擊)。 */
+        .dt-file-input {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
+        }
+
+        .dt-file-preview {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          min-width: 0;
+        }
+        .dt-file-img {
+          max-width: 100%;
+          max-height: 220px;
+          align-self: flex-start;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          object-fit: contain;
+        }
+        .dt-file-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          font-size: 13px;
+          line-height: 1.5;
+          color: var(--muted);
+          overflow-wrap: anywhere;
+        }
+        .dt-file-meta strong { color: var(--fg); font-weight: 700; margin-right: 8px; }
+        /* data URI 是一長串沒有空白的字元,一定要 overflow-wrap 才不會撐破欄位。 */
+        .dt-base64-output {
+          margin: 0;
+          padding: 12px 14px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          color: var(--fg);
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+          overflow-y: auto;
+          max-height: 240px;
+        }
+
         .dt-uuid-controls {
           display: flex;
           flex-wrap: wrap;
@@ -397,6 +484,7 @@ export default function DevToolsTab() {
         @media (prefers-reduced-motion: reduce) {
           .dt-chip { transition: none; }
           .dt-btn { transition: none; }
+          .dt-dropzone { transition: none; }
           .dt-chip-row { scroll-behavior: auto; }
         }
       `}</style>
