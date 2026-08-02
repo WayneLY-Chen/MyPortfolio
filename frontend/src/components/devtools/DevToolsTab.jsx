@@ -13,6 +13,7 @@
 import { useRef, useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
 import Base64Tool from './Base64Tool'
+import HashTool from './HashTool'
 import JsonTool from './JsonTool'
 import JwtTool from './JwtTool'
 import UuidTool from './UuidTool'
@@ -25,6 +26,7 @@ const TOOLS = [
   { id: 'jwt', label: 'JWT 解碼', Component: JwtTool },
   { id: 'base64', label: 'Base64 轉換', Component: Base64Tool },
   { id: 'uuid', label: 'UUID 產生', Component: UuidTool },
+  { id: 'hash', label: '雜湊計算', Component: HashTool },
 ]
 
 export default function DevToolsTab() {
@@ -580,6 +582,70 @@ export default function DevToolsTab() {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+
+        /* ── FEAT-12 雜湊工具專屬 ── 只追加,不改動上方任何共用值。 */
+        .dt-hash-tool {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          width: 100%;
+        }
+        /* 這個工具的輸入通常只有一兩行,不需要 .dt-textarea 預設的 200px 高度 ——
+           把五列結果擠出畫面反而不好用。 */
+        .dt-hash-input { min-height: 120px; }
+
+        .dt-hash-list {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        /* 演算法名稱 / 雜湊值 / 複製鈕三欄。第三欄固定寬,值算出來前後不會位移。
+           MD5 的說明文字另起一列,橫跨值與按鈕兩欄。 */
+        .dt-hash-row {
+          display: grid;
+          grid-template-columns: 76px minmax(0, 1fr) auto;
+          align-items: center;
+          gap: 4px 12px;
+          padding: 10px 12px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+        }
+        .dt-hash-name {
+          color: var(--muted);
+          font-size: 13px;
+          font-weight: 700;
+          line-height: 1.2;
+          letter-spacing: 0.05em;
+        }
+        /* 過長的值(SHA-512 是 128 個字元)以省略號截斷,完整值一律靠複製鈕取得。 */
+        .dt-hash-value {
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          color: var(--fg);
+        }
+        /* 破折號與三點都是「還沒有值」的狀態,用次要色與其他四列的實際值區分開。 */
+        .dt-hash-value--idle { color: var(--muted); }
+        /* 值還沒算出來時佔住複製鈕的位置,避免五列在結果陸續回來時左右跳動。 */
+        .dt-hash-spacer { display: block; width: 26px; height: 26px; }
+        .dt-hash-caption {
+          grid-column: 2 / -1;
+          color: var(--muted);
+          font-size: 11px;
+          line-height: 1.4;
+        }
+        @media (max-width: 480px) {
+          /* 窄螢幕上演算法名稱自己佔一列,雜湊值才有足夠寬度可讀。 */
+          .dt-hash-row { grid-template-columns: minmax(0, 1fr) auto; }
+          .dt-hash-name { grid-column: 1 / -1; }
+          .dt-hash-caption { grid-column: 1 / -1; }
+          .dt-hash-spacer { width: 44px; height: 44px; }
         }
 
         /* 行動裝置基線:斷點沿用全站慣例(768px 主、480px 次),
