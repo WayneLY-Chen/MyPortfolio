@@ -14,6 +14,7 @@ import { cn } from '../lib/utils'
 import MoneyCalculator from '../components/MoneyCalculator'
 import TodoList from '../components/TodoList'
 import TypingRace from '../components/typing-race/TypingRace'
+import DevToolsTab from '../components/devtools/DevToolsTab'
 
 // Snake Game
 const CELL = 32
@@ -1893,6 +1894,9 @@ export default function FunPage() {
           <button className={`tab-btn ${activeTab === 'ai' ? 'active' : ''}`} onClick={() => setActiveTab('ai')}>
             AI 圖片生成
           </button>
+          <button className={`tab-btn ${activeTab === 'tools' ? 'active' : ''}`} onClick={() => setActiveTab('tools')}>
+            工具箱
+          </button>
         </div>
 
         <div className="tab-content">
@@ -2006,6 +2010,11 @@ export default function FunPage() {
           {activeTab === 'todo' && (
             <div style={{ marginTop: '20px' }}>
               <TodoList />
+            </div>
+          )}
+          {activeTab === 'tools' && (
+            <div style={{ marginTop: '20px' }}>
+              <DevToolsTab />
             </div>
           )}
         </div>
