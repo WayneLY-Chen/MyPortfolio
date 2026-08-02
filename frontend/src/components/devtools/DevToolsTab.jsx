@@ -131,6 +131,15 @@ export default function DevToolsTab() {
           line-height: 1.5;
         }
 
+        /* D-03 / D-04:兩種版型家族。JSON / JWT / Base64 / 正則走兩欄,
+           UUID / 雜湊 / 顏色走單欄緊湊。這裡只交付樣式,套用由各工具自行決定。 */
+        .dt-layout-split {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          gap: 24px;
+          align-items: start;
+          width: 100%;
+        }
         .dt-layout-compact {
           display: flex;
           flex-direction: column;
@@ -138,6 +147,55 @@ export default function DevToolsTab() {
           width: 100%;
           max-width: 640px;
           margin: 0 auto;
+        }
+
+        /* 共用大型輸入 / 輸出區。後續工具直接套用,不得各自重新定義這些值。 */
+        .dt-textarea {
+          width: 100%;
+          min-height: 200px;
+          padding: 12px 14px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          color: var(--fg);
+          font-family: var(--dt-font-mono);
+          font-size: 13px;
+          line-height: 1.5;
+          outline: none;
+          resize: vertical;
+        }
+        .dt-textarea:focus { border-color: var(--accent); outline: 1px solid var(--accent); }
+        .dt-textarea--error { border-color: #ef4444; }
+
+        /* 字數 / 位元組計數器,超限轉紅(D-25 的上限提示沿用這個位置與語彙)。 */
+        .dt-counter {
+          align-self: flex-end;
+          font-size: 12px;
+          color: var(--muted);
+        }
+        .dt-counter--over { color: #ef4444; }
+
+        /* 可解析失敗的工具共用同一種錯誤呈現:就地渲染在輸出區內,
+           取代原本的結果內容,不用彈窗、不用系統對話框。 */
+        .dt-error-banner {
+          display: flex;
+          align-items: flex-start;
+          gap: 8px;
+          padding: 10px 12px;
+          background: rgba(239, 68, 68, 0.08);
+          border: 1px solid rgba(239, 68, 68, 0.35);
+          border-left: 3px solid #ef4444;
+          border-radius: 6px;
+          color: var(--fg);
+          font-size: 14px;
+          line-height: 1.5;
+        }
+        .dt-error-icon { color: #ef4444; flex-shrink: 0; }
+
+        .dt-empty {
+          color: var(--muted);
+          font-size: 14px;
+          line-height: 1.5;
         }
 
         /* D-10:四顆便利按鈕的共用 ghost 家族。.dt-btn 是唯一的值來源,
@@ -223,6 +281,23 @@ export default function DevToolsTab() {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+
+        /* 行動裝置基線:斷點沿用全站慣例(768px 主、480px 次),
+           44px 是全站既有的觸控目標下限(TypingRace.jsx:810-811)。 */
+        @media (max-width: 768px) {
+          .dt-layout-split { grid-template-columns: 1fr; gap: 16px; }
+          .dt-chip { min-height: 44px; }
+          .dt-btn { min-height: 44px; }
+          .dt-btn--icon { min-width: 44px; justify-content: center; }
+        }
+
+        /* 動態偏好降級。JS 層的 scrollIntoView behavior 已於上方以三元式處理,
+           這裡負責 CSS 層 —— 兩層都要做,全站無全域規則可依賴。 */
+        @media (prefers-reduced-motion: reduce) {
+          .dt-chip { transition: none; }
+          .dt-btn { transition: none; }
+          .dt-chip-row { scroll-behavior: auto; }
         }
       `}</style>
 

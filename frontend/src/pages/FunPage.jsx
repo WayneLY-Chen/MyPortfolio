@@ -1556,13 +1556,22 @@ export default function FunPage() {
         .tab-nav {
           display: flex; gap: 0; border-bottom: 1px solid var(--border);
           padding: 0 6vw;
+          /* 五顆分頁在 320-375px 寬度下總寬約 353px、可用寬度僅 294-345px，
+             不加保護會讓按鈕被壓縮並把標籤折成兩行。改為橫向可捲動並禁止壓縮，
+             字級已在 480px 降到 11px，不宜再縮。捲軸隱藏：分頁列是導覽控制項，
+             全站的鎏金捲軸出現在這裡會很吵。 */
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
         }
+        .tab-nav::-webkit-scrollbar { display: none; }
         .tab-btn {
           padding: 16px 24px; background: none; border: none; cursor: pointer;
           font-family: var(--font-sans); font-size: 13px; letter-spacing: 0.15em;
           text-transform: uppercase; color: var(--muted);
           border-bottom: 2px solid transparent; margin-bottom: -1px;
           transition: color 0.3s, border-color 0.3s;
+          flex-shrink: 0; white-space: nowrap;
         }
         .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
         .tab-btn:hover { color: var(--fg); }
