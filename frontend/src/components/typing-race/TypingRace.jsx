@@ -973,21 +973,36 @@ export default function TypingRace({ mode, onModeChange, onNewScore }) {
           {topScoreLoaded && (
             <div
               className={`typing-gap-banner ${
-                gapState === 'behind' ? 'typing-gap-banner--behind' : 'typing-gap-banner--top'
+                gapState === 'behind' || !accuracyMet
+                  ? 'typing-gap-banner--behind'
+                  : 'typing-gap-banner--top'
               }`}
             >
-              {gapState === 'top' && (
+              {/* 正確率未達門檻時,速度再快也不會進榜(D-25 已灰化上傳鈕)。
+                  此時若照說「你就是榜首」/「你將成為第一位」,畫面等於一邊宣告
+                  你贏了、一邊拒絕你上傳,自相矛盾。改為保留「你確實有那個速度」
+                  的事實、同時講明差在哪 —— 這比單純藏起來更貼近 D-26 的本意
+                  (製造再玩一場的動機),因為它明確告訴使用者要補的是正確率。 */}
+              {gapState === 'top' && accuracyMet && (
                 <>
                   <Trophy size={18} />
                   <span>🏆 你就是目前的榜首!</span>
                 </>
+              )}
+              {gapState === 'empty' && accuracyMet && (
+                <span>目前還沒有人上榜,你將成為第一位!</span>
+              )}
+              {(gapState === 'top' || gapState === 'empty') && !accuracyMet && (
+                <span>
+                  這個速度足以排第 1 —— 但正確率 {Math.round(accuracyValue)}% 未達{' '}
+                  {ACCURACY_THRESHOLD}%,這次不列入排行榜
+                </span>
               )}
               {gapState === 'behind' && (
                 <span>
                   距離榜首還差 {gap} {speedUnitLabel}
                 </span>
               )}
-              {gapState === 'empty' && <span>目前還沒有人上榜,你將成為第一位!</span>}
             </div>
           )}
 
