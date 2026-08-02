@@ -650,6 +650,180 @@ export default function DevToolsTab() {
           .dt-hash-spacer { width: 44px; height: 44px; }
         }
 
+        /* ── FEAT-10 正則工具專屬 ── 只追加,不改動上方任何共用值。 */
+        .dt-regex-tool {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          width: 100%;
+        }
+        .dt-regex-pane {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+          min-width: 0;
+        }
+        .dt-regex-label {
+          font-size: 12px;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          color: var(--muted);
+        }
+        /* 單行的正則輸入。視覺值刻意與 .dt-textarea 對齊(同樣的底、框、圓角與等寬字),
+           但它是 input 不是 textarea,套 .dt-textarea 會連 min-height: 200px 一起吃進來。 */
+        .dt-regex-input {
+          width: 100%;
+          padding: 10px 14px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          color: var(--fg);
+          font-family: var(--dt-font-mono);
+          font-size: 13px;
+          line-height: 1.5;
+          outline: none;
+        }
+        .dt-regex-input:focus { border-color: var(--accent); outline: 1px solid var(--accent); }
+        .dt-regex-input--error { border-color: #ef4444; }
+
+        .dt-regex-hint {
+          margin: 0;
+          color: var(--muted);
+          font-size: 12px;
+          line-height: 1.5;
+        }
+        .dt-regex-hint .dt-code { color: var(--fg); }
+
+        /* highlight 區。pre-wrap 保留使用者輸入的換行與空白;
+           anywhere 讓沒有空白的長字串也能換行,不會把右欄撐爆(UI-SPEC Constraint #3)。 */
+        .dt-regex-highlight {
+          margin: 0;
+          padding: 12px 14px;
+          max-height: 320px;
+          overflow: auto;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          color: var(--fg);
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+        }
+        /* 命中底色。刻意避開 accent 金(04-UI-SPEC.md §Color 的 accent 保留清單沒有這一項)
+           與錯誤紅 —— 兩者都是暖色,而這個站的底色也是暖的。選一個冷色調的天藍,
+           在暖色背景上一眼就能分辨。底線是給色覺辨識困難者的第二重訊號,
+           也讓兩筆相鄰的命中不會糊成一塊。UA 對 <mark> 的預設是黃底黑字,必須整組覆寫。 */
+        .dt-regex-mark {
+          background: rgba(56, 189, 248, 0.28);
+          color: var(--fg);
+          border-radius: 2px;
+          padding: 0 1px;
+          box-shadow: inset 0 -2px 0 rgba(56, 189, 248, 0.85);
+        }
+
+        .dt-regex-count {
+          margin: 0;
+          color: var(--muted);
+          font-size: 12px;
+        }
+        .dt-regex-note {
+          margin: 0;
+          color: var(--muted);
+          font-size: 12px;
+          line-height: 1.5;
+        }
+        .dt-regex-note .dt-code { color: var(--fg); }
+
+        /* 逐筆 match 清單。序號用 CSS 之外的實際文字內容呈現(元件自己輸出 #N),
+           所以這裡把 ol 的預設標記關掉。 */
+        .dt-regex-matches {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          max-height: 420px;
+          overflow: auto;
+        }
+        .dt-regex-match {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          padding: 10px 12px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+        }
+        .dt-regex-match-head {
+          display: flex;
+          align-items: baseline;
+          gap: 10px;
+        }
+        .dt-regex-match-no {
+          color: var(--accent);
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .dt-regex-match-meta {
+          color: var(--muted);
+          font-size: 12px;
+        }
+        .dt-regex-match-value {
+          color: var(--fg);
+          overflow-wrap: anywhere;
+        }
+        .dt-regex-group {
+          display: flex;
+          gap: 10px;
+          align-items: baseline;
+          padding-left: 12px;
+          border-left: 2px solid var(--border);
+        }
+        .dt-regex-group-name {
+          flex-shrink: 0;
+          color: var(--muted);
+          font-size: 12px;
+        }
+        /* 具名群組的名稱本身就是使用者寫在式子裡的識別字,用等寬字呈現才不會被
+           誤讀成我們自己加的說明文字。 */
+        .dt-regex-group-name--named {
+          font-family: var(--dt-font-mono);
+          color: var(--accent2);
+        }
+        .dt-regex-group-value {
+          min-width: 0;
+          color: var(--fg);
+          overflow-wrap: anywhere;
+        }
+        .dt-regex-group--empty {
+          color: var(--muted);
+          font-size: 12px;
+        }
+
+        /* 錯誤橫幅內的兩段式內容(繁中說明 + 可展開的引擎原文)。 */
+        .dt-regex-error-body {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          min-width: 0;
+        }
+        .dt-regex-detail summary {
+          cursor: pointer;
+          color: var(--muted);
+          font-size: 12px;
+        }
+        .dt-regex-detail summary:hover { color: var(--fg); }
+        .dt-regex-detail-raw {
+          margin: 6px 0 0;
+          padding: 8px 10px;
+          background: var(--bg);
+          border: 1px solid var(--border);
+          border-radius: 4px;
+          color: var(--muted);
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+        }
+
         /* 行動裝置基線:斷點沿用全站慣例(768px 主、480px 次),
            44px 是全站既有的觸控目標下限(TypingRace.jsx:810-811)。 */
         @media (max-width: 768px) {
