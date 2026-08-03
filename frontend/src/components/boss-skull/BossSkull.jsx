@@ -8,9 +8,22 @@ import { cn } from '../../lib/utils'
 // ── 算力預算 ──
 // 手機發熱與耗電是這個站的硬性約束,所以填充率必須被鎖死,
 // 不能讓 4K 螢幕 x devicePixelRatio 3 去算一張 960x960 的 raymarch。
-const MAX_BACKING = 640 // backing store 硬上限(px)
-const MAX_CSS = 320     // CSS 盒上限(px);比原本 140px 的 emoji 明顯放大
-const MAX_STEPS = 48    // raymarch 步數上限
+const MAX_BACKING = 640      // backing store 硬上限(px)
+const MAX_CSS_MOBILE = 320   // < 768px 的 CSS 盒上限
+const MAX_CSS_DESKTOP = 480  // >= 768px 的 CSS 盒上限
+const MAX_STEPS = 48         // raymarch 步數上限
+
+// 為什麼上限要分兩段(而不是一律 480):
+// 會發熱、會掉電的是手機,桌機有市電也有真正的散熱。所以填充率的預算只在
+// 行動裝置上緊縮,桌機放寬到 480px 讓骷髏在放大後的中央欄裡不會顯得空蕩。
+//
+// 實際成本(MAX_BACKING 640 仍然是所有情況的硬天花板):
+//   手機(< 768px)          320 CSS,完全不變
+//   桌機 dpr 1              320 → 480 backing,像素數 +125%
+//   桌機 dpr 1.5            480 → 640(觸頂),+78%
+//   桌機 dpr 2(Retina)     640 → 640,完全不變(先前就已經在觸頂)
+// 也就是說最壞情況的絕對值沒有變高 —— 640x640 本來就到得了,
+// 只是非 Retina 桌機從遠低於天花板往天花板靠近。
 
 const VERT = /* glsl */ `
   attribute vec2 uv;
@@ -187,8 +200,11 @@ const FRAG = /* glsl */ `
     float ca = cos(a), sa = sin(a);
     mat3 yaw = mat3(ca, 0.0, -sa, 0.0, 1.0, 0.0, sa, 0.0, ca);
 
-    vec3 ro = yaw * vec3(0.0, 0.0, 2.6);
-    vec3 rd = normalize(yaw * vec3(p, -1.5));
+    // 相機瞄準 y = 0.13 而不是原點:骷髏的垂直中心在那裡
+    // (顱頂約 +1.05、下巴約 −0.79),瞄原點會讓它整顆偏上,
+    // 畫布下緣空出一大塊透明區域。焦距從 1.5 拉到 1.8 讓它把畫面填得更滿。
+    vec3 ro = yaw * vec3(0.0, 0.0, 2.6) + vec3(0.0, 0.13, 0.0);
+    vec3 rd = normalize(yaw * vec3(p, -1.8));
 
     float t = 0.0;
     float hit = 0.0;
@@ -334,7 +350,9 @@ export default function BossSkull({ anim, children }) {
     const startedAt = performance.now()
 
     const resize = () => {
-      const cssW = Math.max(1, Math.round(canvas.clientWidth || MAX_CSS))
+      // clientWidth 已經由 CSS 的 media query 決定是 320 還是 480,
+      // 這裡不需要再讀一次視窗寬度。fallback 取保守的行動裝置值。
+      const cssW = Math.max(1, Math.round(canvas.clientWidth || MAX_CSS_MOBILE))
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
       const px = Math.max(1, Math.min(MAX_BACKING, Math.round(cssW * dpr)))
       if (canvas.width !== px || canvas.height !== px) {
@@ -443,17 +461,26 @@ export default function BossSkull({ anim, children }) {
         filter: 'drop-shadow(0 0 30px rgba(200, 148, 42, 0.3))',
       }}
     >
+      {/* 尺寸上限走 CSS media query,不走 JS:
+          不需要監聽視窗寬度、不需要為了換上限重新 render,
+          瀏覽器換完 clientWidth 之後,既有的 resize 監聽自然會重算 backing store。 */}
+      <style>{`
+        .boss-skull-canvas {
+          display: block;
+          width: 100%;
+          max-width: ${MAX_CSS_MOBILE}px;
+          aspect-ratio: 1 / 1;
+          margin: 0 auto;
+        }
+        @media (min-width: 768px) {
+          .boss-skull-canvas { max-width: ${MAX_CSS_DESKTOP}px; }
+        }
+      `}</style>
       <canvas
         ref={canvasRef}
+        className="boss-skull-canvas"
         aria-label="骷髏王"
         role="img"
-        style={{
-          display: 'block',
-          width: '100%',
-          maxWidth: `${MAX_CSS}px`,
-          aspectRatio: '1 / 1',
-          margin: '0 auto',
-        }}
       />
     </div>
   )
