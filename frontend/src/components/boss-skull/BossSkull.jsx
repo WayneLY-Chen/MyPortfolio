@@ -40,6 +40,8 @@ const FRAG = /* glsl */ `
   precision highp float;
 
   uniform float uTime;
+  uniform float uHit;   // 受擊衝量 1→0
+  uniform float uAtk;   // 出手衝量 1→0
   uniform vec2 uResolution;
   varying vec2 vUv;
 
@@ -83,7 +85,9 @@ const FRAG = /* glsl */ `
   // 單獨拉成一個函式,因為打光時還要用它判斷「這個點在不在眼窩裡」來加餘燼。
   float eyeHole(vec3 p) {
     vec3 q = vec3(abs(p.x), p.y, p.z);
-    return sdEllipsoid(q - vec3(0.30, 0.28, 0.42), vec3(0.215, 0.20, 0.32));
+    // 眼窩再挖大挖深一點,並把中心往下移 —— 上緣讓給眉骨去壓,
+    // 洞越深、越被眉骨遮住,裡面就越黑。「兇」有一半是靠這兩個洞夠黑。
+    return sdEllipsoid(q - vec3(0.30, 0.265, 0.44), vec3(0.228, 0.213, 0.36));
   }
 
   // ── 骷髏本體 ──
@@ -95,7 +99,10 @@ const FRAG = /* glsl */ `
     // 半徑 0.48 相對於半徑向量 (0.20, 0.24, 0.16) 佔絕大部分,所以整體仍是圓的,
     // 只在顱頂與兩側留下一點點平面感 —— 這樣才不是一顆蛋,也不會變成骰子。
     // (試過 b(0.45,0.47,0.43) r0.24,那個比例會做出一顆真正的方塊,太over。)
-    float d = sdRoundBox(p - vec3(0.0, 0.30, 0.0), vec3(0.19, 0.17, 0.13), 0.51);
+    // 收窄 + 拉高:原本 (0.19,0.17,0.13)+0.51 的總半徑是 (0.70,0.68,0.64),
+    // 幾乎等寬等高 —— 那個比例讀起來是敦厚,不是壓迫。
+    // 改成窄一點、高一點,輪廓才有「顱骨」的縱向感。
+    float d = sdRoundBox(p - vec3(0.0, 0.31, 0.0), vec3(0.15, 0.21, 0.13), 0.51);
 
     vec3 c = vec3(abs(p.x), p.y, p.z);
 
@@ -107,8 +114,11 @@ const FRAG = /* glsl */ `
     // 一開始放在 z=0.46 的結果是整條脊埋在顱骨裡面、完全看不到。
     // k 取小值,讓它保持是一道「脊」而不是被抹平。
     // 這道脊加上底下的顴骨弓,正是骷髏讀起來是骷髏、而不是光滑卵形的關鍵。
-    float brow = sdCapsule(c, vec3(0.03, 0.50, 0.585), vec3(0.44, 0.455, 0.44), 0.075);
-    d = smin(d, brow, 0.045);
+    // 【怒眉】原本內側(靠鼻梁)y=0.50 比外側 y=0.455 高,那是往外下垂的走向,
+    // 讀起來是無辜或困惑。真正讓一張臉顯得兇的是相反的走向:眉頭低、眉尾高。
+    // 所以把兩端對調,內側壓到 0.435、外側抬到 0.505,並加粗讓它往前罩住眼窩上緣。
+    float brow = sdCapsule(c, vec3(0.03, 0.435, 0.60), vec3(0.44, 0.505, 0.44), 0.086);
+    d = smin(d, brow, 0.04);
 
     // 顴骨弓:從鼻腔旁往後上方拉的一道細脊(同樣要貼在表面上)
     float arch = sdCapsule(c, vec3(0.18, 0.00, 0.50), vec3(0.56, 0.13, 0.02), 0.078);
@@ -203,8 +213,25 @@ const FRAG = /* glsl */ `
     // 相機固定在 z 軸 2.6 處看向原點,由 uTime 驅動 ±12 度的緩慢左右擺動,
     // 讓它讀得出來是立體的,而不是一張貼圖。
     float a = radians(12.0) * sin(uTime * 0.45);
+
+    // 【受擊:真的把頭打歪】外層的 CSS 只能把整張畫布平移,那讀起來是
+    // 「圖被搖了一下」。這裡讓相機繞著骷髏多轉一個角度,等效於頭被打得偏過去,
+    // 而且因為是 3D,偏過去的同時受光面、眼窩的陰影都會跟著變 —— 那才是逼真的來源。
+    // 用 sin 的衰減振盪(而不是單調回正)做出被打中之後晃兩下的餘韻。
+    float hitOsc = uHit * uHit * sin(uHit * 22.0);
+    a += radians(17.0) * hitOsc;
+
+    // 出手時往前壓(縮小 yaw 擺幅),像是把頭低下來衝過來
+    a *= 1.0 - 0.5 * uAtk;
+
     float ca = cos(a), sa = sin(a);
     mat3 yaw = mat3(ca, 0.0, -sa, 0.0, 1.0, 0.0, sa, 0.0, ca);
+
+    // 受擊時同時給一點仰角變化,單純左右歪會顯得像節拍器
+    float pitch = radians(9.0) * uHit * uHit * cos(uHit * 18.0);
+    float cp = cos(pitch), sp2 = sin(pitch);
+    mat3 pit = mat3(1.0, 0.0, 0.0, 0.0, cp, sp2, 0.0, -sp2, cp);
+    yaw = yaw * pit;
 
     // 相機瞄準 y = 0.13 而不是原點:骷髏的垂直中心在那裡
     // (顱頂約 +1.05、下巴約 −0.79),瞄原點會讓它整顆偏上,
@@ -261,8 +288,10 @@ const FRAG = /* glsl */ `
     // 主光的顏色必須真的乘進漫反射,不能只拿去做高光 ——
     // 只餵高光的話,整顆骷髏會是沒有色溫的灰白,跟卡片的金色主題對不起來。
     // 這裡把白光與金色調和成暖奶油色:骨頭仍是骨頭,但明確被金光打亮。
-    vec3 keyLight = mix(vec3(1.0), keyCol, 0.55) * 1.55;
-    vec3 ambient = vec3(0.16, 0.15, 0.18);
+    // 環境光壓低、主光提高 —— 對比是「兇」的另一半。
+    // 環境光高的時候陰影會被填亮,眼窩再深也是灰的,整顆就顯得溫吞。
+    vec3 keyLight = mix(vec3(1.0), keyCol, 0.55) * 1.78;
+    vec3 ambient = vec3(0.085, 0.080, 0.105);
 
     float shade = mix(1.0, 0.10, inCavity);
     vec3 col = bone * (ambient + diff * keyLight) * ao * shade;
@@ -275,6 +304,20 @@ const FRAG = /* glsl */ `
     float ember = smoothstep(0.0, -0.18, eyeHole(pos));
     col += vec3(0.95, 0.66, 0.20) * ember * 0.42;
 
+    // ── 受擊 / 出手的發光 ──────────────────────────────────────────────
+    // 這裡是在「材質內部」加光,不是像外層 CSS 那樣對整張畫布做 brightness()。
+    // 差別在於:CSS 的亮度是均勻乘上去的,會把眼窩的暗部一起洗白,立體感當場消失;
+    // 在這裡加,則是沿著邊緣與受光面透出來,暗部仍然是暗的 —— 骨頭看起來像
+    // 「從裡面燒起來」而不是「被打了一盞白燈」。
+    //
+    // 受擊:紅色,沿 fresnel 邊緣最強(像衝擊波從輪廓炸開)
+    col += vec3(1.0, 0.22, 0.18) * uHit * (0.35 + fres * 1.5);
+    // 眼窩在受擊時燒得更旺,那兩個洞是整顆最有表情的地方
+    col += vec3(1.0, 0.35, 0.10) * ember * uHit * 1.6;
+    // 出手:橙紅,偏向整體受光面,像蓄力發熱
+    col += vec3(1.0, 0.42, 0.12) * uAtk * (0.22 + diff * 0.55);
+    col += vec3(1.0, 0.55, 0.15) * ember * uAtk * 1.9;
+
     gl_FragColor = vec4(col, 1.0);
   }
 `
@@ -282,6 +325,19 @@ const FRAG = /* glsl */ `
 export default function BossSkull({ anim, children }) {
   const canvasRef = useRef(null)
   const [failed, setFailed] = useState(false)
+  // 受擊 / 出手的衝量。1 = 剛發生,隨時間衰減回 0。
+  // 用 ref 而不是 state:它每一幀都在變,進 state 會讓整個元件每幀重繪。
+  const impulseRef = useRef({ hit: 0, atk: 0 })
+  const uniformsRef = useRef(null)
+
+  // anim 從 idle 變成 hit/attack 的那一刻打一次衝量進去。
+  // 這是「特效逼真」的關鍵:先前 anim 只被拿去加一個 CSS class,shader 完全
+  // 不知道骷髏被打中了 —— 所以特效再怎麼調都只是把一張平面圖搖一搖。
+  // 現在衝量會進到 shader,骷髏是真的在 3D 空間裡被打歪、從骨頭內部透出紅光。
+  useEffect(() => {
+    if (anim === 'hit') impulseRef.current.hit = 1
+    else if (anim === 'attack') impulseRef.current.atk = 1
+  }, [anim])
 
   useEffect(() => {
     if (failed) return
@@ -337,6 +393,8 @@ export default function BossSkull({ anim, children }) {
         fragment: FRAG,
         uniforms: {
           uTime: { value: 0 },
+          uHit: { value: 0 },
+          uAtk: { value: 0 },
           uResolution: { value: [1, 1] },
         },
         transparent: true,
@@ -370,8 +428,23 @@ export default function BossSkull({ anim, children }) {
       program.uniforms.uResolution.value = [px, px]
     }
 
+    uniformsRef.current = program.uniforms
+
+    // 衝量的衰減率。受擊要脆(快進快出),出手要有蓄力與收勢(慢一點)。
+    // 用「每秒衰減多少」而不是每幀固定值,才不會在 144Hz 螢幕上快一倍。
+    const HIT_DECAY = 2.6
+    const ATK_DECAY = 1.5
+    let lastMs = 0
+
     const draw = (elapsedMs) => {
+      const dt = Math.min(0.05, Math.max(0, (elapsedMs - lastMs) / 1000))
+      lastMs = elapsedMs
+      const imp = impulseRef.current
+      imp.hit = Math.max(0, imp.hit - dt * HIT_DECAY)
+      imp.atk = Math.max(0, imp.atk - dt * ATK_DECAY)
       program.uniforms.uTime.value = elapsedMs / 1000
+      program.uniforms.uHit.value = imp.hit
+      program.uniforms.uAtk.value = imp.atk
       renderer.render({ scene: mesh })
     }
 

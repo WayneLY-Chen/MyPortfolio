@@ -903,17 +903,93 @@ function BossRaidGame() {
     <div className="boss-raid-layout">
       <style>{`
         @keyframes bossFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-        @keyframes bossHit { 0%,100% { transform: translateX(0) scale(1); filter: brightness(1); } 25% { transform: translateX(-10px) scale(0.95); filter: brightness(3); } 75% { transform: translateX(10px) scale(1.05); } }
-        @keyframes bossAtk { 0%,100% { transform: translateY(0) scale(1); } 30% { transform: translateY(-20px) scale(1.1); filter: drop-shadow(0 0 20px #00FF00); } 70% { transform: translateY(30px) scale(1.2); } }
+
+        /* 【被擊中】原本在最深處用 filter: brightness(3) 把整顆打成純白。
+           那招在平面的 emoji 上只是「閃一下」,但套在有光影的 3D 骷髏上,
+           會連同眼窩的暗部、眉骨的陰影一起洗掉 —— 看起來不像被打中,像破圖。
+           改成中等亮度 + 紅色外光暈:形體保得住,受擊反而更讀得出來。
+           另外加了回彈段(40% → 70%),原本只有「打過去再回來」兩個點,
+           在 3D 上顯得像整顆被平移,沒有被「打到」的感覺。 */
+           分工:骷髏「本身」被打歪、從骨頭內部透出紅光,那些現在由 shader 負責
+           (BossSkull 收到 anim 之後把衝量餵進 uniform,骷髏是在 3D 裡真的偏過去,
+           受光面與眼窩陰影會跟著變)。這裡只留 shader 做不到的兩件事:
+           整塊畫布的位移,以及溢出畫布邊界的外光暈。
+           **不要**在這裡再加 brightness() —— shader 已經在發光了,再乘一次會疊成死白。 */
+        @keyframes bossHit {
+          0%   { transform: translateX(0) scale(1); }
+          15%  { transform: translateX(-9px) scale(0.96); filter: drop-shadow(0 0 26px rgba(239,68,68,0.9)); }
+          40%  { transform: translateX(6px) scale(1.03); filter: drop-shadow(0 0 16px rgba(239,68,68,0.45)); }
+          70%  { transform: translateX(-3px) scale(0.995); }
+          100% { transform: translateX(0) scale(1); }
+        }
+
+        /* 【骷髏王出手】原本的光是 #00FF00 純綠。這個站的色系是金 + 骨白 + 深紫,
+           純綠在裡面像貼錯素材。改成橙紅,既讀得出是攻擊、又跟主色合得起來。
+           俯衝後補一個 80% 的收勢,不然動畫會在最低點硬切回原位。 */
+        @keyframes bossAtk {
+          0%   { transform: translateY(0) scale(1); }
+          25%  { transform: translateY(-22px) scale(1.06); filter: drop-shadow(0 0 30px rgba(255,107,53,0.85)); }
+          55%  { transform: translateY(26px) scale(1.16); filter: drop-shadow(0 0 40px rgba(239,68,68,0.9)); }
+          80%  { transform: translateY(-6px) scale(1.02); }
+          100% { transform: translateY(0) scale(1); }
+        }
+
         .boss-idle { animation: bossFloat 3s ease-in-out infinite; }
-        .boss-hit  { animation: bossHit  0.4s ease-out; }
-        .boss-attack { animation: bossAtk 0.6s ease-in-out; }
+        .boss-hit  { animation: bossHit  0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+        .boss-attack { animation: bossAtk 0.65s cubic-bezier(0.34, 1.3, 0.64, 1); }
+
+        /* 減少動態偏好:BossSkull 內部的 shader 迴圈已經會停,但這三個動畫是
+           掛在外層包裝上的 CSS,不受那個開關影響 —— 少了這一段,選了「減少動態」
+           的使用者還是會看到骷髏浮動與俯衝。 */
+        @media (prefers-reduced-motion: reduce) {
+          .boss-idle, .boss-hit, .boss-attack { animation: none !important; }
+        }
         .card-item:hover { transform: translateY(-6px) !important; }
         .boss-log-container::-webkit-scrollbar { width: 4px; }
         .boss-log-container::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 2px; }
         .boss-log-container::-webkit-scrollbar-thumb { background: rgba(168,85,247,0.3); border-radius: 2px; }
         .boss-log-container::-webkit-scrollbar-thumb:hover { background: rgba(168,85,247,0.5); }
         .pulsing-dot { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; box-shadow: 0 0 8px #4ade80; animation: pulse 2s infinite; }
+
+        /* ── 中央欄放大後的比例修正 ────────────────────────────────────────
+           版面框寬到 1000px 是好事(骷髏畫布需要那個舞台),但底下這些是
+           「讀數 + 進度條 + 按鈕」,它們有自己舒適的尺寸,被拉到多寬就多寬
+           只會變得空洞。所以框歸框,控制項自己收在一個合理寬度內置中。 */
+        /* 一個寬度管全部。分開設 max-width 會讓某一塊比隔壁窄個幾十 px,
+           那種差距讀起來不是「留白」而是「沒對準」。 */
+        .boss-center { width: 100%; max-width: 900px; margin: 0 auto; }
+        .boss-stat-row { display: flex; align-items: flex-end; gap: 32px; }
+        .boss-stat-meter { flex: 1; min-width: 0; max-width: 340px; }
+        .boss-turn-slot { flex-shrink: 0; display: flex; align-items: center; min-height: 44px; }
+        .boss-endturn-btn {
+          padding: 11px 26px;
+          background: rgba(239, 68, 68, 0.08);
+          border: 1px solid rgba(239, 68, 68, 0.55);
+          color: #f87171;
+          border-radius: 10px;
+          cursor: pointer;
+          font-family: var(--font-sans);
+          font-size: 13px;
+          font-weight: 800;
+          letter-spacing: 0.12em;
+          white-space: nowrap;
+          transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+        }
+        .boss-endturn-btn:hover {
+          background: #ef4444;
+          color: #fff;
+          box-shadow: 0 0 18px rgba(239, 68, 68, 0.45);
+        }
+        /* 卡牌:三張分掉 900px 每張約 290px,原本 180px 高會是矮胖的長方形,
+           拉到 220px 才比較像一張牌。 */
+        .boss-hand > .card-item { min-height: 220px !important; }
+
+        @media (max-width: 768px) {
+          .boss-stat-row { flex-wrap: wrap; gap: 18px; }
+          .boss-stat-meter { max-width: none; flex-basis: 100%; }
+          .boss-turn-slot { width: 100%; }
+          .boss-endturn-btn { width: 100%; min-height: 44px; }
+        }
         @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.5; } 100% { transform: scale(1); opacity: 1; } }
       `}</style>
 
@@ -944,7 +1020,7 @@ function BossRaidGame() {
       </div>
 
       {/* Center: main game */}
-      <div className="relative">
+      <div className="relative boss-center">
         <Confetti active={victory} color="#C8942A" />
         
         {/* Boss area */}
@@ -991,31 +1067,36 @@ function BossRaidGame() {
             <div ref={logRef} className="boss-log-container" style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid #1a1a2e', borderRadius: 8, padding: 12, height: 120, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 4, fontSize: 13, textAlign: 'left', marginBottom: 12 }}>
               {log.map((l, i) => <div key={i} style={{ color: l.includes('骷髏王') && l.includes('使用') ? '#ff4444' : l.includes('你使用') ? '#e8ff40' : l.includes('恢復') ? '#22c55e' : '#e2e8f0' }}>{l}</div>)}
             </div>
-            <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl p-5 mb-4">
-              <div className="flex gap-6 mb-4 items-center">
-                <div className="flex-1">
-                  <div className="flex justify-between items-end mb-2">
-                    <span className="text-[#4ade80] text-xs font-bold uppercase">Health</span>
-                    <span className="text-white font-black text-lg"><AnimatedNumber value={playerHp} /> / 300</span>
+            {/* 中央欄從 358px 放大到 1000px 之後,這一列原本的寫法會整個垮掉:
+                justify-between 會把「HEALTH」跟數字推到相距數百 px 的兩端,中間一片空;
+                h-2 的血條橫跨那個寬度細得像髮絲。所以標籤與數字改成緊鄰、條加粗,
+                並給整列一個 max-width —— 版面框可以寬,但「讀數 + 進度條」這種
+                元件本來就有它舒適的尺寸,不該被拉到多寬就多寬。 */}
+            <div className="boss-stat-panel bg-white/[0.03] border border-white/[0.05] rounded-xl p-5 mb-4">
+              <div className="boss-stat-row">
+                <div className="boss-stat-meter">
+                  <div className="flex items-baseline gap-3 mb-2">
+                    <span className="text-[#4ade80] text-xs font-bold uppercase tracking-widest">Health</span>
+                    <span className="text-white font-black text-lg tabular-nums"><AnimatedNumber value={playerHp} /> / 300</span>
                   </div>
-                  <div className="h-2 bg-black/40 rounded-full overflow-hidden">
-                    <motion.div className="h-full bg-gradient-to-r from-[#22c55e] to-[#4ade80]" initial={{ width: 0 }} animate={{ width: `${playerHpPct}%` }} />
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-end mb-2">
-                    <span className="text-[#60a5fa] text-xs font-bold uppercase">Mana</span>
-                    <span className="text-white font-black text-lg"><AnimatedNumber value={playerMp} /> / 100</span>
-                  </div>
-                  <div className="h-2 bg-black/40 rounded-full overflow-hidden">
-                    <motion.div className="h-full bg-gradient-to-r from-[#3b82f6] to-[#60a5fa]" initial={{ width: 0 }} animate={{ width: `${playerMpPct}%` }} />
+                  <div className="h-3 bg-black/40 rounded-full overflow-hidden border border-white/5">
+                    <motion.div className="h-full bg-gradient-to-r from-[#22c55e] to-[#4ade80]" style={{ boxShadow: '0 0 12px rgba(74,222,128,0.45)' }} initial={{ width: 0 }} animate={{ width: `${playerHpPct}%` }} />
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-2 shrink-0">
+                <div className="boss-stat-meter">
+                  <div className="flex items-baseline gap-3 mb-2">
+                    <span className="text-[#60a5fa] text-xs font-bold uppercase tracking-widest">Mana</span>
+                    <span className="text-white font-black text-lg tabular-nums"><AnimatedNumber value={playerMp} /> / 100</span>
+                  </div>
+                  <div className="h-3 bg-black/40 rounded-full overflow-hidden border border-white/5">
+                    <motion.div className="h-full bg-gradient-to-r from-[#3b82f6] to-[#60a5fa]" style={{ boxShadow: '0 0 12px rgba(96,165,250,0.45)' }} initial={{ width: 0 }} animate={{ width: `${playerMpPct}%` }} />
+                  </div>
+                </div>
+                <div className="boss-turn-slot">
                   {turn === 'player' ? (
-                     <button onClick={endTurn} className="px-4 py-2 bg-red-500/10 border border-red-500/50 text-red-500 rounded-lg cursor-pointer font-bold text-xs hover:bg-red-500 hover:text-white transition-colors">結束回合</button>
+                     <button onClick={endTurn} className="boss-endturn-btn">結束回合</button>
                   ) : (
-                    <span className="text-red-500 text-xs font-bold animate-pulse">敵方回合...</span>
+                    <span className="text-red-400 text-sm font-bold animate-pulse tracking-widest">敵方回合...</span>
                   )}
                 </div>
               </div>
@@ -1027,7 +1108,7 @@ function BossRaidGame() {
               </div>
             )}
             {(turn === 'player' || turn === 'boss') && (
-              <div style={{ display: 'flex', gap: 14, opacity: turn === 'boss' ? 0.5 : 1, transition: 'opacity 0.3s' }}>
+              <div className="boss-hand" style={{ display: 'flex', gap: 14, opacity: turn === 'boss' ? 0.5 : 1, transition: 'opacity 0.3s' }}>
                 {hand.map((card, idx) => {
                   const cc = cardColor(card.type)
                   const canCast = playerMp >= card.cost && turn === 'player' && bossState.is_alive
