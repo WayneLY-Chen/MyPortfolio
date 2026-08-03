@@ -14,11 +14,21 @@
   --card-radius: 24px;
 }
 
-/* ── Reset ── */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/* ── Reset ──
+   必須包在 @layer base 裡,不可以裸寫。
+   Tailwind v4 把工具類放進 @layer utilities,而 CSS 的層疊規則是
+   「沒有分層的樣式永遠贏過有分層的樣式」,跟具體度無關 ——
+   所以裸寫的 `* { margin: 0; padding: 0 }` 會把全站每一個
+   p-* / m-* / gap-* / px-* 通通蓋掉,而且完全不報錯,只是靜靜地沒有效果。
+   (實測:一個全新的 <div class="p-5"> 拿到的 padding 是 0px,
+    即使 --spacing 解析正常、.p-5 規則也確實存在於 stylesheet 裡。)
+   包進 base 之後它排在 utilities 之前,重置照樣生效,工具類也拿得回控制權。 */
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 }
 
 html {

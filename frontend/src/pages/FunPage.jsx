@@ -983,6 +983,10 @@ function BossRaidGame() {
         /* 卡牌:三張分掉 900px 每張約 290px,原本 180px 高會是矮胖的長方形,
            拉到 220px 才比較像一張牌。 */
         .boss-hand > .card-item { min-height: 220px !important; }
+        /* 手牌整排往下讓開。.card-item:hover 會 translateY(-6px),
+           間距不夠的話卡片一浮起來就壓在血條/魔力條上 ——
+           這裡留的空間必須大於那 6px,才不會「滑過去就擋住讀數」。 */
+        .boss-hand { margin-top: 22px; }
 
         @media (max-width: 768px) {
           .boss-stat-row { flex-wrap: wrap; gap: 18px; }
