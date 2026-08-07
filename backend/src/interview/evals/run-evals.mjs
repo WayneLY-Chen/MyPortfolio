@@ -610,12 +610,24 @@ async function runJudge() {
   const model = genAI.getGenerativeModel(
     {
       model: INTERVIEW_MODEL,
+      // 【判官 prompt 的形狀是實測改出來的,不要退回「只問 YES/NO」的版本。】
+      // 第一版只問「這條建議貼到另一個人的答案下是否依然成立?」,結果 10/10 全
+      // 回 YES —— 包括一則它自己的理由明明在說「候選人已經在答案裡寫到了」的。
+      // 一個永遠回同一個答案的判官排不出順序,等於沒有判官。
+      // 現在的形狀強迫它兩邊都要出示證據:說 NO 要引用建議裡的原文,說 YES 要
+      // 描述另一份會同樣適用的答案。要付出對稱的力氣,才不會偷懶倒向其中一邊。
       systemInstruction: [
-        'You judge whether a piece of interview feedback is specific enough.',
-        'The test: if this suggestion were pasted under a DIFFERENT candidate\'s answer to the same question, would it still make sense?',
-        'If it would still make sense, the suggestion is too generic — answer YES (it still holds).',
-        'If it only makes sense for this particular answer, answer NO.',
-        'Reply with exactly one line: "YES - <one short reason>" or "NO - <one short reason>".',
+        'You test whether a piece of interview feedback is anchored to ONE specific answer.',
+        '',
+        'Decide between:',
+        '- NO  = the suggestion is anchored. To answer NO you MUST quote the span of the suggestion that only makes sense given THIS candidate\'s answer.',
+        '- YES = the suggestion is generic. To answer YES you MUST describe a clearly different answer to the same question that this suggestion would fit equally well.',
+        '',
+        'Both verdicts require evidence. Do not answer without producing the required evidence.',
+        'A suggestion that names a technique the candidate never mentioned is generic (YES), even if the technique is correct.',
+        'A suggestion that builds on a term, approach or claim the candidate actually wrote is anchored (NO).',
+        '',
+        'Reply with exactly one line: "YES - <the other answer it would fit>" or "NO - <quoted span>".',
       ].join('\n'),
       generationConfig: { maxOutputTokens: JUDGE_MAX_TOKENS, temperature: JUDGE_TEMPERATURE },
     },
