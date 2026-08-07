@@ -358,7 +358,12 @@ export default function InterviewTab() {
 
         /* ── 播放指示(UI-SPEC §3,逐字)──────────────────────────────── */
         .iv-playing-indicator { display: inline-flex; align-items: flex-end; gap: 3px; height: 16px; }
-        .iv-playing-bar { width: 3px; border-radius: 2px; background: var(--accent); transform: scaleY(0.35); transition: transform 0.15s; }
+        /* height 與 transform-origin 是 UI-SPEC §3 沒寫、但少了就整組看不見的兩行:
+           容器是 align-items: flex-end 的 flex,長條又是空的 <span>,不加 height 會被
+           算成 0px(實測 getBoundingClientRect().height === 0,四條等化器完全不顯示)。
+           transform-origin: bottom 則讓 scaleY 從底線往上長 —— 預設的 center 會讓長條
+           同時往上下兩邊長,跳起來像呼吸而不像等化器。其餘數值一律照 §3 逐字。 */
+        .iv-playing-bar { width: 3px; height: 100%; transform-origin: bottom; border-radius: 2px; background: var(--accent); transform: scaleY(0.35); transition: transform 0.15s; }
         .iv-playing-indicator--active .iv-playing-bar { animation: iv-bar-bounce 0.9s ease-in-out infinite; }
         .iv-playing-indicator--active .iv-playing-bar:nth-child(1) { animation-delay: 0s; }
         .iv-playing-indicator--active .iv-playing-bar:nth-child(2) { animation-delay: 0.15s; }
