@@ -9,6 +9,21 @@ const path = require('path')
 const fs = require('fs')
 const { optionalAuthenticate } = require('../middlewares/authenticate')
 const { aiLimiter, ttsLimiter } = require('../middlewares/rateLimiters')
+const {
+  TRACKS,
+  LANGUAGES,
+  buildQuestionSystemPrompt,
+  buildScoringSystemPrompt,
+  buildScoringUserMessage,
+} = require('../interview/prompts')
+const {
+  questionsResponseSchema,
+  buildScoringResponseSchema,
+  RATING_ENUM_BY_LANG,
+} = require('../interview/schemas')
+
+// Gemini 一律走這個 Vercel proxy(/chat 用的是同一個位址)。
+const GEMINI_PROXY_URL = 'https://my-portfolio-waynely-chens-projects.vercel.app/api/google-proxy'
 
 // Profile data cache mechanism
 const CACHE_TTL = 5 * 60 * 1000;
@@ -86,9 +101,18 @@ function buildSystemPrompt(mode, p) {
 // /tts 逾時上限（ms）— 使用者主動觸發的逐句朗讀，給比 /chat 內部動態 TTS（4000/3000ms）更寬鬆的上限
 const TTS_TIMEOUT_MS = 8000
 
+// 語速白名單（D-16 的 0.75x / 1x / 1.25x 三段）。
+//
+// 必須是 Map,不可以改回物件字面值。rate 最終被字串內插進
+// `<prosody rate="${options.rate}">` 這個 XML 屬性;用物件字面值查表時,
+// 使用者送 'constructor' / '__proto__' / 'toString' / 'valueOf' 這類鍵會查到
+// Object.prototype 上的東西(truthy,所以 `?? 1` 不會觸發),整包被內插進 SSML。
+// Map 沒有原型鍵可命中,自然封得住 —— ai.test.js 有一組測試專門盯著這件事。
+const TTS_RATE_WHITELIST = new Map([[0.75, 0.75], [1, 1], [1.25, 1.25]])
+
 // POST /api/ai/tts
 router.post('/tts', optionalAuthenticate, ttsLimiter, async (req, res) => {
-  const { text, voice = 'zh-CN-XiaoxiaoNeural' } = req.body
+  const { text, voice = 'zh-CN-XiaoxiaoNeural', rate } = req.body
   if (!text) return res.status(400).json({ success: false, error: '缺少文字' })
 
   try {
@@ -99,7 +123,13 @@ router.post('/tts', optionalAuthenticate, ttsLimiter, async (req, res) => {
       .replace(/[*_~\[\]#`]/g, "")
       .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "");
 
-    const { audioStream } = tts.toStream(cleanText)
+    // rate 屬於 ProsodyOptions,是 toStream() 的第二個參數 —— setMetadata() 的
+    // MetadataOptions 裡沒有這個欄位,傳過去型別合法但執行期完全沒效果。
+    // ProsodyOptions 的預設 rate 就是 1,而 _SSMLTemplate 內部是
+    // `{ ...new ProsodyOptions(), ...options }` merge,所以不帶 rate 的請求
+    // 送出的 SSML 與改動前逐位元組相同(Wobot 的既有呼叫不受影響)。
+    const safeRate = TTS_RATE_WHITELIST.get(Number(rate)) ?? 1
+    const { audioStream } = tts.toStream(cleanText, { rate: safeRate })
     const chunks = []
     let sent = false
 
@@ -243,7 +273,7 @@ router.post('/chat', optionalAuthenticate, aiLimiter, async (req, res) => {
 
     const profile = await getProfileContext()
 
-    const proxyUrl = 'https://my-portfolio-waynely-chens-projects.vercel.app/api/google-proxy';
+    const proxyUrl = GEMINI_PROXY_URL;
 
     const model = genAI.getGenerativeModel(
       {
@@ -374,6 +404,336 @@ router.post('/summarize', optionalAuthenticate, aiLimiter, async (req, res) => {
   } catch (err) {
     console.error('[AI Summarize]', err.stack || err.message)
     res.status(500).json({ success: false, error: err.message })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// 模擬面試(FEAT-16 出題 / FEAT-19 評分)
+//
+// 兩個端點都掛既有的 optionalAuthenticate + aiLimiter(40 次/小時)。刻意不新增
+// 限流桶:一場面試耗 2 次呼叫,等於每位訪客每小時約 20 場,作品集情境綽綽有餘。
+// ---------------------------------------------------------------------------
+
+const INTERVIEW_MODEL = 'gemini-3.1-flash-lite'
+// 出題 12s / 評分 20s。SDK 沒有 timeout 欄位,本專案也沒有先例,一律自己用
+// Promise.race 手寫(與 /tts 和 /chat 內的動態 TTS 同一套做法)。
+const QUESTIONS_TIMEOUT_MS = 12000
+const QUESTION_TYPES = ['technical', 'behavioral']
+const QUESTION_COUNT = 5
+
+// 逾時與「輸出契約不合格」兩種失敗都要跟 transport 錯誤分開處理,所以各給一個
+// 可辨識的類別 —— 用字串比對 err.message 來分辨失敗種類正是這裡最不該做的事。
+class DeadlineExceeded extends Error {}
+class ContractViolation extends Error {
+  constructor(reason) {
+    super(`interview contract violation: ${reason}`)
+    this.reason = reason
+  }
+}
+
+// 硬性逾時。傳進來的 promise 必須已經啟動;Promise.race 會替兩邊都掛上處理常式,
+// 所以逾時之後那個仍在飛的請求即使稍後才 reject 也不會變成 unhandled rejection。
+function withDeadline(promise, ms) {
+  let timer
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new DeadlineExceeded()), ms)
+  })
+  return Promise.race([promise, deadline]).finally(() => clearTimeout(timer))
+}
+
+// 沿用 /chat 既有的三段判斷式(:317-319),回應形狀改成面試端點的 { error, code }。
+function classifyGeminiFailure(err) {
+  const message = (err && err.message) || ''
+  if (message.includes('429') || message.includes('quota')) {
+    return { status: 503, code: 'AI_QUOTA', error: 'AI 配額暫時用完了，請稍後再試' }
+  }
+  if (message.includes('503') || message.includes('demand') || message.includes('Unavailable')) {
+    return { status: 503, code: 'AI_BUSY', error: '現在使用的人太多，請稍後再試' }
+  }
+  return { status: 500, code: 'AI_UNAVAILABLE', error: 'AI 服務暫時無法使用，請稍後再試' }
+}
+
+function interviewRequestOptions() {
+  return {
+    baseUrl: GEMINI_PROXY_URL,
+    customHeaders: { 'x-internal-proxy-key': process.env.INTERNAL_PROXY_KEY },
+  }
+}
+
+// POST /api/ai/interview/questions
+router.post('/interview/questions', optionalAuthenticate, aiLimiter, async (req, res) => {
+  const startedAt = Date.now()
+  const { track, language } = req.body || {}
+
+  // 兩者都必須命中固定白名單(D-01 / D-06)—— 職缺方向不接受自由輸入,所以這裡
+  // 不需要任何字串清洗,不在清單上就是不合法。
+  if (!TRACKS.includes(track) || !LANGUAGES.includes(language)) {
+    return res.status(400).json({ success: false, error: '職缺方向或語言不在允許範圍內', code: 'INVALID_INPUT' })
+  }
+
+  const elapsed = () => Date.now() - startedAt
+  let attempt = 0
+
+  const GEMINI_KEY = process.env.GEMINI_API_KEY
+  if (!GEMINI_KEY) {
+    console.error(`[AI Interview] questions fail track=${track} lang=${language} reason=no_key attempt=0 ms=${elapsed()}`)
+    return res.status(500).json({ success: false, error: 'AI 服務暫時無法使用，請稍後再試', code: 'AI_UNAVAILABLE' })
+  }
+
+  try {
+    const genAI = new GoogleGenerativeAI(GEMINI_KEY)
+    const model = genAI.getGenerativeModel({
+      model: INTERVIEW_MODEL,
+      systemInstruction: buildQuestionSystemPrompt(track, language),
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: questionsResponseSchema,
+        maxOutputTokens: 1024,
+        // 出題要多樣,不要每次都拿到同一批題。
+        temperature: 0.9,
+      },
+    }, interviewRequestOptions())
+
+    const kickoff = language === 'en' ? 'Produce the interview questions now.' : '請開始出題。'
+
+    // 重試迴圈沿用 /chat 的形狀(最多 2 次、間隔 1 秒)。出題只重試 transport
+    // 錯誤 —— 解析/形狀失敗直接落到 502,使用者此時還沒投入任何作答,重試的價值
+    // 遠低於評分那一側(見 /interview/score)。
+    const runAttempts = async () => {
+      let lastErr
+      for (let i = 0; i < 2; i += 1) {
+        attempt = i + 1
+        try {
+          return await model.generateContent(kickoff)
+        } catch (e) {
+          lastErr = e
+          console.warn(`[AI Interview] questions fail track=${track} lang=${language} reason=transport attempt=${attempt} ms=${elapsed()}`)
+          if (i < 1) await new Promise((r) => setTimeout(r, 1000))
+        }
+      }
+      throw lastErr
+    }
+
+    const result = await withDeadline(runAttempts(), QUESTIONS_TIMEOUT_MS)
+
+    const response = result && result.response
+    const finishReason = response && response.candidates && response.candidates[0] && response.candidates[0].finishReason
+    // finishReason 不是 STOP 就別解析了 —— MAX_TOKENS 會產生語法不完整、但看起來
+    // 很像對的 JSON。
+    if (finishReason !== 'STOP') throw new ContractViolation(`finish_${finishReason || 'unknown'}`)
+
+    let raw
+    try {
+      // .text() 在 prompt 或 candidate 被安全過濾時會 throw,不是回空字串。
+      raw = response.text()
+    } catch (e) {
+      throw new ContractViolation('text_throw')
+    }
+
+    let parsed
+    try {
+      parsed = JSON.parse(raw)
+    } catch (e) {
+      // 絕不做正則救援(D-10)。解析不了就是解析不了。
+      throw new ContractViolation('parse')
+    }
+
+    const questions = parsed && parsed.questions
+    if (!Array.isArray(questions) || questions.length !== QUESTION_COUNT) throw new ContractViolation('shape')
+    const allValid = questions.every(
+      (q) => q && QUESTION_TYPES.includes(q.type) && typeof q.text === 'string' && q.text.trim().length > 0
+    )
+    if (!allValid) throw new ContractViolation('shape')
+
+    const tech = questions.filter((q) => q.type === 'technical').length
+    console.log(`[AI Interview] questions ok track=${track} lang=${language} n=${questions.length} tech=${tech} beh=${questions.length - tech} ms=${elapsed()}`)
+
+    // 題號由這裡依陣列位置產生,不交給模型 —— 前端逐題推進與逐題回饋都靠它對齊。
+    res.json({
+      success: true,
+      questions: questions.map((q, i) => ({ index: i, type: q.type, text: q.text })),
+    })
+  } catch (err) {
+    const ms = elapsed()
+    if (err instanceof DeadlineExceeded) {
+      console.warn(`[AI Interview] questions fail track=${track} lang=${language} reason=timeout attempt=${attempt} ms=${ms}`)
+      return res.status(504).json({ success: false, error: '出題花的時間太久了，請按重試', code: 'QUESTIONS_TIMEOUT' })
+    }
+    if (err instanceof ContractViolation) {
+      console.warn(`[AI Interview] questions fail track=${track} lang=${language} reason=${err.reason} attempt=${attempt} ms=${ms}`)
+      return res.status(502).json({ success: false, error: '出題結果格式異常，請按重試', code: 'QUESTIONS_PARSE_FAILED' })
+    }
+    const classified = classifyGeminiFailure(err)
+    console.error(`[AI Interview] questions fail track=${track} lang=${language} reason=${classified.code.toLowerCase()} attempt=${attempt} ms=${ms}`)
+    return res.status(classified.status).json({ success: false, error: classified.error, code: classified.code })
+  }
+})
+
+// POST /api/ai/interview/score
+//
+// 這是整個面試流程中最不能失敗得難看的一次呼叫:使用者已經打完最多五段字。
+// D-20 因此鎖定「作答完整保留在前端狀態」—— 後端這一側對應的義務是:
+// 任何失敗都必須回一個明確的錯誤碼,讓前端知道可以原封不動重送同一份 payload。
+// 這裡不做任何部分成功、不回半套結果。
+const SCORE_TIMEOUT_MS = 20000
+const ANSWER_MAX_CHARS = 500
+
+router.post('/interview/score', optionalAuthenticate, aiLimiter, async (req, res) => {
+  const startedAt = Date.now()
+  const { track, language, items } = req.body || {}
+  const elapsed = () => Date.now() - startedAt
+  let attempt = 0
+
+  if (!TRACKS.includes(track) || !LANGUAGES.includes(language)) {
+    return res.status(400).json({ success: false, error: '職缺方向或語言不在允許範圍內', code: 'INVALID_INPUT' })
+  }
+  if (!Array.isArray(items) || items.length !== QUESTION_COUNT) {
+    return res.status(400).json({ success: false, error: '作答內容不完整', code: 'INVALID_INPUT' })
+  }
+
+  // 逐項驗形。作答長度上限在前端是 D-08 的 500 字,後端必須自己再擋一次 ——
+  // 前端的字數限制擋的是誤觸,擋不住直接打 API。
+  const shaped = []
+  for (const it of items) {
+    if (!it || !QUESTION_TYPES.includes(it.type) || typeof it.text !== 'string' || !it.text.trim()) {
+      return res.status(400).json({ success: false, error: '作答內容不完整', code: 'INVALID_INPUT' })
+    }
+    const skipped = it.skipped === true
+    const answer = typeof it.answer === 'string' ? it.answer : ''
+    if (!skipped && answer.trim().length === 0) {
+      return res.status(400).json({ success: false, error: '作答內容不完整', code: 'INVALID_INPUT' })
+    }
+    if (answer.length > ANSWER_MAX_CHARS) {
+      return res.status(400).json({ success: false, error: `單題作答不得超過 ${ANSWER_MAX_CHARS} 字`, code: 'ANSWER_TOO_LONG' })
+    }
+    shaped.push({ type: it.type, text: it.text, skipped, answer })
+  }
+
+  const answeredCount = shaped.filter((it) => !it.skipped).length
+
+  const GEMINI_KEY = process.env.GEMINI_API_KEY
+  if (!GEMINI_KEY) {
+    console.error(`[AI Interview] score fail track=${track} lang=${language} reason=no_key attempt=0 ms=${elapsed()}`)
+    return res.status(500).json({ success: false, error: 'AI 服務暫時無法使用，請稍後再試', code: 'AI_UNAVAILABLE' })
+  }
+
+  try {
+    const genAI = new GoogleGenerativeAI(GEMINI_KEY)
+    const model = genAI.getGenerativeModel({
+      model: INTERVIEW_MODEL,
+      systemInstruction: buildScoringSystemPrompt(track, language),
+      generationConfig: {
+        responseMimeType: 'application/json',
+        // 依語言注入 rating enum,拿到的是新物件,不會污染模組層的 schema。
+        responseSchema: buildScoringResponseSchema(language),
+        // 五題各要 comment + suggestion,輸出比出題那側大得多。
+        maxOutputTokens: 3072,
+        // 評分要穩定 —— 同一份作答不該每次跑出差很多的分數。
+        temperature: 0.3,
+      },
+    }, interviewRequestOptions())
+
+    // 出題那側只重試 transport 錯誤,這裡連契約違反也重試一次:
+    // 使用者已經投入五段作答,多花一次呼叫換一次成功遠比讓他重打划算。
+    const runAttempts = async () => {
+      let lastErr
+      for (let i = 0; i < 2; i += 1) {
+        attempt = i + 1
+        try {
+          return await model.generateContent(buildScoringUserMessage(shaped, language))
+        } catch (e) {
+          lastErr = e
+          console.warn(`[AI Interview] score fail track=${track} lang=${language} reason=transport attempt=${attempt} ms=${elapsed()}`)
+          if (i < 1) await new Promise((r) => setTimeout(r, 1000))
+        }
+      }
+      throw lastErr
+    }
+
+    const result = await withDeadline(runAttempts(), SCORE_TIMEOUT_MS)
+
+    const response = result && result.response
+    const finishReason = response && response.candidates && response.candidates[0] && response.candidates[0].finishReason
+    if (finishReason !== 'STOP') throw new ContractViolation(`finish_${finishReason || 'unknown'}`)
+
+    let raw
+    try {
+      raw = response.text()
+    } catch (e) {
+      throw new ContractViolation('text_throw')
+    }
+
+    let parsed
+    try {
+      parsed = JSON.parse(raw)
+    } catch (e) {
+      throw new ContractViolation('parse')
+    }
+
+    const per = parsed && parsed.perQuestion
+    if (!Array.isArray(per) || per.length !== QUESTION_COUNT) throw new ContractViolation('shape')
+    if (typeof parsed.overallScore !== 'number' || typeof parsed.summary !== 'string' || !parsed.summary.trim()) {
+      throw new ContractViolation('shape')
+    }
+
+    // 逐題正規化。分數一律夾回 0-100 並取整 —— schema 標的是 INTEGER,但那是
+    // 對模型的要求,不是保證;直接把模型給的數字餵進前端的進度條是自找麻煩。
+    // 跳過的題強制無分數,不採信模型可能自己補上的數字(D-11)。
+    const clamp = (n) => Math.max(0, Math.min(100, Math.round(Number(n))))
+    // 【只用陣列位置對齊,絕不採信模型回傳的 questionIndex】
+    // 實測(2026-08-03,backend 職缺 / 中文)模型回的是 1-based 的 questionIndex,
+    // 而這裡的陣列是 0-based。先前用 `per.find(p => p.questionIndex === i)` 比對,
+    // 對不上就退回 per[i] —— 結果是第 1、2 題拿到一模一樣的評語,注入嘗試那題
+    // 被標成「未作答」。整份回饋看起來格式完全正常,只有逐字讀才會發現錯位。
+    //
+    // schema 已鎖定 minItems/maxItems 為 5 且輸出順序跟隨輸入順序,所以位置對齊
+    // 是可靠的;questionIndex 則是模型自己數的,不可靠。題號一律由後端依位置產生,
+    // 與出題端點的做法一致。
+    const perQuestion = shaped.map((it, i) => {
+      const src = per[i] || {}
+      const hasScore = !it.skipped && Number.isFinite(Number(src.score))
+      return {
+        index: i,
+        skipped: it.skipped,
+        score: hasScore ? clamp(src.score) : null,
+        comment: typeof src.comment === 'string' ? src.comment : '',
+        suggestion: typeof src.suggestion === 'string' ? src.suggestion : '',
+      }
+    })
+
+    // 總分自己算,不採信模型的 overallScore —— 模型算平均這件事並不可靠,
+    // 而「總分與逐題分數對不起來」是使用者一眼就會抓到的破綻。
+    const scored = perQuestion.filter((p) => p.score !== null)
+    const overallScore = scored.length
+      ? Math.round(scored.reduce((s, p) => s + p.score, 0) / scored.length)
+      : 0
+
+    const ratingList = RATING_ENUM_BY_LANG[language] || RATING_ENUM_BY_LANG.zh
+    const rating = ratingList.includes(parsed.rating) ? parsed.rating : ratingList[ratingList.length - 1]
+
+    console.log(`[AI Interview] score ok track=${track} lang=${language} answered=${answeredCount} overall=${overallScore} ms=${elapsed()}`)
+
+    res.json({
+      success: true,
+      overallScore,
+      rating,
+      summary: parsed.summary,
+      answeredCount,
+      perQuestion,
+    })
+  } catch (err) {
+    const ms = elapsed()
+    if (err instanceof DeadlineExceeded) {
+      console.warn(`[AI Interview] score fail track=${track} lang=${language} reason=timeout attempt=${attempt} ms=${ms}`)
+      return res.status(504).json({ success: false, error: '評分花的時間太久了，你的作答還在，請按重試', code: 'SCORE_TIMEOUT' })
+    }
+    if (err instanceof ContractViolation) {
+      console.warn(`[AI Interview] score fail track=${track} lang=${language} reason=${err.reason} attempt=${attempt} ms=${ms}`)
+      return res.status(502).json({ success: false, error: '評分結果格式異常，你的作答還在，請按重試', code: 'SCORE_PARSE_FAILED' })
+    }
+    const classified = classifyGeminiFailure(err)
+    console.error(`[AI Interview] score fail track=${track} lang=${language} reason=${classified.code.toLowerCase()} attempt=${attempt} ms=${ms}`)
+    return res.status(classified.status).json({ success: false, error: classified.error, code: classified.code })
   }
 })
 
