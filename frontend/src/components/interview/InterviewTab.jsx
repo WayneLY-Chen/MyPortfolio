@@ -25,9 +25,11 @@ import {
   buildScoringPayload,
   canStart as canStartInterview,
   interviewReducer,
+  isLastQuestion,
 } from './interviewReducer'
 import { fetchQuestions, postScore } from './interviewApi'
 import { useInterviewTts } from './useInterviewTts'
+import InterviewRunner from './InterviewRunner'
 import TrackSelect from './TrackSelect'
 
 export default function InterviewTab() {
@@ -35,7 +37,7 @@ export default function InterviewTab() {
 
   // 受控模式:靜音與語速的真相在狀態機(切分頁時跟著面試一起留著),hook 只負責播。
   // 兩邊各存一份是這裡最容易長出來的 bug —— 靜音鈕看起來切了但聲音照播。
-  const { speak, stop } = useInterviewTts({
+  const { speak, stop, replay, isPlaying, muted, toggleMute, speed, setSpeed } = useInterviewTts({
     language: state.language,
     muted: state.muted,
     speed: state.rate,
@@ -124,6 +126,10 @@ export default function InterviewTab() {
   const selectTrack = (track) => dispatch({ type: ACTION_TYPES.SELECT_TRACK, track })
   const selectLanguage = (language) => dispatch({ type: ACTION_TYPES.SELECT_LANGUAGE, language })
   const startInterview = () => dispatch({ type: ACTION_TYPES.START_INTERVIEW })
+  const updateDraft = (text) => dispatch({ type: ACTION_TYPES.UPDATE_DRAFT, text })
+  const nextQuestion = () => dispatch({ type: ACTION_TYPES.NEXT_QUESTION })
+  const skipQuestion = () => dispatch({ type: ACTION_TYPES.SKIP_QUESTION })
+  const endEarly = () => dispatch({ type: ACTION_TYPES.END_EARLY })
 
   return (
     <div className="iv-tab">
@@ -291,20 +297,185 @@ export default function InterviewTab() {
           color: var(--muted);
         }
 
-        /* ── 行動裝置(D-30 / UI-SPEC §12)────────────────────────────────── */
+        /* ── 進度(D-27 / UI-SPEC §5)────────────────────────────────────── */
+        .iv-progress { margin-bottom: 24px; }
+        /* Label 13/400/1.2 */
+        .iv-progress-label {
+          margin: 0 0 8px;
+          font-size: 13px;
+          font-weight: 400;
+          line-height: 1.2;
+          color: var(--muted);
+        }
+        .iv-progress-track {
+          width: 100%;
+          height: 4px;
+          background: var(--border);
+          border-radius: 999px;
+          overflow: hidden;
+          margin-bottom: 8px;
+        }
+        /* accent 白名單第 3 項:進度條已完成的部分。 */
+        .iv-progress-fill {
+          height: 100%;
+          background: var(--accent);
+          border-radius: 999px;
+          transition: width 0.3s ease;
+        }
+
+        /* ── 題卡(D-18)──────────────────────────────────────────────────
+           純文字 + 題型標籤 + 播放指示。題目自然換行、不截斷,卡片隨內容增高 ——
+           理解優先於版面整齊(overflow-wrap 是為了擋住沒有空白的超長字串,T-05-17)。 */
+        .iv-question-card {
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 24px;
+          background: var(--surface);
+          margin-bottom: 32px;
+        }
+        .iv-question-meta {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-bottom: 16px;
+        }
+        .iv-question-type {
+          font-size: 13px;
+          font-weight: 400;
+          line-height: 1.2;
+          letter-spacing: 0.05em;
+          color: var(--muted);
+        }
+        .iv-question-text {
+          margin: 0;
+          font-size: 15px;
+          font-weight: 400;
+          line-height: 1.6;
+          color: var(--fg);
+          overflow-wrap: anywhere;
+        }
+
+        /* ── 播放指示(UI-SPEC §3,逐字)──────────────────────────────── */
+        .iv-playing-indicator { display: inline-flex; align-items: flex-end; gap: 3px; height: 16px; }
+        .iv-playing-bar { width: 3px; border-radius: 2px; background: var(--accent); transform: scaleY(0.35); transition: transform 0.15s; }
+        .iv-playing-indicator--active .iv-playing-bar { animation: iv-bar-bounce 0.9s ease-in-out infinite; }
+        .iv-playing-indicator--active .iv-playing-bar:nth-child(1) { animation-delay: 0s; }
+        .iv-playing-indicator--active .iv-playing-bar:nth-child(2) { animation-delay: 0.15s; }
+        .iv-playing-indicator--active .iv-playing-bar:nth-child(3) { animation-delay: 0.3s; }
+        .iv-playing-indicator--active .iv-playing-bar:nth-child(4) { animation-delay: 0.45s; }
+        @keyframes iv-bar-bounce { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
+
+        /* 這是純 CSS keyframes,不由 JS 逐幀驅動,所以 CSS 媒體查詢已足夠攔截 ——
+           hook 不需要讀 matchMedia。長條不隱藏、只固定在 0.7,維持「還在」的訊號。 */
+        @media (prefers-reduced-motion: reduce) {
+          .iv-playing-indicator--active .iv-playing-bar { animation: none; transform: scaleY(0.7); }
+        }
+
+        /* ── 語音控制列(D-16 / UI-SPEC §4,逐字)──────────────────────── */
+        .iv-voice-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        .iv-voice-btn {
+          min-width: 44px; min-height: 44px; padding: 8px 16px;
+          border: 1px solid var(--border); border-radius: 8px; background: transparent;
+          color: var(--fg); font-size: 13px; cursor: pointer;
+          transition: border-color 0.2s, color 0.2s;
+        }
+        .iv-voice-btn:hover { border-color: var(--accent); }
+        /* accent 白名單第 4 項:語速與靜音切換的**已選取**狀態。 */
+        .iv-voice-btn--active { border-color: var(--accent); color: var(--accent); }
+        .iv-speed-group { display: flex; gap: 4px; }
+
+        /* ── 作答框(D-08 / UI-SPEC §6,逐字)──────────────────────────
+           固定高度 + 內部捲動,刻意不做 auto-grow:手機上輸入框隨字數增高會把
+           語音控制列與進度條推出可視範圍,與「控制列固定在作答框上方」互相打架。 */
+        .iv-answer-textarea {
+          width: 100%; height: 140px; resize: none; overflow-y: auto;
+          padding: 14px 18px; background: #111; border: 1px solid #333;
+          color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.6;
+          border-radius: 4px; outline: none;
+        }
+        .iv-answer-textarea:focus { border-color: var(--accent); }
+        .iv-char-counter { font-size: 13px; color: var(--muted); text-align: right; margin-top: 4px; }
+        /* 接近上限只加粗、不變色 —— 用字重而非顏色示警(D-28 的中性徽章原則)。 */
+        .iv-char-counter--near-limit { font-weight: 700; color: var(--fg); }
+
+        /* ── 按鈕列 ────────────────────────────────────────────────────── */
+        .iv-runner-actions {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+          margin-top: 24px;
+        }
+        .iv-secondary-btn {
+          min-height: 44px;
+          padding: 12px 24px;
+          border: 1px solid var(--border);
+          border-radius: 4px;
+          background: transparent;
+          color: var(--fg);
+          font-family: var(--font-sans);
+          font-size: 14px;
+          line-height: 1.2;
+          cursor: pointer;
+          transition: border-color 0.2s;
+        }
+        .iv-secondary-btn:hover { border-color: var(--accent); }
+
+        /* 離場動作獨立一列、視覺最輕。與推進動作並排會讓手指在小螢幕上誤觸。 */
+        .iv-runner-exit { margin-top: 32px; text-align: center; }
+        .iv-text-btn {
+          min-height: 44px;
+          padding: 8px 16px;
+          background: none;
+          border: none;
+          color: var(--muted);
+          font-family: var(--font-sans);
+          font-size: 13px;
+          line-height: 1.2;
+          cursor: pointer;
+          text-decoration: underline;
+          text-underline-offset: 4px;
+        }
+        .iv-text-btn:hover { color: var(--fg); }
+
+        /* 螢幕閱讀器專用文字。用絕對定位裁切,**不是** display: none ——
+           後者連輔助技術也讀不到,aria-live 就失去意義。 */
+        .iv-visually-hidden {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
+        }
+
+        /* ── 行動裝置(D-30 / UI-SPEC §12)──────────────────────────────────
+           作答框、語音控制列與按鈕一律走一般文件流,不得固定定位 —— 手機虛擬鍵盤
+           會蓋住或推擠固定定位的元素。捲動進可視範圍交給瀏覽器原生行為。 */
         @media (max-width: 768px) {
           .iv-flow-column { padding: 0 4vw; }
           .iv-track-grid { grid-template-columns: repeat(2, 1fr); }
+          .iv-voice-controls { gap: 6px; }
+          .iv-voice-btn { padding: 6px 12px; font-size: 12px; }
         }
         @media (max-width: 480px) {
           .iv-track-grid { grid-template-columns: 1fr; }
           .iv-setup-footer { flex-direction: column; }
           .iv-primary-btn { width: 100%; }
+          .iv-runner-actions { flex-direction: column; }
+          .iv-runner-actions .iv-primary-btn,
+          .iv-runner-actions .iv-secondary-btn { width: 100%; }
         }
 
         @media (prefers-reduced-motion: reduce) {
           .iv-track-card { transition: none; }
           .iv-segmented-btn { transition: none; }
+          .iv-voice-btn { transition: none; }
+          .iv-playing-bar { transition: none; }
+          .iv-progress-fill { transition: none; }
         }
       `}</style>
 
@@ -316,6 +487,26 @@ export default function InterviewTab() {
           onSelectLanguage={selectLanguage}
           onStart={startInterview}
           canStart={canStartInterview(state)}
+        />
+      )}
+
+      {state.phase === 'interviewing' && state.questions[state.currentIndex] && (
+        <InterviewRunner
+          question={state.questions[state.currentIndex]}
+          questionIndex={state.currentIndex}
+          draft={state.draft}
+          onDraftChange={updateDraft}
+          onNext={nextQuestion}
+          onSkip={skipQuestion}
+          onEndEarly={endEarly}
+          isLast={isLastQuestion(state)}
+          isPlaying={isPlaying}
+          onReplay={replay}
+          onStop={stop}
+          muted={muted}
+          onToggleMute={toggleMute}
+          speed={speed}
+          onSpeedChange={setSpeed}
         />
       )}
 
