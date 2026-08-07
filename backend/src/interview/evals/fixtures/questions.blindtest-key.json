@@ -1,0 +1,186 @@
+{
+  "capturedAt": "2026-08-07T12:10:17.624Z",
+  "note": "盲測答案鍵。填 eval-blindtest.md 的時候不要看這一份。",
+  "items": [
+    {
+      "id": "Q01",
+      "track": "fullstack",
+      "language": "en",
+      "text": "How do you design an API error structure that allows the frontend to distinguish between transient network issues, authorization failures, and business logic errors without leaking system internals?"
+    },
+    {
+      "id": "Q02",
+      "track": "backend",
+      "language": "zh",
+      "text": "在分散式系統中，若用戶端因網路逾時發起重試導致同一個轉帳請求重複進入後端，你會如何設計冪等性（Idempotency）機制來確保資料庫狀態的一致性，並同時兼顧效能與儲存開銷？"
+    },
+    {
+      "id": "Q03",
+      "track": "backend",
+      "language": "zh",
+      "text": "一個需要頻繁異動的外部 API，若未來欄位格式可能大幅變動，你會如何設計 API 版本策略（如 URL vs Header），並確保舊版客戶端在過渡期間仍能正常運作且不增加伺服器過度負擔？"
+    },
+    {
+      "id": "Q04",
+      "track": "frontend",
+      "language": "en",
+      "text": "You have a large bundle causing slow First Contentful Paint. What trade-offs do you consider when choosing between code splitting, lazy loading, or prioritizing critical CSS?"
+    },
+    {
+      "id": "Q05",
+      "track": "backend",
+      "language": "en",
+      "text": "How do you design a robust idempotency mechanism for a payment API to prevent double-charging when a client retries a request due to a network timeout?"
+    },
+    {
+      "id": "Q06",
+      "track": "frontend",
+      "language": "zh",
+      "text": "設計一個含有巢狀 Modal 的介面，請說明如何正確處理 Tab 鍵焦點順序（Focus Trapping），以及當使用者關閉 Modal 時，如何確保焦點能返回到正確的觸發按鈕，並解釋這對使用螢幕閱讀器的使用者有何重要性？"
+    },
+    {
+      "id": "Q07",
+      "track": "backend",
+      "language": "en",
+      "text": "A read-heavy service is experiencing database bottlenecks. Describe your strategy for implementing caching, specifically addressing cache invalidation and handling potential data consistency issues."
+    },
+    {
+      "id": "Q08",
+      "track": "fullstack",
+      "language": "zh",
+      "text": "關於用戶授權（Authorization），若前端顯示邏輯依賴 API 權限資訊，當 API 響應延遲或失敗時，你如何避免前端出現非預期的 UI 閃爍或權限漏洞，並維護兩端狀態的一致性？"
+    },
+    {
+      "id": "Q09",
+      "track": "fresher",
+      "language": "en",
+      "text": "If your program crashes intermittently with a memory error, describe your step-by-step process to isolate the cause without using a debugger."
+    },
+    {
+      "id": "Q10",
+      "track": "frontend",
+      "language": "en",
+      "text": "How would you ensure a custom modal component is fully accessible, specifically regarding focus trapping, screen reader announcements, and closing behaviors?"
+    },
+    {
+      "id": "Q11",
+      "track": "fullstack",
+      "language": "zh",
+      "text": "當系統需進行大規模 API 資料格式重構（例如將物件陣列改為巢狀結構），你如何評估兩端的修改成本？你會選擇在後端做相容性轉換，還是強迫前端同步更新，取捨的依據為何？"
+    },
+    {
+      "id": "Q12",
+      "track": "fullstack",
+      "language": "en",
+      "text": "You need to enforce strict data validation. If you move logic from the client to the server to ensure security, how do you maintain a high-quality user experience regarding feedback latency?"
+    },
+    {
+      "id": "Q13",
+      "track": "fresher",
+      "language": "zh",
+      "text": "當你在專案中遇到一個「雖然能跑，但邏輯非常複雜且難以閱讀」的函式時，你會採取什麼步驟來重構它？請說明如何在保持功能正確的前提下，提升程式碼的可維護性與可讀性。"
+    },
+    {
+      "id": "Q14",
+      "track": "fresher",
+      "language": "en",
+      "text": "When choosing between a hash map and a sorted array to store items you need to search frequently, what specific trade-offs do you consider regarding memory and time complexity?"
+    },
+    {
+      "id": "Q15",
+      "track": "frontend",
+      "language": "en",
+      "text": "During scroll, your list stutters. How do you distinguish between layout thrashing caused by style recalculations and long-running JavaScript tasks blocking the main thread?"
+    },
+    {
+      "id": "Q16",
+      "track": "fresher",
+      "language": "en",
+      "text": "If a function you wrote is running significantly slower than expected during testing, how would you determine if the bottleneck is algorithmic or due to external resource calls?"
+    },
+    {
+      "id": "Q17",
+      "track": "frontend",
+      "language": "en",
+      "text": "When building a complex form, how do you decide between lifting state to a parent component versus using a state management library or context, considering re-render performance?"
+    },
+    {
+      "id": "Q18",
+      "track": "fullstack",
+      "language": "zh",
+      "text": "處理複雜的分頁與篩選功能時，若將複雜運算邏輯移至前端可提升效能，但會喪失資料同步性。請說明你如何判斷邏輯該位於何處，以及如何設計 API 協議來同步載入狀態與錯誤提示？"
+    },
+    {
+      "id": "Q19",
+      "track": "fullstack",
+      "language": "en",
+      "text": "If a UI requires data from three microservices, should you build a BFF to aggregate it or merge it on the client? Discuss the trade-offs regarding latency, payload size, and error granularity."
+    },
+    {
+      "id": "Q20",
+      "track": "fullstack",
+      "language": "en",
+      "text": "When implementing infinite scroll, how do you decide whether the client or server should handle the final cursor logic, and what impact does this have on state consistency during rapid navigation?"
+    },
+    {
+      "id": "Q21",
+      "track": "fullstack",
+      "language": "zh",
+      "text": "設計一個動態表單驗證機制：若在前端做即時驗證，後端應如何確保資料安全與一致性？你會如何劃分這兩端的職責，並定義 API 回傳的錯誤格式以便前端精準呈現欄位錯誤？"
+    },
+    {
+      "id": "Q22",
+      "track": "frontend",
+      "language": "zh",
+      "text": "應用程式目前首屏載入時間過長，嘗試導入程式碼分割（Code Splitting）與延遲載入（Lazy Loading）。請說明你會如何權衡「Bundle 體積大小」與「使用者互動就緒時間（TTI）」的取捨，並決定哪些模組適合優先載入、哪些適合延遲載入？"
+    },
+    {
+      "id": "Q23",
+      "track": "frontend",
+      "language": "zh",
+      "text": "在一個複雜的元件樹中，某個父元件的狀態更新導致了遠處不相關的子元件頻繁重新渲染（Re-render）。請說明你會如何利用工具識別出這些多餘的渲染，並分析在何種情境下，你會選擇拆分元件、使用 memoization，或是將狀態提升（Lifting State Up）來解決此問題？"
+    },
+    {
+      "id": "Q24",
+      "track": "backend",
+      "language": "en",
+      "text": "When transitioning a public API from v1 to v2, what trade-offs do you consider between maintaining backward compatibility versus forcing a clean break for clients?"
+    },
+    {
+      "id": "Q25",
+      "track": "fresher",
+      "language": "zh",
+      "text": "假設你需要從一個包含十萬筆資料的陣列中頻繁查詢特定元素，且資料集會動態增刪。你會如何權衡不同資料結構（如 Array 與 Hash Map）對查詢與修改操作的效能影響？請說明選擇的理由。"
+    },
+    {
+      "id": "Q26",
+      "track": "backend",
+      "language": "zh",
+      "text": "對於讀多寫少的系統，若使用快取來提升效能，你會如何權衡 Cache-Aside 與 Write-Through 策略？若快取失效失敗導致資料不一致，你會採取什麼補救措施或系統層級的設計來減輕影響？"
+    },
+    {
+      "id": "Q27",
+      "track": "fresher",
+      "language": "zh",
+      "text": "若你在開發過程中發現程式執行結果與預期不符，你會如何利用最小化步驟來定位錯誤？請描述你如何從輸入與輸出差異中縮小問題範圍，並說明你會在哪些關鍵節點進行驗證。"
+    },
+    {
+      "id": "Q28",
+      "track": "backend",
+      "language": "zh",
+      "text": "系統在尖峰時段效能急劇下降，你會如何透過指標（Metrics）或日誌（Logs）依序排查瓶頸？請說明你會先觀察哪些關鍵指標，並如何判斷是資料庫鎖定、連線池滿載還是服務實體記憶體不足？"
+    },
+    {
+      "id": "Q29",
+      "track": "backend",
+      "language": "en",
+      "text": "Your microservice is failing under load. How do you distinguish between a database bottleneck, a thread pool exhaustion, or an external dependency latency spike using observability tools?"
+    },
+    {
+      "id": "Q30",
+      "track": "frontend",
+      "language": "zh",
+      "text": "使用者回報在長列表頁面捲動時有明顯掉幀感。請描述你會如何利用 Chrome DevTools 的 Performance 面板進行診斷，如何區分是因為 JavaScript 執行過久或是瀏覽器重繪（Repaint）成本過高所導致的卡頓？"
+    }
+  ]
+}

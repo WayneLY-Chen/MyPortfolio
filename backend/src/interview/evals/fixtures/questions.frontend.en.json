@@ -1,0 +1,37 @@
+{
+  "capturedAt": "2026-08-07T12:08:55.961Z",
+  "model": "gemini-3.1-flash-lite",
+  "temperature": 0.9,
+  "maxOutputTokens": 1024,
+  "finishReason": "STOP",
+  "latencyMs": 2094,
+  "track": "frontend",
+  "language": "en",
+  "questions": [
+    {
+      "index": 0,
+      "type": "technical",
+      "text": "During scroll, your list stutters. How do you distinguish between layout thrashing caused by style recalculations and long-running JavaScript tasks blocking the main thread?"
+    },
+    {
+      "index": 1,
+      "type": "technical",
+      "text": "When building a complex form, how do you decide between lifting state to a parent component versus using a state management library or context, considering re-render performance?"
+    },
+    {
+      "index": 2,
+      "type": "technical",
+      "text": "How would you ensure a custom modal component is fully accessible, specifically regarding focus trapping, screen reader announcements, and closing behaviors?"
+    },
+    {
+      "index": 3,
+      "type": "technical",
+      "text": "You have a large bundle causing slow First Contentful Paint. What trade-offs do you consider when choosing between code splitting, lazy loading, or prioritizing critical CSS?"
+    },
+    {
+      "index": 4,
+      "type": "behavioral",
+      "text": "Describe a time you disagreed with a designer on an interaction or component implementation. How did you balance technical constraints with the desired user experience?"
+    }
+  ]
+}

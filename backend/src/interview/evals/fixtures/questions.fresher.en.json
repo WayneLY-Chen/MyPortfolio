@@ -1,0 +1,37 @@
+{
+  "capturedAt": "2026-08-07T12:10:17.617Z",
+  "model": "gemini-3.1-flash-lite",
+  "temperature": 0.9,
+  "maxOutputTokens": 1024,
+  "finishReason": "STOP",
+  "latencyMs": 65373,
+  "track": "fresher",
+  "language": "en",
+  "questions": [
+    {
+      "index": 0,
+      "type": "technical",
+      "text": "If your program crashes intermittently with a memory error, describe your step-by-step process to isolate the cause without using a debugger."
+    },
+    {
+      "index": 1,
+      "type": "technical",
+      "text": "When choosing between a hash map and a sorted array to store items you need to search frequently, what specific trade-offs do you consider regarding memory and time complexity?"
+    },
+    {
+      "index": 2,
+      "type": "technical",
+      "text": "If a function you wrote is running significantly slower than expected during testing, how would you determine if the bottleneck is algorithmic or due to external resource calls?"
+    },
+    {
+      "index": 3,
+      "type": "behavioral",
+      "text": "Reflecting on a past project, what is one technical decision you made that you would change today, and why would the new approach be better?"
+    },
+    {
+      "index": 4,
+      "type": "behavioral",
+      "text": "Describe a time you received constructive feedback on your code during an assignment or project. How did you process that feedback and implement the suggested changes?"
+    }
+  ]
+}

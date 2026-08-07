@@ -1,0 +1,37 @@
+{
+  "capturedAt": "2026-08-07T12:08:58.213Z",
+  "model": "gemini-3.1-flash-lite",
+  "temperature": 0.9,
+  "maxOutputTokens": 1024,
+  "finishReason": "STOP",
+  "latencyMs": 2252,
+  "track": "backend",
+  "language": "zh",
+  "questions": [
+    {
+      "index": 0,
+      "type": "technical",
+      "text": "一個需要頻繁異動的外部 API，若未來欄位格式可能大幅變動，你會如何設計 API 版本策略（如 URL vs Header），並確保舊版客戶端在過渡期間仍能正常運作且不增加伺服器過度負擔？"
+    },
+    {
+      "index": 1,
+      "type": "technical",
+      "text": "在分散式系統中，若用戶端因網路逾時發起重試導致同一個轉帳請求重複進入後端，你會如何設計冪等性（Idempotency）機制來確保資料庫狀態的一致性，並同時兼顧效能與儲存開銷？"
+    },
+    {
+      "index": 2,
+      "type": "technical",
+      "text": "對於讀多寫少的系統，若使用快取來提升效能，你會如何權衡 Cache-Aside 與 Write-Through 策略？若快取失效失敗導致資料不一致，你會採取什麼補救措施或系統層級的設計來減輕影響？"
+    },
+    {
+      "index": 3,
+      "type": "technical",
+      "text": "系統在尖峰時段效能急劇下降，你會如何透過指標（Metrics）或日誌（Logs）依序排查瓶頸？請說明你會先觀察哪些關鍵指標，並如何判斷是資料庫鎖定、連線池滿載還是服務實體記憶體不足？"
+    },
+    {
+      "index": 4,
+      "type": "behavioral",
+      "text": "若你在進行重構時發現一段關鍵的遺留程式碼（Legacy Code）寫得極差但又沒有測試覆蓋，當下時程又很趕，你會選擇直接重寫並承擔潛在風險，還是先維護原樣並採取什麼步驟來確保未來能安全改動？"
+    }
+  ]
+}

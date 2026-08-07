@@ -1,0 +1,37 @@
+{
+  "capturedAt": "2026-08-07T12:09:00.072Z",
+  "model": "gemini-3.1-flash-lite",
+  "temperature": 0.9,
+  "maxOutputTokens": 1024,
+  "finishReason": "STOP",
+  "latencyMs": 1858,
+  "track": "backend",
+  "language": "en",
+  "questions": [
+    {
+      "index": 0,
+      "type": "technical",
+      "text": "How do you design a robust idempotency mechanism for a payment API to prevent double-charging when a client retries a request due to a network timeout?"
+    },
+    {
+      "index": 1,
+      "type": "technical",
+      "text": "A read-heavy service is experiencing database bottlenecks. Describe your strategy for implementing caching, specifically addressing cache invalidation and handling potential data consistency issues."
+    },
+    {
+      "index": 2,
+      "type": "technical",
+      "text": "When transitioning a public API from v1 to v2, what trade-offs do you consider between maintaining backward compatibility versus forcing a clean break for clients?"
+    },
+    {
+      "index": 3,
+      "type": "technical",
+      "text": "Your microservice is failing under load. How do you distinguish between a database bottleneck, a thread pool exhaustion, or an external dependency latency spike using observability tools?"
+    },
+    {
+      "index": 4,
+      "type": "behavioral",
+      "text": "Tell me about a time you identified a critical system design flaw before it reached production. How did you advocate for the change and manage the trade-offs with stakeholders?"
+    }
+  ]
+}

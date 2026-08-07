@@ -1,0 +1,37 @@
+{
+  "capturedAt": "2026-08-07T12:08:53.865Z",
+  "model": "gemini-3.1-flash-lite",
+  "temperature": 0.9,
+  "maxOutputTokens": 1024,
+  "finishReason": "STOP",
+  "latencyMs": 3414,
+  "track": "frontend",
+  "language": "zh",
+  "questions": [
+    {
+      "index": 0,
+      "type": "technical",
+      "text": "使用者回報在長列表頁面捲動時有明顯掉幀感。請描述你會如何利用 Chrome DevTools 的 Performance 面板進行診斷，如何區分是因為 JavaScript 執行過久或是瀏覽器重繪（Repaint）成本過高所導致的卡頓？"
+    },
+    {
+      "index": 1,
+      "type": "technical",
+      "text": "在一個複雜的元件樹中，某個父元件的狀態更新導致了遠處不相關的子元件頻繁重新渲染（Re-render）。請說明你會如何利用工具識別出這些多餘的渲染，並分析在何種情境下，你會選擇拆分元件、使用 memoization，或是將狀態提升（Lifting State Up）來解決此問題？"
+    },
+    {
+      "index": 2,
+      "type": "technical",
+      "text": "設計一個含有巢狀 Modal 的介面，請說明如何正確處理 Tab 鍵焦點順序（Focus Trapping），以及當使用者關閉 Modal 時，如何確保焦點能返回到正確的觸發按鈕，並解釋這對使用螢幕閱讀器的使用者有何重要性？"
+    },
+    {
+      "index": 3,
+      "type": "technical",
+      "text": "應用程式目前首屏載入時間過長，嘗試導入程式碼分割（Code Splitting）與延遲載入（Lazy Loading）。請說明你會如何權衡「Bundle 體積大小」與「使用者互動就緒時間（TTI）」的取捨，並決定哪些模組適合優先載入、哪些適合延遲載入？"
+    },
+    {
+      "index": 4,
+      "type": "behavioral",
+      "text": "當你發現團隊現有的元件架構設計不良，導致維護困難且效能不佳，但團隊成員傾向維持現狀以追求快速交付時，你會採取什麼步驟說服團隊進行重構，並在技術債與專案進度之間取得平衡？"
+    }
+  ]
+}

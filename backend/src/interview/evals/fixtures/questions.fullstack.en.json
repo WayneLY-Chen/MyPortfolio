@@ -1,0 +1,37 @@
+{
+  "capturedAt": "2026-08-07T12:09:09.641Z",
+  "model": "gemini-3.1-flash-lite",
+  "temperature": 0.9,
+  "maxOutputTokens": 1024,
+  "finishReason": "STOP",
+  "latencyMs": 2238,
+  "track": "fullstack",
+  "language": "en",
+  "questions": [
+    {
+      "index": 0,
+      "type": "technical",
+      "text": "When implementing infinite scroll, how do you decide whether the client or server should handle the final cursor logic, and what impact does this have on state consistency during rapid navigation?"
+    },
+    {
+      "index": 1,
+      "type": "technical",
+      "text": "If a UI requires data from three microservices, should you build a BFF to aggregate it or merge it on the client? Discuss the trade-offs regarding latency, payload size, and error granularity."
+    },
+    {
+      "index": 2,
+      "type": "technical",
+      "text": "You need to enforce strict data validation. If you move logic from the client to the server to ensure security, how do you maintain a high-quality user experience regarding feedback latency?"
+    },
+    {
+      "index": 3,
+      "type": "technical",
+      "text": "How do you design an API error structure that allows the frontend to distinguish between transient network issues, authorization failures, and business logic errors without leaking system internals?"
+    },
+    {
+      "index": 4,
+      "type": "behavioral",
+      "text": "Describe a time you disagreed with a backend teammate on where to place a business rule. What factors led you to propose your solution, and how did you balance team velocity against code purity?"
+    }
+  ]
+}
