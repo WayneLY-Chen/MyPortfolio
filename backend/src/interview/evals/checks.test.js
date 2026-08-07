@@ -243,6 +243,16 @@ describe('duplicateCommentPairs', () => {
   it('空評語不算重複 —— 那是另一個問題,不該混進來', () => {
     expect(duplicateCommentPairs([{ comment: '' }, { comment: '' }])).toEqual([]);
   });
+
+  it('ignoreIndices 指定的題號被排除 —— 跳過的題共用「未作答。」是正常的', () => {
+    const per = [
+      { comment: '你指出了索引選擇的取捨,但沒談寫入成本。' },
+      { comment: '未作答。' },
+      { comment: '未作答。' },
+    ];
+    expect(duplicateCommentPairs(per)).toHaveLength(1);
+    expect(duplicateCommentPairs(per, { ignoreIndices: [1, 2] })).toEqual([]);
+  });
 });
 
 describe('checkQuestionSet', () => {

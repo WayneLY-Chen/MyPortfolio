@@ -1,0 +1,129 @@
+{
+  "capturedAt": "2026-08-07T12:15:36.843Z",
+  "model": "gemini-3.1-flash-lite",
+  "temperature": 0.3,
+  "maxOutputTokens": 3072,
+  "finishReason": "STOP",
+  "latencyMs": 2481,
+  "caseId": "B6",
+  "runId": "B6b",
+  "track": "fresher",
+  "language": "en",
+  "questionSet": "fresher.en",
+  "expectedBand": "weak",
+  "questions": [
+    {
+      "index": 0,
+      "type": "technical",
+      "text": "If your program crashes intermittently with a memory error, describe your step-by-step process to isolate the cause without using a debugger."
+    },
+    {
+      "index": 1,
+      "type": "technical",
+      "text": "When choosing between a hash map and a sorted array to store items you need to search frequently, what specific trade-offs do you consider regarding memory and time complexity?"
+    },
+    {
+      "index": 2,
+      "type": "technical",
+      "text": "If a function you wrote is running significantly slower than expected during testing, how would you determine if the bottleneck is algorithmic or due to external resource calls?"
+    },
+    {
+      "index": 3,
+      "type": "behavioral",
+      "text": "Reflecting on a past project, what is one technical decision you made that you would change today, and why would the new approach be better?"
+    },
+    {
+      "index": 4,
+      "type": "behavioral",
+      "text": "Describe a time you received constructive feedback on your code during an assignment or project. How did you process that feedback and implement the suggested changes?"
+    }
+  ],
+  "answers": [
+    null,
+    "I would always reach for a sorted array here, because binary search runs in O(1) once the data has been sorted, whereas a hash map must walk through its buckets on every lookup and therefore degrades to O(n). Sorted arrays are also more memory-efficient than hash maps in every case, and inserting into one is cheap because the elements are already in order. The only time I reach for a hash map is when I need the data to stay ordered, since hash maps preserve insertion order by definition.",
+    null,
+    null,
+    null
+  ],
+  "raw": {
+    "overallScore": 0,
+    "rating": "Needs work",
+    "summary": "The candidate demonstrated significant misunderstandings of fundamental data structure performance characteristics. They skipped the majority of the interview questions, preventing a comprehensive assessment of their engineering problem-solving abilities.",
+    "perQuestion": [
+      {
+        "questionIndex": 1,
+        "skipped": true,
+        "comment": "The candidate did not provide a strategy for debugging intermittent memory issues without a debugger.",
+        "suggestion": "Research techniques such as logging state transitions, binary search debugging by commenting out code blocks, and using memory monitoring tools to identify leaks or buffer overflows."
+      },
+      {
+        "questionIndex": 2,
+        "skipped": false,
+        "comment": "The answer contains multiple factual errors: binary search is O(log n), not O(1); hash map lookups are O(1) average; and sorted arrays have O(n) insertion costs, not O(1).",
+        "suggestion": "Review the Big O complexity for common operations in hash maps versus sorted arrays, specifically focusing on why hash maps are preferred for frequent lookups and why sorted arrays are expensive to modify.",
+        "score": 0
+      },
+      {
+        "questionIndex": 3,
+        "skipped": true,
+        "comment": "The candidate did not address how to differentiate between algorithmic complexity and I/O latency.",
+        "suggestion": "Learn to use profiling tools or simple timestamps around function calls to isolate whether the time is spent in CPU-bound logic or waiting for external network/database responses."
+      },
+      {
+        "questionIndex": 4,
+        "skipped": true,
+        "comment": "The candidate did not provide an example of a past technical decision or a reflection on their growth.",
+        "suggestion": "Prepare a specific example of a project where you chose a technology or architecture and explain the trade-offs you faced at the time versus what you know now."
+      },
+      {
+        "questionIndex": 5,
+        "skipped": true,
+        "comment": "The candidate did not provide an example of receiving or incorporating feedback.",
+        "suggestion": "Think of a code review experience where you were asked to improve your code, and describe the specific steps you took to understand the reviewer's perspective and apply the changes."
+      }
+    ]
+  },
+  "normalized": {
+    "overallScore": 0,
+    "rating": "Needs work",
+    "summary": "The candidate demonstrated significant misunderstandings of fundamental data structure performance characteristics. They skipped the majority of the interview questions, preventing a comprehensive assessment of their engineering problem-solving abilities.",
+    "answeredCount": 1,
+    "perQuestion": [
+      {
+        "index": 0,
+        "skipped": true,
+        "score": null,
+        "comment": "The candidate did not provide a strategy for debugging intermittent memory issues without a debugger.",
+        "suggestion": "Research techniques such as logging state transitions, binary search debugging by commenting out code blocks, and using memory monitoring tools to identify leaks or buffer overflows."
+      },
+      {
+        "index": 1,
+        "skipped": false,
+        "score": 0,
+        "comment": "The answer contains multiple factual errors: binary search is O(log n), not O(1); hash map lookups are O(1) average; and sorted arrays have O(n) insertion costs, not O(1).",
+        "suggestion": "Review the Big O complexity for common operations in hash maps versus sorted arrays, specifically focusing on why hash maps are preferred for frequent lookups and why sorted arrays are expensive to modify."
+      },
+      {
+        "index": 2,
+        "skipped": true,
+        "score": null,
+        "comment": "The candidate did not address how to differentiate between algorithmic complexity and I/O latency.",
+        "suggestion": "Learn to use profiling tools or simple timestamps around function calls to isolate whether the time is spent in CPU-bound logic or waiting for external network/database responses."
+      },
+      {
+        "index": 3,
+        "skipped": true,
+        "score": null,
+        "comment": "The candidate did not provide an example of a past technical decision or a reflection on their growth.",
+        "suggestion": "Prepare a specific example of a project where you chose a technology or architecture and explain the trade-offs you faced at the time versus what you know now."
+      },
+      {
+        "index": 4,
+        "skipped": true,
+        "score": null,
+        "comment": "The candidate did not provide an example of receiving or incorporating feedback.",
+        "suggestion": "Think of a code review experience where you were asked to improve your code, and describe the specific steps you took to understand the reviewer's perspective and apply the changes."
+      }
+    ]
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "capturedAt": "2026-08-07T12:15:14.147Z",
+  "model": "gemini-3.1-flash-lite",
+  "temperature": 0.3,
+  "maxOutputTokens": 3072,
+  "finishReason": "STOP",
+  "latencyMs": 4088,
+  "caseId": "B1",
+  "runId": "B1",
+  "track": "frontend",
+  "language": "zh",
+  "questionSet": "frontend.zh",
+  "expectedBand": "strong",
+  "questions": [
+    {
+      "index": 0,
+      "type": "technical",
+      "text": "使用者回報在長列表頁面捲動時有明顯掉幀感。請描述你會如何利用 Chrome DevTools 的 Performance 面板進行診斷，如何區分是因為 JavaScript 執行過久或是瀏覽器重繪（Repaint）成本過高所導致的卡頓？"
+    },
+    {
+      "index": 1,
+      "type": "technical",
+      "text": "在一個複雜的元件樹中，某個父元件的狀態更新導致了遠處不相關的子元件頻繁重新渲染（Re-render）。請說明你會如何利用工具識別出這些多餘的渲染，並分析在何種情境下，你會選擇拆分元件、使用 memoization，或是將狀態提升（Lifting State Up）來解決此問題？"
+    },
+    {
+      "index": 2,
+      "type": "technical",
+      "text": "設計一個含有巢狀 Modal 的介面，請說明如何正確處理 Tab 鍵焦點順序（Focus Trapping），以及當使用者關閉 Modal 時，如何確保焦點能返回到正確的觸發按鈕，並解釋這對使用螢幕閱讀器的使用者有何重要性？"
+    },
+    {
+      "index": 3,
+      "type": "technical",
+      "text": "應用程式目前首屏載入時間過長，嘗試導入程式碼分割（Code Splitting）與延遲載入（Lazy Loading）。請說明你會如何權衡「Bundle 體積大小」與「使用者互動就緒時間（TTI）」的取捨，並決定哪些模組適合優先載入、哪些適合延遲載入？"
+    },
+    {
+      "index": 4,
+      "type": "behavioral",
+      "text": "當你發現團隊現有的元件架構設計不良，導致維護困難且效能不佳，但團隊成員傾向維持現狀以追求快速交付時，你會採取什麼步驟說服團隊進行重構，並在技術債與專案進度之間取得平衡？"
+    }
+  ],
+  "answers": [
+    "我會先錄一段捲動的 Performance profile,看主執行緒的火焰圖。掉幀那幾格上方如果是長條的黃色 Scripting,通常是 JS 執行過久,展開就看得到是哪個 handler;如果 JS 很短、底下紫色 Rendering 與綠色 Painting 很厚,就是重繪成本高。再開 Rendering 面板的 Paint flashing 看重繪區域有沒有整頁閃,並用 Layers 面板確認有沒有意外的圖層爆炸。分辨的關鍵是看單一 frame 內時間花在哪一段,而不是看整體 CPU 使用率。若確認是重繪,我會先查是不是動到會觸發 layout 的屬性,改用 transform/opacity,再考慮 content-visibility 讓畫面外的列不進渲染。",
+    "先用 React DevTools Profiler 錄一次更新,看 highlight 標出哪些元件被重繪,以及 why did this render 給的原因。如果原因是 context 的 value 每次都是新物件,拆 context 或把 value memo 化才是根治;如果是 props 傳了 inline function,才輪到 useCallback。三個做法各有代價:拆元件成本最低但改動面大;memoization 多了一次比較成本,props 是大物件時反而更慢;狀態提升只有在多個兄弟真的共用時才值得,否則等於把更新範圍放大。我的順序是先找出誰訂閱了不必要的狀態、把狀態往下推,而不是先加 memo。",
+    "開啟時先記下 document.activeElement 當作 returnFocus,把焦點移到 modal 內第一個可聚焦元素,並在容器上攔截 Tab / Shift+Tab,讓焦點在首尾之間繞回。巢狀的情況我會維護一個 stack,只有最上層那個攔截焦點;關閉時 pop 並把焦點還給它自己記下的觸發元素,而不是還給最外層。底下的內容要加 inert 或 aria-hidden,否則螢幕閱讀器仍能用虛擬游標讀到後面的東西 —— 那是焦點陷阱擋不住的,兩件事必須分開做。焦點要回到原按鈕的理由很實際:讀螢幕的人是靠焦點位置知道自己回到了哪裡。",
+    "我會先量再切:用 bundle analyzer 找出前幾大的模組,再對照 Coverage 面板看首屏實際用到多少。優先延遲的是「首屏用不到而且體積大」的東西,例如圖表庫、編輯器、次要路由。不該延遲的是首屏就要用的元件 —— 切了只會多一次往返,TTI 反而更差。取捨的關鍵是 bundle 變小不等於 TTI 變好,因為 lazy chunk 的請求會落在互動路徑上。我會對「很可能馬上要用」的 chunk 加 prefetch 把成本挪到閒置時間,最後用 Lighthouse 的 TBT 而不是總體積來驗證改動有沒有效。",
+    "我不會直接提「重構」,先把痛點量化:統計最近幾次改動有多少時間花在這個元件、以及它牽連出的 bug 數。有數字之後把提案改成分階段 —— 新功能走新的邊界,舊的先不動,讓風險跟進度都可控。我會挑一個範圍最小、痛感最明顯的部分先做一次,把前後的改動成本攤出來給大家看。如果團隊仍傾向維持現狀,我會接受,把技術債記進待辦並標上觸發條件(下次再有人動到這裡就一起處理),而不是硬推。交付壓力是真的,說服要靠證據跟時機。"
+  ],
+  "raw": {
+    "overallScore": 96,
+    "rating": "優秀",
+    "summary": "候選人具備深厚的實務經驗，能精準運用工具進行效能診斷，並對前端架構的取捨有成熟的見解。回答邏輯清晰，展現了資深工程師應有的務實態度與溝通技巧。",
+    "perQuestion": [
+      {
+        "questionIndex": 1,
+        "skipped": false,
+        "comment": "對 Performance 面板的分析非常精確，特別是提到區分 Scripting 與 Rendering/Painting 的方式，以及提到 content-visibility 的應用，顯示有處理過長列表效能的實戰經驗。",
+        "suggestion": "可以補充說明在處理長列表時，除了渲染優化，如何透過虛擬列表（Virtual Scrolling）技術來進一步降低 DOM 節點數量，這通常是解決長列表卡頓最直接的手段。",
+        "score": 95
+      },
+      {
+        "questionIndex": 2,
+        "skipped": false,
+        "comment": "對於 React 渲染問題的診斷邏輯非常正確，特別是強調「先找出訂閱者再優化」而非盲目使用 memo，這點非常關鍵。",
+        "suggestion": "在提到 context value 導致重渲染時，可以進一步舉例說明如何利用 useMemo 或將 context 分拆成多個 provider 來解決，這會讓回答更具體。",
+        "score": 95
+      },
+      {
+        "questionIndex": 3,
+        "skipped": false,
+        "comment": "對 Focus Trapping 的理解非常全面，特別是提到了 inert 屬性與 aria-hidden 的區別，這顯示對無障礙（A11y）有深入的研究。",
+        "suggestion": "可以補充說明在處理巢狀 Modal 時，如何確保在關閉最上層 Modal 後，焦點能正確回到「前一個」Modal 的觸發點，而非直接跳回頁面底層。",
+        "score": 98
+      },
+      {
+        "questionIndex": 4,
+        "skipped": false,
+        "comment": "對 Code Splitting 的理解不僅限於體積，還考量了 TTI 與請求往返的成本，這是資深工程師才有的視角。",
+        "suggestion": "建議可以補充說明如何利用 HTTP/2 或 HTTP/3 的特性，以及在什麼情況下會考慮使用 Resource Hints (如 preconnect 或 preload) 來進一步優化關鍵路徑。",
+        "score": 95
+      },
+      {
+        "questionIndex": 5,
+        "skipped": false,
+        "comment": "展現了極佳的溝通技巧與軟實力，將技術債問題轉化為數據與風險管理，並提出分階段重構的務實方案，非常符合團隊合作的需求。",
+        "suggestion": "在面對團隊堅持不重構的情況下，除了標記技術債，可以嘗試建立一個「重構清單」，將這些工作與未來的 Feature 開發綁定，讓重構成為開發流程的一環而非額外負擔。",
+        "score": 98
+      }
+    ]
+  },
+  "normalized": {
+    "overallScore": 96,
+    "rating": "優秀",
+    "summary": "候選人具備深厚的實務經驗，能精準運用工具進行效能診斷，並對前端架構的取捨有成熟的見解。回答邏輯清晰，展現了資深工程師應有的務實態度與溝通技巧。",
+    "answeredCount": 5,
+    "perQuestion": [
+      {
+        "index": 0,
+        "skipped": false,
+        "score": 95,
+        "comment": "對 Performance 面板的分析非常精確，特別是提到區分 Scripting 與 Rendering/Painting 的方式，以及提到 content-visibility 的應用，顯示有處理過長列表效能的實戰經驗。",
+        "suggestion": "可以補充說明在處理長列表時，除了渲染優化，如何透過虛擬列表（Virtual Scrolling）技術來進一步降低 DOM 節點數量，這通常是解決長列表卡頓最直接的手段。"
+      },
+      {
+        "index": 1,
+        "skipped": false,
+        "score": 95,
+        "comment": "對於 React 渲染問題的診斷邏輯非常正確，特別是強調「先找出訂閱者再優化」而非盲目使用 memo，這點非常關鍵。",
+        "suggestion": "在提到 context value 導致重渲染時，可以進一步舉例說明如何利用 useMemo 或將 context 分拆成多個 provider 來解決，這會讓回答更具體。"
+      },
+      {
+        "index": 2,
+        "skipped": false,
+        "score": 98,
+        "comment": "對 Focus Trapping 的理解非常全面，特別是提到了 inert 屬性與 aria-hidden 的區別，這顯示對無障礙（A11y）有深入的研究。",
+        "suggestion": "可以補充說明在處理巢狀 Modal 時，如何確保在關閉最上層 Modal 後，焦點能正確回到「前一個」Modal 的觸發點，而非直接跳回頁面底層。"
+      },
+      {
+        "index": 3,
+        "skipped": false,
+        "score": 95,
+        "comment": "對 Code Splitting 的理解不僅限於體積，還考量了 TTI 與請求往返的成本，這是資深工程師才有的視角。",
+        "suggestion": "建議可以補充說明如何利用 HTTP/2 或 HTTP/3 的特性，以及在什麼情況下會考慮使用 Resource Hints (如 preconnect 或 preload) 來進一步優化關鍵路徑。"
+      },
+      {
+        "index": 4,
+        "skipped": false,
+        "score": 98,
+        "comment": "展現了極佳的溝通技巧與軟實力，將技術債問題轉化為數據與風險管理，並提出分階段重構的務實方案，非常符合團隊合作的需求。",
+        "suggestion": "在面對團隊堅持不重構的情況下，除了標記技術債，可以嘗試建立一個「重構清單」，將這些工作與未來的 Feature 開發綁定，讓重構成為開發流程的一環而非額外負擔。"
+      }
+    ]
+  }
+}

@@ -221,12 +221,19 @@ export function maxCrossSimilarity(textsA, textsB, language) {
 // 這一條是實測長出來的:模型回的 questionIndex 是 1-based,而陣列是 0-based,
 // 用 questionIndex 對齊會讓兩題拿到逐字相同的評語 —— 整份回饋的格式完全正常,
 // 只有逐字讀才看得出錯位。任何「逐題回饋錯位」的 bug 都會在這裡現形。
+//
+// options.ignoreIndices:要排除的題號。實測(2026-08-07,B5)發現跳過的題本來
+// 就會拿到同一句「未作答。」—— 那完全正常,把它算成重複只會製造一個固定的假
+// 陽性,而固定的假陽性最後一定會被當成雜訊忽略掉,連帶把真的錯位也一起忽略。
 export function duplicateCommentPairs(perQuestion, options = {}) {
   const threshold = typeof options.threshold === 'number' ? options.threshold : 0.9;
+  const ignore = new Set(Array.isArray(options.ignoreIndices) ? options.ignoreIndices : []);
   const list = Array.isArray(perQuestion) ? perQuestion : [];
   const out = [];
   for (let i = 0; i < list.length; i += 1) {
+    if (ignore.has(i)) continue;
     for (let j = i + 1; j < list.length; j += 1) {
+      if (ignore.has(j)) continue;
       const a = asText(list[i] && list[i].comment).trim();
       const b = asText(list[j] && list[j].comment).trim();
       // 空評語不算重複 —— 那是「評語缺漏」,是另一個問題,混進來只會讓兩邊都難查。
@@ -316,7 +323,9 @@ export function checkScoringShape(result, answers) {
     scoredMean,
     scoredCount: scores.length,
     overallScore: result && typeof result.overallScore === 'number' ? result.overallScore : null,
-    duplicateComments: duplicateCommentPairs(per),
+    // 只看已作答的題 —— 跳過的題共用同一句「未作答。」是正常的。
+    duplicateComments: duplicateCommentPairs(per, { ignoreIndices: skippedIndices }),
+    duplicateCommentsIncludingSkipped: duplicateCommentPairs(per),
   };
 }
 

@@ -1,0 +1,129 @@
+{
+  "capturedAt": "2026-08-07T12:15:34.361Z",
+  "model": "gemini-3.1-flash-lite",
+  "temperature": 0.3,
+  "maxOutputTokens": 3072,
+  "finishReason": "STOP",
+  "latencyMs": 2716,
+  "caseId": "B6",
+  "runId": "B6a",
+  "track": "fresher",
+  "language": "en",
+  "questionSet": "fresher.en",
+  "expectedBand": "medium",
+  "questions": [
+    {
+      "index": 0,
+      "type": "technical",
+      "text": "If your program crashes intermittently with a memory error, describe your step-by-step process to isolate the cause without using a debugger."
+    },
+    {
+      "index": 1,
+      "type": "technical",
+      "text": "When choosing between a hash map and a sorted array to store items you need to search frequently, what specific trade-offs do you consider regarding memory and time complexity?"
+    },
+    {
+      "index": 2,
+      "type": "technical",
+      "text": "If a function you wrote is running significantly slower than expected during testing, how would you determine if the bottleneck is algorithmic or due to external resource calls?"
+    },
+    {
+      "index": 3,
+      "type": "behavioral",
+      "text": "Reflecting on a past project, what is one technical decision you made that you would change today, and why would the new approach be better?"
+    },
+    {
+      "index": 4,
+      "type": "behavioral",
+      "text": "Describe a time you received constructive feedback on your code during an assignment or project. How did you process that feedback and implement the suggested changes?"
+    }
+  ],
+  "answers": [
+    null,
+    "Hash map give O(1) average lookup but use more memory, because table need extra empty slot to keep load factor low, and it not keep order. Sorted array is O(log n) with binary search, memory more tight, and I can do range query or get k-th item easy. If I search many time and no need order, I pick hash map. If memory is small or I need range scan, I pick sorted array. Also hash map worst case is O(n) when many collision, and insert into sorted array cost O(n) because shifting.",
+    null,
+    null,
+    null
+  ],
+  "raw": {
+    "overallScore": 85,
+    "rating": "Needs work",
+    "summary": "The candidate demonstrated a solid grasp of fundamental data structure trade-offs in the one question answered. However, the failure to answer four out of five questions makes it impossible to evaluate their full technical and behavioral competency.",
+    "perQuestion": [
+      {
+        "questionIndex": 1,
+        "skipped": true,
+        "comment": "The candidate skipped this question regarding debugging strategies.",
+        "suggestion": "Approach this by describing logging techniques, binary searching through code blocks by commenting them out, and analyzing system resource usage or core dumps."
+      },
+      {
+        "questionIndex": 2,
+        "skipped": false,
+        "comment": "The candidate correctly identified the time complexity differences and the memory overhead associated with hash maps, as well as the utility of sorted arrays for range queries.",
+        "suggestion": "Mention cache locality as an additional factor, as sorted arrays often perform better than hash maps due to contiguous memory allocation.",
+        "score": 85
+      },
+      {
+        "questionIndex": 3,
+        "skipped": true,
+        "comment": "The candidate skipped this question regarding performance bottleneck identification.",
+        "suggestion": "Explain how to use timing instrumentation around external calls versus internal logic, or how to use profiling tools to isolate CPU-bound versus I/O-bound tasks."
+      },
+      {
+        "questionIndex": 4,
+        "skipped": true,
+        "comment": "The candidate skipped this question regarding technical reflection.",
+        "suggestion": "Prepare a specific example of a past project, focusing on a trade-off made (e.g., speed vs. maintainability) and what you learned from the outcome."
+      },
+      {
+        "questionIndex": 5,
+        "skipped": true,
+        "comment": "The candidate skipped this question regarding receiving feedback.",
+        "suggestion": "Structure your answer using the STAR method (Situation, Task, Action, Result) to clearly explain how you incorporated peer review into your workflow."
+      }
+    ]
+  },
+  "normalized": {
+    "overallScore": 85,
+    "rating": "Needs work",
+    "summary": "The candidate demonstrated a solid grasp of fundamental data structure trade-offs in the one question answered. However, the failure to answer four out of five questions makes it impossible to evaluate their full technical and behavioral competency.",
+    "answeredCount": 1,
+    "perQuestion": [
+      {
+        "index": 0,
+        "skipped": true,
+        "score": null,
+        "comment": "The candidate skipped this question regarding debugging strategies.",
+        "suggestion": "Approach this by describing logging techniques, binary searching through code blocks by commenting them out, and analyzing system resource usage or core dumps."
+      },
+      {
+        "index": 1,
+        "skipped": false,
+        "score": 85,
+        "comment": "The candidate correctly identified the time complexity differences and the memory overhead associated with hash maps, as well as the utility of sorted arrays for range queries.",
+        "suggestion": "Mention cache locality as an additional factor, as sorted arrays often perform better than hash maps due to contiguous memory allocation."
+      },
+      {
+        "index": 2,
+        "skipped": true,
+        "score": null,
+        "comment": "The candidate skipped this question regarding performance bottleneck identification.",
+        "suggestion": "Explain how to use timing instrumentation around external calls versus internal logic, or how to use profiling tools to isolate CPU-bound versus I/O-bound tasks."
+      },
+      {
+        "index": 3,
+        "skipped": true,
+        "score": null,
+        "comment": "The candidate skipped this question regarding technical reflection.",
+        "suggestion": "Prepare a specific example of a past project, focusing on a trade-off made (e.g., speed vs. maintainability) and what you learned from the outcome."
+      },
+      {
+        "index": 4,
+        "skipped": true,
+        "score": null,
+        "comment": "The candidate skipped this question regarding receiving feedback.",
+        "suggestion": "Structure your answer using the STAR method (Situation, Task, Action, Result) to clearly explain how you incorporated peer review into your workflow."
+      }
+    ]
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "capturedAt": "2026-08-07T12:15:18.501Z",
+  "model": "gemini-3.1-flash-lite",
+  "temperature": 0.3,
+  "maxOutputTokens": 3072,
+  "finishReason": "STOP",
+  "latencyMs": 4353,
+  "caseId": "B2",
+  "runId": "B2",
+  "track": "frontend",
+  "language": "zh",
+  "questionSet": "frontend.zh",
+  "expectedBand": "medium",
+  "questions": [
+    {
+      "index": 0,
+      "type": "technical",
+      "text": "使用者回報在長列表頁面捲動時有明顯掉幀感。請描述你會如何利用 Chrome DevTools 的 Performance 面板進行診斷，如何區分是因為 JavaScript 執行過久或是瀏覽器重繪（Repaint）成本過高所導致的卡頓？"
+    },
+    {
+      "index": 1,
+      "type": "technical",
+      "text": "在一個複雜的元件樹中，某個父元件的狀態更新導致了遠處不相關的子元件頻繁重新渲染（Re-render）。請說明你會如何利用工具識別出這些多餘的渲染，並分析在何種情境下，你會選擇拆分元件、使用 memoization，或是將狀態提升（Lifting State Up）來解決此問題？"
+    },
+    {
+      "index": 2,
+      "type": "technical",
+      "text": "設計一個含有巢狀 Modal 的介面，請說明如何正確處理 Tab 鍵焦點順序（Focus Trapping），以及當使用者關閉 Modal 時，如何確保焦點能返回到正確的觸發按鈕，並解釋這對使用螢幕閱讀器的使用者有何重要性？"
+    },
+    {
+      "index": 3,
+      "type": "technical",
+      "text": "應用程式目前首屏載入時間過長，嘗試導入程式碼分割（Code Splitting）與延遲載入（Lazy Loading）。請說明你會如何權衡「Bundle 體積大小」與「使用者互動就緒時間（TTI）」的取捨，並決定哪些模組適合優先載入、哪些適合延遲載入？"
+    },
+    {
+      "index": 4,
+      "type": "behavioral",
+      "text": "當你發現團隊現有的元件架構設計不良，導致維護困難且效能不佳，但團隊成員傾向維持現狀以追求快速交付時，你會採取什麼步驟說服團隊進行重構，並在技術債與專案進度之間取得平衡？"
+    }
+  ],
+  "answers": [
+    "我會打開 Chrome DevTools 的 Performance 面板錄一段捲動,看有沒有掉幀的提示,然後看是 JavaScript 花的時間比較長還是渲染花的時間比較長。如果是 JavaScript 就去優化那段程式碼,如果是重繪就想辦法減少重繪的範圍。",
+    "用 React DevTools 看哪些元件重新渲染了,然後用 memo 或 useMemo 把不必要的渲染擋掉。如果狀態放的位置不太對,也可以考慮把狀態提升或是往下移到真正用到的地方。",
+    "Modal 打開的時候要把焦點放進去,Tab 不能跑到後面的內容,關掉之後焦點要回到原本的按鈕。這樣使用螢幕閱讀器的人才不會迷路。巢狀的話就一層一層處理。",
+    "用 React.lazy 搭配 Suspense 把不常用的頁面切出去,首屏只留必要的東西,這樣 bundle 會變小、載入會比較快。要注意不要切得太細,不然反而會變慢。",
+    "我會跟團隊說明現在的架構會拖慢後續開發的速度,建議找一個時間點做重構,並且跟 PM 討論排進時程,盡量不影響交付。"
+  ],
+  "raw": {
+    "overallScore": 58,
+    "rating": "尚需加強",
+    "summary": "候選人具備基礎的前端知識，但回答過於簡略，缺乏具體的技術深度與實作細節。在效能優化與架構設計的討論上，未能展現資深工程師應有的分析能力與邏輯推演。",
+    "perQuestion": [
+      {
+        "questionIndex": 1,
+        "skipped": false,
+        "comment": "回答過於籠統，未提到如何透過 Flame Chart 觀察 Long Tasks，也未說明如何透過 Rendering 面板觀察 Paint flashing 或 Layer borders 來區分重繪問題。",
+        "suggestion": "請具體描述如何從 Performance 面板的 Summary 頁籤觀察 Scripting 與 Rendering 的佔比，並舉例說明何種情況下會考慮使用 CSS containment 或 will-change 來優化。",
+        "score": 55
+      },
+      {
+        "questionIndex": 2,
+        "skipped": false,
+        "comment": "正確提到了 React DevTools 與 memoization，但未解釋如何判斷「何時」該使用這些工具，缺乏對 React 渲染機制（如 Context 導致的 re-render）的深入分析。",
+        "suggestion": "請補充說明在什麼情況下使用 memo 會造成負面影響（例如 props 比較成本高於渲染成本），並舉一個你曾透過 Profiler 發現並解決的具體效能瓶頸案例。",
+        "score": 60
+      },
+      {
+        "questionIndex": 3,
+        "skipped": false,
+        "comment": "理解 Focus Trapping 的基本概念，但對於巢狀 Modal 的實作細節（如如何管理 Focus Stack）描述不足，且未深入探討無障礙設計的具體實作。",
+        "suggestion": "請研究 WAI-ARIA 的 Modal 設計模式，並說明在巢狀 Modal 場景下，如何透過 DOM 節點管理確保焦點不會在關閉內層 Modal 時意外跳出外層 Modal。",
+        "score": 60
+      },
+      {
+        "questionIndex": 4,
+        "skipped": false,
+        "comment": "提到了 React.lazy，但對於「Bundle 體積」與「TTI」的權衡缺乏量化思考，未提及如何利用 Webpack Bundle Analyzer 或 Lighthouse 進行決策。",
+        "suggestion": "請說明你會如何根據路由的優先級（Critical vs Non-critical）來規劃 Chunk 分割，並舉例說明何時會選擇使用 Prefetching 來優化使用者體驗。",
+        "score": 55
+      },
+      {
+        "questionIndex": 5,
+        "skipped": false,
+        "comment": "回答過於理想化，缺乏處理團隊衝突與技術債評估的具體策略，未展現如何將技術債轉化為商業價值的溝通技巧。",
+        "suggestion": "請舉一個實際案例，說明你如何透過數據（如 Bug 率、開發時程變長）向 PM 證明重構的必要性，並提出「分階段重構」而非「一次性重構」的具體執行計畫。",
+        "score": 60
+      }
+    ]
+  },
+  "normalized": {
+    "overallScore": 58,
+    "rating": "尚需加強",
+    "summary": "候選人具備基礎的前端知識，但回答過於簡略，缺乏具體的技術深度與實作細節。在效能優化與架構設計的討論上，未能展現資深工程師應有的分析能力與邏輯推演。",
+    "answeredCount": 5,
+    "perQuestion": [
+      {
+        "index": 0,
+        "skipped": false,
+        "score": 55,
+        "comment": "回答過於籠統，未提到如何透過 Flame Chart 觀察 Long Tasks，也未說明如何透過 Rendering 面板觀察 Paint flashing 或 Layer borders 來區分重繪問題。",
+        "suggestion": "請具體描述如何從 Performance 面板的 Summary 頁籤觀察 Scripting 與 Rendering 的佔比，並舉例說明何種情況下會考慮使用 CSS containment 或 will-change 來優化。"
+      },
+      {
+        "index": 1,
+        "skipped": false,
+        "score": 60,
+        "comment": "正確提到了 React DevTools 與 memoization，但未解釋如何判斷「何時」該使用這些工具，缺乏對 React 渲染機制（如 Context 導致的 re-render）的深入分析。",
+        "suggestion": "請補充說明在什麼情況下使用 memo 會造成負面影響（例如 props 比較成本高於渲染成本），並舉一個你曾透過 Profiler 發現並解決的具體效能瓶頸案例。"
+      },
+      {
+        "index": 2,
+        "skipped": false,
+        "score": 60,
+        "comment": "理解 Focus Trapping 的基本概念，但對於巢狀 Modal 的實作細節（如如何管理 Focus Stack）描述不足，且未深入探討無障礙設計的具體實作。",
+        "suggestion": "請研究 WAI-ARIA 的 Modal 設計模式，並說明在巢狀 Modal 場景下，如何透過 DOM 節點管理確保焦點不會在關閉內層 Modal 時意外跳出外層 Modal。"
+      },
+      {
+        "index": 3,
+        "skipped": false,
+        "score": 55,
+        "comment": "提到了 React.lazy，但對於「Bundle 體積」與「TTI」的權衡缺乏量化思考，未提及如何利用 Webpack Bundle Analyzer 或 Lighthouse 進行決策。",
+        "suggestion": "請說明你會如何根據路由的優先級（Critical vs Non-critical）來規劃 Chunk 分割，並舉例說明何時會選擇使用 Prefetching 來優化使用者體驗。"
+      },
+      {
+        "index": 4,
+        "skipped": false,
+        "score": 60,
+        "comment": "回答過於理想化，缺乏處理團隊衝突與技術債評估的具體策略，未展現如何將技術債轉化為商業價值的溝通技巧。",
+        "suggestion": "請舉一個實際案例，說明你如何透過數據（如 Bug 率、開發時程變長）向 PM 證明重構的必要性，並提出「分階段重構」而非「一次性重構」的具體執行計畫。"
+      }
+    ]
+  }
+}

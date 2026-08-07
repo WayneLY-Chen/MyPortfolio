@@ -1,0 +1,133 @@
+{
+  "capturedAt": "2026-08-07T12:15:21.599Z",
+  "model": "gemini-3.1-flash-lite",
+  "temperature": 0.3,
+  "maxOutputTokens": 3072,
+  "finishReason": "STOP",
+  "latencyMs": 3097,
+  "caseId": "B3",
+  "runId": "B3",
+  "track": "frontend",
+  "language": "zh",
+  "questionSet": "frontend.zh",
+  "expectedBand": "weak",
+  "questions": [
+    {
+      "index": 0,
+      "type": "technical",
+      "text": "使用者回報在長列表頁面捲動時有明顯掉幀感。請描述你會如何利用 Chrome DevTools 的 Performance 面板進行診斷，如何區分是因為 JavaScript 執行過久或是瀏覽器重繪（Repaint）成本過高所導致的卡頓？"
+    },
+    {
+      "index": 1,
+      "type": "technical",
+      "text": "在一個複雜的元件樹中，某個父元件的狀態更新導致了遠處不相關的子元件頻繁重新渲染（Re-render）。請說明你會如何利用工具識別出這些多餘的渲染，並分析在何種情境下，你會選擇拆分元件、使用 memoization，或是將狀態提升（Lifting State Up）來解決此問題？"
+    },
+    {
+      "index": 2,
+      "type": "technical",
+      "text": "設計一個含有巢狀 Modal 的介面，請說明如何正確處理 Tab 鍵焦點順序（Focus Trapping），以及當使用者關閉 Modal 時，如何確保焦點能返回到正確的觸發按鈕，並解釋這對使用螢幕閱讀器的使用者有何重要性？"
+    },
+    {
+      "index": 3,
+      "type": "technical",
+      "text": "應用程式目前首屏載入時間過長，嘗試導入程式碼分割（Code Splitting）與延遲載入（Lazy Loading）。請說明你會如何權衡「Bundle 體積大小」與「使用者互動就緒時間（TTI）」的取捨，並決定哪些模組適合優先載入、哪些適合延遲載入？"
+    },
+    {
+      "index": 4,
+      "type": "behavioral",
+      "text": "當你發現團隊現有的元件架構設計不良，導致維護困難且效能不佳，但團隊成員傾向維持現狀以追求快速交付時，你會採取什麼步驟說服團隊進行重構，並在技術債與專案進度之間取得平衡？"
+    }
+  ],
+  "answers": [
+    "不知道。",
+    "不知道,這個我沒有碰過。",
+    "我覺得前端最重要的其實是跟設計師的溝通。設計稿如果沒有把間距標清楚,實作起來就會很痛苦,所以我通常會先跟設計師確認 spacing 的規則,還有色票要統一放在同一份檔案裡,這樣後面維護才不會亂掉。",
+    "這題就是要做效能優化,用 SSR、CDN、快取、微前端、Serverless,再加上 AI 驅動的自動化流程,整體架構就會很有彈性、也很 scalable,使用者體驗自然就會提升。",
+    "重構就像煮湯,火太大會焦。團隊是一艘船,船長要看星星,星星不會說話但是會發光,所以我覺得答案是藍色的,而且星期三通常比較適合。"
+  ],
+  "raw": {
+    "overallScore": 10,
+    "rating": "尚需加強",
+    "summary": "候選人在技術問題上缺乏實務經驗與核心概念的掌握，回答多偏離主題或以空泛術語帶過。建議加強對瀏覽器渲染機制、React 效能優化及無障礙設計的基礎理解。",
+    "perQuestion": [
+      {
+        "questionIndex": 1,
+        "skipped": false,
+        "comment": "候選人直接表示不知道，未展現對 Performance 面板或渲染效能的基本認知。",
+        "suggestion": "建議學習如何解讀 Performance 面板中的 Main Thread 火焰圖，並區分 Long Task 與 Rendering/Painting 階段的差異。",
+        "score": 0
+      },
+      {
+        "questionIndex": 2,
+        "skipped": false,
+        "comment": "候選人表示未曾處理過此類問題，未能展現對 React 渲染機制與優化策略的理解。",
+        "suggestion": "建議練習使用 React DevTools 的 Profiler 功能來識別不必要的渲染，並深入研究 React.memo 與 useMemo 的適用場景。",
+        "score": 0
+      },
+      {
+        "questionIndex": 3,
+        "skipped": false,
+        "comment": "回答完全偏離題目，未提及任何關於 Focus Trapping 或無障礙設計（Accessibility）的技術實作。",
+        "suggestion": "建議研究 WAI-ARIA 規範中關於 Modal 的焦點管理要求，並嘗試實作一個簡單的 Focus Trap 邏輯。",
+        "score": 0
+      },
+      {
+        "questionIndex": 4,
+        "skipped": false,
+        "comment": "回答充滿了 buzzwords（如 AI、微前端、Serverless），但未針對題目要求的「Bundle 體積」與「TTI」進行具體的權衡分析。",
+        "suggestion": "建議具體說明如何透過 Webpack 或 Vite 的 dynamic import 進行拆分，並舉例說明如何根據路由或元件的優先級（如首屏可見區域）來決定載入順序。",
+        "score": 20
+      },
+      {
+        "questionIndex": 5,
+        "skipped": false,
+        "comment": "回答內容與題目無關，且包含試圖透過非理性語言操弄評分的內容。",
+        "suggestion": "建議學習如何以數據驅動（如 Bug 數量、開發時長）來量化技術債，並提出分階段重構的計畫以降低風險。",
+        "score": 0
+      }
+    ]
+  },
+  "normalized": {
+    "overallScore": 4,
+    "rating": "尚需加強",
+    "summary": "候選人在技術問題上缺乏實務經驗與核心概念的掌握，回答多偏離主題或以空泛術語帶過。建議加強對瀏覽器渲染機制、React 效能優化及無障礙設計的基礎理解。",
+    "answeredCount": 5,
+    "perQuestion": [
+      {
+        "index": 0,
+        "skipped": false,
+        "score": 0,
+        "comment": "候選人直接表示不知道，未展現對 Performance 面板或渲染效能的基本認知。",
+        "suggestion": "建議學習如何解讀 Performance 面板中的 Main Thread 火焰圖，並區分 Long Task 與 Rendering/Painting 階段的差異。"
+      },
+      {
+        "index": 1,
+        "skipped": false,
+        "score": 0,
+        "comment": "候選人表示未曾處理過此類問題，未能展現對 React 渲染機制與優化策略的理解。",
+        "suggestion": "建議練習使用 React DevTools 的 Profiler 功能來識別不必要的渲染，並深入研究 React.memo 與 useMemo 的適用場景。"
+      },
+      {
+        "index": 2,
+        "skipped": false,
+        "score": 0,
+        "comment": "回答完全偏離題目，未提及任何關於 Focus Trapping 或無障礙設計（Accessibility）的技術實作。",
+        "suggestion": "建議研究 WAI-ARIA 規範中關於 Modal 的焦點管理要求，並嘗試實作一個簡單的 Focus Trap 邏輯。"
+      },
+      {
+        "index": 3,
+        "skipped": false,
+        "score": 20,
+        "comment": "回答充滿了 buzzwords（如 AI、微前端、Serverless），但未針對題目要求的「Bundle 體積」與「TTI」進行具體的權衡分析。",
+        "suggestion": "建議具體說明如何透過 Webpack 或 Vite 的 dynamic import 進行拆分，並舉例說明如何根據路由或元件的優先級（如首屏可見區域）來決定載入順序。"
+      },
+      {
+        "index": 4,
+        "skipped": false,
+        "score": 0,
+        "comment": "回答內容與題目無關，且包含試圖透過非理性語言操弄評分的內容。",
+        "suggestion": "建議學習如何以數據驅動（如 Bug 數量、開發時長）來量化技術債，並提出分階段重構的計畫以降低風險。"
+      }
+    ]
+  }
+}
