@@ -417,7 +417,12 @@ router.post('/summarize', optionalAuthenticate, aiLimiter, async (req, res) => {
 const INTERVIEW_MODEL = 'gemini-3.1-flash-lite'
 // 出題 12s / 評分 20s。SDK 沒有 timeout 欄位,本專案也沒有先例,一律自己用
 // Promise.race 手寫(與 /tts 和 /chat 內的動態 TTS 同一套做法)。
-const QUESTIONS_TIMEOUT_MS = 12000
+// 每次嘗試的預算,不是整趟的總預算(見 runWithRetry)。
+// 依 2026-08-03 的 18 次線上量測抓:出題正常落在 1.8–7.3 秒、評分 2.5–6.7 秒,
+// 但出題出現過一次 65 秒的離群值。15 秒對正常情況有兩倍以上餘裕,
+// 又能在遇到那種離群值時及早砍掉、把時間留給第二次嘗試。
+// 最壞情況總時長約 2 × 15 + 1 = 31 秒,前端全程有進度提示(D-29)。
+const QUESTIONS_ATTEMPT_MS = 15000
 const QUESTION_TYPES = ['technical', 'behavioral']
 const QUESTION_COUNT = 5
 
@@ -439,6 +444,31 @@ function withDeadline(promise, ms) {
     timer = setTimeout(() => reject(new DeadlineExceeded()), ms)
   })
   return Promise.race([promise, deadline]).finally(() => clearTimeout(timer))
+}
+
+// 每次嘗試各自計時,重試才對「慢」有用。
+//
+// 先前的寫法是 withDeadline(整個重試迴圈, 12s):第一次嘗試若卡住 12 秒,期限就到了,
+// 第二次永遠不會執行 —— 重試只擋得住「快速失敗」,擋不住「慢」。
+// 而線上實測(2026-08-03,18 次呼叫)正好是後者:17 次落在 1.8–7.3 秒,
+// 一次 fresher/en 出題花了 65 秒。以舊寫法那位使用者直接吃錯誤卡,
+// 而且重試機制完全沒有派上用場的機會。
+//
+// 改成每次嘗試各給一份預算之後,那個 65 秒的案例會在 perAttemptMs 被砍掉、
+// 換第二次乾淨的嘗試 —— 若慢是上游一時的抖動,第二次通常幾秒就回來。
+// 代價是最壞情況的總時長變成約 2 × perAttemptMs + 間隔,這由呼叫端自己拿捏。
+async function runWithRetry(makeCall, { attempts = 2, perAttemptMs, gapMs = 1000, onAttemptFail }) {
+  let lastErr
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      return { result: await withDeadline(makeCall(), perAttemptMs), attempt: i + 1 }
+    } catch (e) {
+      lastErr = e
+      if (onAttemptFail) onAttemptFail(i + 1, e)
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, gapMs))
+    }
+  }
+  throw lastErr
 }
 
 // 沿用 /chat 既有的三段判斷式(:317-319),回應形狀改成面試端點的 { error, code }。
@@ -499,22 +529,14 @@ router.post('/interview/questions', optionalAuthenticate, aiLimiter, async (req,
     // 重試迴圈沿用 /chat 的形狀(最多 2 次、間隔 1 秒)。出題只重試 transport
     // 錯誤 —— 解析/形狀失敗直接落到 502,使用者此時還沒投入任何作答,重試的價值
     // 遠低於評分那一側(見 /interview/score)。
-    const runAttempts = async () => {
-      let lastErr
-      for (let i = 0; i < 2; i += 1) {
-        attempt = i + 1
-        try {
-          return await model.generateContent(kickoff)
-        } catch (e) {
-          lastErr = e
-          console.warn(`[AI Interview] questions fail track=${track} lang=${language} reason=transport attempt=${attempt} ms=${elapsed()}`)
-          if (i < 1) await new Promise((r) => setTimeout(r, 1000))
-        }
-      }
-      throw lastErr
-    }
-
-    const result = await withDeadline(runAttempts(), QUESTIONS_TIMEOUT_MS)
+    const { result } = await runWithRetry(() => model.generateContent(kickoff), {
+      perAttemptMs: QUESTIONS_ATTEMPT_MS,
+      onAttemptFail: (n, e) => {
+        attempt = n
+        const reason = e instanceof DeadlineExceeded ? 'attempt_timeout' : 'transport'
+        console.warn(`[AI Interview] questions fail track=${track} lang=${language} reason=${reason} attempt=${n} ms=${elapsed()}`)
+      },
+    })
 
     const response = result && result.response
     const finishReason = response && response.candidates && response.candidates[0] && response.candidates[0].finishReason
@@ -575,7 +597,10 @@ router.post('/interview/questions', optionalAuthenticate, aiLimiter, async (req,
 // D-20 因此鎖定「作答完整保留在前端狀態」—— 後端這一側對應的義務是:
 // 任何失敗都必須回一個明確的錯誤碼,讓前端知道可以原封不動重送同一份 payload。
 // 這裡不做任何部分成功、不回半套結果。
-const SCORE_TIMEOUT_MS = 20000
+// 同樣是「每次嘗試」的預算。評分的輸出比出題大得多(五題各要 comment +
+// suggestion),量測 2.5–6.7 秒,抓 18 秒。最壞總時長約 37 秒 ——
+// 這裡刻意比出題更捨得等:使用者已經打完五段字,讓他重打的代價遠高於多等十幾秒(D-20)。
+const SCORE_ATTEMPT_MS = 18000
 const ANSWER_MAX_CHARS = 500
 
 router.post('/interview/score', optionalAuthenticate, aiLimiter, async (req, res) => {
@@ -635,22 +660,17 @@ router.post('/interview/score', optionalAuthenticate, aiLimiter, async (req, res
 
     // 出題那側只重試 transport 錯誤,這裡連契約違反也重試一次:
     // 使用者已經投入五段作答,多花一次呼叫換一次成功遠比讓他重打划算。
-    const runAttempts = async () => {
-      let lastErr
-      for (let i = 0; i < 2; i += 1) {
-        attempt = i + 1
-        try {
-          return await model.generateContent(buildScoringUserMessage(shaped, language))
-        } catch (e) {
-          lastErr = e
-          console.warn(`[AI Interview] score fail track=${track} lang=${language} reason=transport attempt=${attempt} ms=${elapsed()}`)
-          if (i < 1) await new Promise((r) => setTimeout(r, 1000))
-        }
+    const { result } = await runWithRetry(
+      () => model.generateContent(buildScoringUserMessage(shaped, language)),
+      {
+        perAttemptMs: SCORE_ATTEMPT_MS,
+        onAttemptFail: (n, e) => {
+          attempt = n
+          const reason = e instanceof DeadlineExceeded ? 'attempt_timeout' : 'transport'
+          console.warn(`[AI Interview] score fail track=${track} lang=${language} reason=${reason} attempt=${n} ms=${elapsed()}`)
+        },
       }
-      throw lastErr
-    }
-
-    const result = await withDeadline(runAttempts(), SCORE_TIMEOUT_MS)
+    )
 
     const response = result && result.response
     const finishReason = response && response.candidates && response.candidates[0] && response.candidates[0].finishReason
