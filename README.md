@@ -7,7 +7,9 @@
 
 <br>
 
-[![前往網站](https://img.shields.io/badge/🔗%20前往網站-C8942A?style=for-the-badge&logoColor=white)](https://my-portfolio-waynely-chens-projects.vercel.app)
+<a href="https://my-portfolio-waynely-chens-projects.vercel.app">
+  <img src="https://img.shields.io/badge/前往網站-C8942A?style=for-the-badge&logo=vercel&logoColor=white&labelColor=C8942A" height="52" alt="前往網站">
+</a>
 
 <br>
 
