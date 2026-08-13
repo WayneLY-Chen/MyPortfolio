@@ -19,20 +19,14 @@
 
 import { useState } from 'react'
 import { useToast } from '../ui/Toast'
-
-const TYPE_LABELS = {
-  technical: '技術',
-  behavioral: '行為',
-}
+import { strings } from './interviewStrings'
 
 // UI-SPEC §9:收合狀態的預覽取 comment 前 40 字。這是**預覽**的截斷,不是內容本身
 // 被截斷 —— 展開後顯示的一律是完整字串。以 code point 切,免得切在代理對中間。
 const PREVIEW_CHARS = 40
 
-const DISCLAIMER = '此為練習用 AI 評分,非正式面試評估工具。'
-
-function typeLabel(type) {
-  return TYPE_LABELS[type] || TYPE_LABELS.technical
+function typeLabel(t, type) {
+  return type === 'behavioral' ? t.typeBehavioral : t.typeTechnical
 }
 
 // 跳過與否只認後端的 skipped 旗標與 score 是否為 null,不用 `!score` 之類的
@@ -41,8 +35,8 @@ function isSkipped(item) {
   return Boolean(item.skipped) || item.score === null || item.score === undefined
 }
 
-function badgeText(item) {
-  return isSkipped(item) ? '未作答' : `${item.score} 分`
+function badgeText(t, item) {
+  return isSkipped(item) ? t.notAnswered : t.scoreBadge(item.score)
 }
 
 function previewText(comment) {
@@ -56,28 +50,29 @@ function previewText(comment) {
  * 標籤。使用者會把它貼進記事本、履歷草稿或訊息視窗,那些地方不會替他渲染 markdown,
  * 一堆 ** 和 ## 只會變成雜訊(而且是二次注入面積)。
  */
-export function buildFeedbackText({ result, questions }) {
+export function buildFeedbackText({ result, questions, language }) {
+  const t = strings(language)
   const lines = []
-  lines.push('面試結果')
-  lines.push(`總分 ${result.overallScore} / 100`)
-  lines.push(`評等 ${result.rating}`)
+  lines.push(t.resultsTitle)
+  lines.push(t.copyOverall(result.overallScore))
+  lines.push(t.copyRating(result.rating))
   lines.push('')
   lines.push(result.summary)
   lines.push('')
-  lines.push('逐題回饋')
+  lines.push(t.qaHeading)
 
   const perQuestion = Array.isArray(result.perQuestion) ? result.perQuestion : []
   perQuestion.forEach((item, i) => {
     const question = questions && questions[i] ? questions[i] : null
     lines.push('')
-    lines.push(`第 ${i + 1} 題 · ${typeLabel(question && question.type)} · ${badgeText(item)}`)
-    if (question) lines.push(`題目:${question.text}`)
-    if (item.comment) lines.push(`評語:${item.comment}`)
-    if (item.suggestion) lines.push(`改進建議:${item.suggestion}`)
+    lines.push(`${t.questionOrdinal(i + 1)} · ${typeLabel(t, question && question.type)} · ${badgeText(t, item)}`)
+    if (question) lines.push(`${t.copyQuestionLabel}${question.text}`)
+    if (item.comment) lines.push(`${t.copyCommentLabel}${item.comment}`)
+    if (item.suggestion) lines.push(`${t.copySuggestionLabel}${item.suggestion}`)
   })
 
   lines.push('')
-  lines.push(DISCLAIMER)
+  lines.push(t.disclaimer)
   return lines.join('\n')
 }
 
@@ -91,7 +86,8 @@ export function buildFeedbackText({ result, questions }) {
  *   onRestart: () => void,
  * }} props
  */
-export default function InterviewResults({ result, questions, onRestart }) {
+export default function InterviewResults({ result, questions, language, onRestart }) {
+  const t = strings(language)
   // 允許同時展開多列 —— 使用者常常要把兩題的建議並排比對,展開一列就收掉另一列
   // 會讓他一直來回點。預設全部收合(UI-SPEC §9)。
   const [openIndexes, setOpenIndexes] = useState(() => new Set())
@@ -109,13 +105,13 @@ export default function InterviewResults({ result, questions, onRestart }) {
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(buildFeedbackText({ result, questions }))
-      addToast({ title: '已複製', variant: 'success', duration: 2000 })
+      await navigator.clipboard.writeText(buildFeedbackText({ result, questions, language }))
+      addToast({ title: t.copySuccess, variant: 'success', duration: 2000 })
     } catch {
       // 不得只寫 console 靜默失敗 —— 使用者要知道改用手動選取才拿得到內容。
       addToast({
-        title: '複製失敗',
-        description: '請手動選取文字複製',
+        title: t.copyFailed,
+        description: t.copyFailedHint,
         variant: 'error',
       })
     }
@@ -125,7 +121,7 @@ export default function InterviewResults({ result, questions, onRestart }) {
 
   return (
     <div className="iv-results">
-      <h2 className="iv-results-title">面試結果</h2>
+      <h2 className="iv-results-title">{t.resultsTitle}</h2>
 
       {/* 總分是結果頁唯一的視覺焦點,也是 accent 白名單第 5 項。
           G-7:分數本身照後端給的原樣顯示,不做任何裁切 —— 後端已經夾過 0-100 並
@@ -135,7 +131,7 @@ export default function InterviewResults({ result, questions, onRestart }) {
       <div className="iv-score-block">
         <p className="iv-score-line">
           <span className="iv-score-number">{result.overallScore}</span>
-          <span className="iv-score-unit">/ 100</span>
+          <span className="iv-score-unit">{t.scoreUnit}</span>
         </p>
         {/* 評等文字逐字採用後端 schema 的 enum(優秀 / 良好 / 尚需加強;
             Excellent / Good / Needs work),不改寫。徽章一律中性外觀,
@@ -147,9 +143,9 @@ export default function InterviewResults({ result, questions, onRestart }) {
 
       {/* G-6:免責說明固定顯示,而且不在 print CSS 的隱藏清單內 ——
           這是一份使用者可能真的印出來帶走的紙,免責語境在紙上更重要而非更不重要。 */}
-      <p className="iv-disclaimer">{DISCLAIMER}</p>
+      <p className="iv-disclaimer">{t.disclaimer}</p>
 
-      <h3 className="iv-qa-heading">逐題回饋</h3>
+      <h3 className="iv-qa-heading">{t.qaHeading}</h3>
       <div className="iv-qa-list">
         {perQuestion.map((item, i) => {
           const question = questions && questions[i] ? questions[i] : null
@@ -167,9 +163,9 @@ export default function InterviewResults({ result, questions, onRestart }) {
                 aria-controls={detailId}
                 onClick={() => toggle(i)}
               >
-                <span className="iv-qa-index">{`第 ${i + 1} 題`}</span>
-                <span className="iv-qa-type-tag">{typeLabel(question && question.type)}</span>
-                <span className="iv-qa-badge">{badgeText(item)}</span>
+                <span className="iv-qa-index">{t.questionOrdinal(i + 1)}</span>
+                <span className="iv-qa-type-tag">{typeLabel(t, question && question.type)}</span>
+                <span className="iv-qa-badge">{badgeText(t, item)}</span>
                 <span className="iv-qa-preview">{previewText(item.comment)}</span>
               </button>
 
@@ -179,7 +175,7 @@ export default function InterviewResults({ result, questions, onRestart }) {
                 <p className="iv-qa-comment">{item.comment}</p>
                 {/* D-11:跳過的題沒有分數,但仍要有「這題可以怎麼答」的方向。
                     suggestion 對跳過的題照樣顯示,不因未作答而藏起來。 */}
-                <p className="iv-qa-suggestion-label">改進建議</p>
+                <p className="iv-qa-suggestion-label">{t.suggestionLabel}</p>
                 <p className="iv-qa-suggestion">{item.suggestion}</p>
               </div>
             </div>
@@ -193,13 +189,13 @@ export default function InterviewResults({ result, questions, onRestart }) {
           因為在評分失敗那個畫面上誤觸它,才是真正的資料遺失(UI-SPEC §8 反例三)。 */}
       <div className="iv-actions-row">
         <button type="button" className="iv-action-btn" onClick={onRestart}>
-          重新面試
+          {t.restart}
         </button>
         <button type="button" className="iv-action-btn" onClick={handleCopy}>
-          複製回饋文字
+          {t.copyFeedback}
         </button>
         <button type="button" className="iv-action-btn" onClick={() => window.print()}>
-          列印 / 匯出 PDF
+          {t.printPdf}
         </button>
       </div>
     </div>

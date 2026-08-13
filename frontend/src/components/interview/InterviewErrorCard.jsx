@@ -15,6 +15,7 @@
 // 樣式全部在 InterviewTab.jsx 的 <style> 內,這裡不開第二份。
 
 import { resolveInterviewError } from './interviewErrors'
+import { strings } from './interviewStrings'
 
 /**
  * @param {{
@@ -24,11 +25,11 @@ import { resolveInterviewError } from './interviewErrors'
  *   onRetry: () => void,
  * }} props
  */
-export default function InterviewErrorCard({ stage, status, code, onRetry }) {
+export default function InterviewErrorCard({ stage, status, code, language, onRetry }) {
   // eyebrow / title / body / buttonLabel 四個字串全部來自對照表。
   // 評分階段的標題固定是「評分暫時失敗,你的作答都還在」,不隨 code 變化 ——
   // 這句話本身就是設計的一部分(UI-SPEC §8),對照表已經處理好這條規則。
-  const { eyebrow, title, body, buttonLabel } = resolveInterviewError({ stage, status, code })
+  const { eyebrow, title, body, buttonLabel } = resolveInterviewError({ stage, status, code, language })
   const scoring = stage === 'scoring'
 
   return (
@@ -64,12 +65,13 @@ export default function InterviewErrorCard({ stage, status, code, onRetry }) {
  *   answers: Array<{ index: number, text: string | null }>,
  * }} props
  */
-export function PreservedAnswers({ questions, answers }) {
+export function PreservedAnswers({ questions, answers, language }) {
   if (!questions || questions.length === 0) return null
+  const t = strings(language)
 
   return (
     <div className="iv-preserved-answers">
-      <p className="iv-preserved-heading">你剛剛的作答都還在</p>
+      <p className="iv-preserved-heading">{t.preservedHeading}</p>
       {questions.map((question, i) => {
         // 一律以陣列位置對齊,不採信任何 payload 裡的題號 —— 後端 ai.js:703 已經
         // 因為採信模型自報的 questionIndex 而錯位過一次。
@@ -80,11 +82,11 @@ export function PreservedAnswers({ questions, answers }) {
             key={i}
             className={`iv-preserved-item ${skipped ? 'iv-preserved-item--skipped' : ''}`}
           >
-            <p className="iv-preserved-q">{`第 ${i + 1} 題 · ${question.text}`}</p>
+            <p className="iv-preserved-q">{t.preservedQuestion(i + 1, question.text)}</p>
             {/* 使用者自己打的字,一律以 JSX 文字節點渲染 + white-space: pre-wrap
                 保留換行。跳過的題用中性的斜體 muted 說明,不是紅字也不是警告色
                 (D-28)—— 跳過是使用者自己的選擇,不是錯誤。 */}
-            <p className="iv-preserved-a">{skipped ? '（這題你選擇跳過）' : answer}</p>
+            <p className="iv-preserved-a">{skipped ? t.preservedSkipped : answer}</p>
           </div>
         )
       })}

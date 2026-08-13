@@ -10,15 +10,15 @@
 // 這個檔案不含任何 <style>:全部 .iv-* 樣式集中在 InterviewTab.jsx(比照
 // components/devtools/* 與 DevToolsTab.jsx 的分工)。
 
-// 標題與說明逐字取自 05-UI-SPEC.md 的「開場畫面」表,不得改寫。
+import { strings } from './interviewStrings'
+
+// 卡片文案改由 interviewStrings 依語言提供 —— 選了 English 之後整個介面都要跟著換,
+// 只換題目而卡片留中文,使用者會以為切換沒生效。中文那一欄的字逐字沿用
+// 05-UI-SPEC.md 的「開場畫面」表,一個字都沒改。
+//
 // id 必須落在 interviewReducer 的 TRACKS 白名單內 —— 新鮮人那一軌是 `fresher`,
 // 不是 newgrad(後端只認 fresher,送錯會吃 400 INVALID_INPUT)。
-const TRACK_CARDS = [
-  { id: 'frontend', title: '前端工程師', description: '版面、效能與瀏覽器行為的臨場判斷' },
-  { id: 'backend', title: '後端工程師', description: 'API 設計、併發與快取的取捨' },
-  { id: 'fullstack', title: '全端工程師', description: '前後端邊界的整合判斷' },
-  { id: 'fresher', title: '新鮮人軟體工程師', description: '基礎觀念與除錯思路' },
-]
+const TRACK_IDS = ['frontend', 'backend', 'fullstack', 'fresher']
 
 // 二選一的 segmented control。預設選中「中文」由 INITIAL_STATE.language = 'zh' 提供,
 // 所以語言永遠有值,不會擋住開始鍵 —— 唯一會擋的是「還沒選方向」。
@@ -35,23 +35,26 @@ export default function TrackSelect({
   onStart,
   canStart,
 }) {
+  const t = strings(language)
+
   return (
     <div className="iv-setup">
-      <h2 className="iv-display-title">模擬面試官</h2>
-      <p className="iv-setup-subtitle">選一個方向,五題結束後給你具體的改進建議。</p>
+      <h2 className="iv-display-title">{t.setupTitle}</h2>
+      <p className="iv-setup-subtitle">{t.setupSubtitle}</p>
 
       {/* 卡片一律用 <button> 而不是掛 onClick 的 <div>:鍵盤 Tab 得到、Enter/Space 按得下、
           螢幕閱讀器唸得出「按鈕、已按下」。選中狀態走 aria-pressed 而非只有顏色。 */}
-      <div className="iv-track-grid" role="group" aria-label="選擇面試方向">
-        {TRACK_CARDS.map((card) => {
-          const selected = track === card.id
+      <div className="iv-track-grid" role="group" aria-label={t.trackGroupLabel}>
+        {TRACK_IDS.map((id) => {
+          const card = t.tracks[id]
+          const selected = track === id
           return (
             <button
-              key={card.id}
+              key={id}
               type="button"
               aria-pressed={selected}
               className={`iv-track-card ${selected ? 'iv-track-card--selected' : ''}`}
-              onClick={() => onSelectTrack(card.id)}
+              onClick={() => onSelectTrack(id)}
             >
               <span className="iv-track-card-title">{card.title}</span>
               <span className="iv-track-card-desc">{card.description}</span>
@@ -61,7 +64,7 @@ export default function TrackSelect({
       </div>
 
       <div className="iv-setup-footer">
-        <div className="iv-segmented" role="group" aria-label="面試語言">
+        <div className="iv-segmented" role="group" aria-label={t.languageGroupLabel}>
           {LANGUAGE_OPTIONS.map((option) => (
             <button
               key={option.id}
@@ -83,13 +86,13 @@ export default function TrackSelect({
           disabled={!canStart}
           onClick={onStart}
         >
-          開始面試
+          {t.startButton}
         </button>
       </div>
     </div>
   )
 }
 
-// 清單內容是契約的一部分(逐字文案 + 後端白名單代碼),另外具名匯出讓驗收/測試
-// 不必去 JSX 裡撈字串。
-export { TRACK_CARDS }
+// 後端白名單代碼是契約的一部分,具名匯出讓驗收/測試不必去 JSX 裡撈。
+// (文案本身已移到 interviewStrings.js,依語言取。)
+export { TRACK_IDS }

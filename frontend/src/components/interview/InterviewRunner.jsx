@@ -16,17 +16,14 @@
 // 樣式全部在 InterviewTab.jsx 的 <style> 內,這裡不開第二份。
 
 import { ANSWER_MAX_CHARS, QUESTION_COUNT, RATE_OPTIONS } from './interviewReducer'
+import { strings } from './interviewStrings'
 
 // D-08:接近上限時用**字重**示警而不是變色。變色等於偷偷新增一個語意色系統,
 // 違反 D-28 只用單一主色的鎖定決策。450 = 上限往回留 50 字的緩衝。
 const NEAR_LIMIT_CHARS = 450
 
-const TYPE_LABELS = {
-  technical: '技術',
-  behavioral: '行為',
-}
-
 export default function InterviewRunner({
+  language,
   question,
   questionIndex,
   draft,
@@ -45,6 +42,8 @@ export default function InterviewRunner({
 }) {
   // 以 code point 計數,與 reducer 的 clampAnswer 同一個口徑,
   // 免得畫面顯示 500/500 但實際還能再打一個字。
+  const t = strings(language)
+  const typeLabel = question.type === 'behavioral' ? t.typeBehavioral : t.typeTechnical
   const charCount = Array.from(draft).length
   const nearLimit = charCount >= NEAR_LIMIT_CHARS
   // 進度 = 已完成的題數 / 總題數。第 1 題時是 0%,第 5 題時是 80% —— 這一題還沒答完,
@@ -55,7 +54,7 @@ export default function InterviewRunner({
     <div className="iv-flow-column">
       {/* ── 進度(D-27):文字 + 進度條,兩者都要 ── */}
       <div className="iv-progress">
-        <p className="iv-progress-label">{`第 ${questionIndex + 1} / ${QUESTION_COUNT} 題`}</p>
+        <p className="iv-progress-label">{t.progress(questionIndex + 1, QUESTION_COUNT)}</p>
         <div className="iv-progress-track">
           <div className="iv-progress-fill" style={{ width: `${progressPercent}%` }} />
         </div>
@@ -66,7 +65,7 @@ export default function InterviewRunner({
              不是來等字一個一個跑出來的。 ── */}
       <div className="iv-question-card">
         <div className="iv-question-meta">
-          <span className="iv-question-type">{TYPE_LABELS[question.type] || TYPE_LABELS.technical}</span>
+          <span className="iv-question-type">{typeLabel}</span>
           {/* 四條等化器長條。非播放時靜止在低高度而不是隱藏 —— 隱藏會讓使用者
               以為壞了。TTS 合成失敗時(D-21 靜默降級)也停在這個靜止狀態,
               不觸發任何錯誤 UI。 */}
@@ -88,10 +87,10 @@ export default function InterviewRunner({
       {/* ── 語音控制列(D-16):重聽 / 停止 / 靜音切換 / 三段語速 ── */}
       <div className="iv-voice-controls">
         <button type="button" className="iv-voice-btn" onClick={onReplay}>
-          重聽這題
+          {t.replay}
         </button>
         <button type="button" className="iv-voice-btn" onClick={onStop}>
-          停止播放
+          {t.stopPlayback}
         </button>
         {/* 按鈕上的字永遠是「按下去會發生的事」,不是「目前的狀態」——
             寫「已靜音」會讓人以為要再按一下才靜音。 */}
@@ -101,9 +100,9 @@ export default function InterviewRunner({
           aria-pressed={muted}
           onClick={onToggleMute}
         >
-          {muted ? '取消靜音' : '靜音'}
+          {muted ? t.unmute : t.mute}
         </button>
-        <div className="iv-speed-group" role="group" aria-label="朗讀語速">
+        <div className="iv-speed-group" role="group" aria-label={t.speedGroupLabel}>
           {RATE_OPTIONS.map((option) => (
             <button
               key={option}
@@ -121,17 +120,17 @@ export default function InterviewRunner({
       {/* 播放指示是視覺的,螢幕閱讀器需要一句話。刻意放在控制列之後、
           用 aria-live="polite" —— 朗讀狀態不該打斷使用者正在聽的內容。 */}
       <p className="iv-visually-hidden" aria-live="polite">
-        {isPlaying ? '面試官朗讀中' : '已停止朗讀'}
+        {isPlaying ? t.speaking : t.speechStopped}
       </p>
 
       {/* ── 作答框(D-08)── */}
       <label className="iv-visually-hidden" htmlFor="iv-answer">
-        你的回答
+        {t.answerLabel}
       </label>
       <textarea
         id="iv-answer"
         className="iv-answer-textarea"
-        placeholder="在這裡輸入你的回答……"
+        placeholder={t.answerPlaceholder}
         maxLength={ANSWER_MAX_CHARS}
         value={draft}
         onChange={(e) => onDraftChange(e.target.value)}
@@ -143,10 +142,10 @@ export default function InterviewRunner({
       {/* ── 按鈕列(D-05、D-07)。沒有回頭的路,所以也沒有那顆按鈕。 ── */}
       <div className="iv-runner-actions">
         <button type="button" className="iv-primary-btn" onClick={onNext}>
-          {isLast ? '送出並評分' : '下一題'}
+          {isLast ? t.submitForScoring : t.nextQuestion}
         </button>
         <button type="button" className="iv-secondary-btn" onClick={onSkip}>
-          跳過這題
+          {t.skipQuestion}
         </button>
       </div>
 
@@ -154,7 +153,7 @@ export default function InterviewRunner({
           D-07:已作答的題(含現在框裡打好的字)直接送去評分,不丟棄任何內容。 */}
       <div className="iv-runner-exit">
         <button type="button" className="iv-text-btn" onClick={onEndEarly}>
-          提前結束面試
+          {t.endEarly}
         </button>
       </div>
     </div>

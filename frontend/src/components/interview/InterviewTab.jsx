@@ -33,6 +33,7 @@ import InterviewErrorCard, { PreservedAnswers } from './InterviewErrorCard'
 import InterviewResults from './InterviewResults'
 import InterviewRunner from './InterviewRunner'
 import TrackSelect from './TrackSelect'
+import { strings } from './interviewStrings'
 
 export default function InterviewTab() {
   const [state, dispatch] = useReducer(interviewReducer, INITIAL_STATE)
@@ -153,6 +154,10 @@ export default function InterviewTab() {
 
   // 全站唯一會清空 answers 的入口,所以它只掛在結果頁 —— 評分失敗的畫面上不放它。
   const restartInterview = () => dispatch({ type: ACTION_TYPES.RESTART_INTERVIEW })
+
+  // 介面文案跟著所選語言走。選了 English 卻只換題目、介面留中文,使用者會以為
+  // 切換沒生效 —— 語言切換的承諾是整個畫面,不只是內容。
+  const t = strings(state.language)
 
   return (
     <div className="iv-tab">
@@ -748,6 +753,7 @@ export default function InterviewTab() {
 
       {state.phase === 'interviewing' && state.questions[state.currentIndex] && (
         <InterviewRunner
+          language={state.language}
           question={state.questions[state.currentIndex]}
           questionIndex={state.currentIndex}
           draft={state.draft}
@@ -769,7 +775,7 @@ export default function InterviewTab() {
       {state.phase === 'loading_questions' && (
         <div className="iv-flow-column iv-loading">
           <div className="ai-spinner" />
-          <p className="iv-loading-text">面試官正在出題……</p>
+          <p className="iv-loading-text">{t.loadingQuestions}</p>
         </div>
       )}
 
@@ -782,14 +788,14 @@ export default function InterviewTab() {
           <div className="iv-results iv-flow-column">
             <div className="iv-loading">
               <div className="ai-spinner" />
-              <p className="iv-loading-text">正在評分……</p>
+              <p className="iv-loading-text">{t.loadingScore}</p>
             </div>
-            <PreservedAnswers questions={state.questions} answers={state.answers} />
+            <PreservedAnswers questions={state.questions} answers={state.answers} language={state.language} />
           </div>
         ) : (
           <div className="iv-flow-column iv-loading">
             <div className="ai-spinner" />
-            <p className="iv-loading-text">正在評分……</p>
+            <p className="iv-loading-text">{t.loadingScore}</p>
           </div>
         ))}
 
@@ -797,6 +803,7 @@ export default function InterviewTab() {
         <InterviewResults
           result={state.result}
           questions={state.questions}
+          language={state.language}
           onRestart={restartInterview}
         />
       )}
@@ -808,6 +815,7 @@ export default function InterviewTab() {
             stage="questions"
             code={state.errorCode}
             status={state.errorStatus}
+            language={state.language}
             onRetry={retryQuestions}
           />
         </div>
@@ -826,9 +834,10 @@ export default function InterviewTab() {
             stage="scoring"
             code={state.errorCode}
             status={state.errorStatus}
+            language={state.language}
             onRetry={retryScoring}
           />
-          <PreservedAnswers questions={state.questions} answers={state.answers} />
+          <PreservedAnswers questions={state.questions} answers={state.answers} language={state.language} />
         </div>
       )}
     </div>
