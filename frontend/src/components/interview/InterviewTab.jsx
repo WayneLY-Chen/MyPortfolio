@@ -707,8 +707,11 @@ export default function InterviewTab() {
             box-shadow: none !important;
             border-color: #ccc !important;
           }
-          /* 不可列印的頁面外框與互動元件 */
-          .top-nav, .tab-nav, .fun-header,
+          /* 不可列印的頁面外框與互動元件。
+             選擇器要對得上真實 DOM:導覽列是 nav#topnav(不是 .top-nav,那個 class
+             全站不存在),頁尾是 footer#footer。兩者的文字都是淺色,而印表機預設
+             不印背景色 —— 沒藏掉的話紙上就是白底白字的空白區,還多吃一頁。 */
+          #topnav, .nav-overlay, #footer, .tab-nav, .fun-header,
           .iv-actions-row, .iv-voice-controls, .iv-progress-track {
             display: none !important;
           }
