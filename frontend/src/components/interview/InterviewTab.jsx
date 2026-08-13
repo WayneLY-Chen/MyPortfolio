@@ -700,6 +700,17 @@ export default function InterviewTab() {
            不引入任何 PDF 套件,window.print() 開瀏覽器原生對話框。
            scope 只作用於 .iv-results 內。 */
         @media print {
+          /* 紙上只該有結果本身。這裡用「先全部關掉,再把結果頁開回來」的隔離寫法,
+             而不是逐一列出要藏的東西 —— 頁面上還有幾個沒有 class 的浮動元件
+             (Cursor 的自訂游標、AIAssistant 的 Wobot 浮動按鈕、App.jsx 那條
+             安全區填充條),全部是 inline style 的匿名 div,用選擇器點名根本點不到;
+             就算硬加 class,日後多一個浮動元件又會再漏一次。
+             visibility 會繼承,所以這條規則對未來新增的東西預設就是安全的。
+             底下的 display:none 仍然保留 —— visibility:hidden 會留下版面高度,
+             頁尾那種很高的區塊不關掉會印出空白頁。 */
+          body * { visibility: hidden !important; }
+          .iv-results, .iv-results * { visibility: visible !important; }
+
           /* 全站深色底在紙上是浪費油墨且經常列印不出來,強制轉白底黑字 */
           .iv-results, .iv-results * {
             background: #fff !important;
