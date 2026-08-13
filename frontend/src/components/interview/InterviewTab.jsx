@@ -30,6 +30,7 @@ import {
 import { fetchQuestions, postScore } from './interviewApi'
 import { useInterviewTts } from './useInterviewTts'
 import InterviewErrorCard, { PreservedAnswers } from './InterviewErrorCard'
+import InterviewResults from './InterviewResults'
 import InterviewRunner from './InterviewRunner'
 import TrackSelect from './TrackSelect'
 
@@ -135,6 +136,8 @@ export default function InterviewTab() {
   // 重試評分只是把 phase 推回 'scoring',上面那支 effect 就會用**同一份 state**
   // 再組一次 payload —— 與第一次逐字相同(D-20 / REL-1)。這裡刻意不碰 answers。
   const retryScoring = () => dispatch({ type: ACTION_TYPES.RETRY_SCORING })
+  // 全站唯一會清空 answers 的入口,所以它只掛在結果頁 —— 評分失敗的畫面上不放它。
+  const restartInterview = () => dispatch({ type: ACTION_TYPES.RESTART_INTERVIEW })
 
   return (
     <div className="iv-tab">
@@ -462,6 +465,105 @@ export default function InterviewTab() {
           border: 0;
         }
 
+        /* ── 結果頁:總分區(D-09 / UI-SPEC Typography 的一次性例外)────── */
+        .iv-results-title {
+          margin: 0 0 24px;
+          font-size: 20px;
+          font-weight: 700;
+          line-height: 1.3;
+          color: var(--fg);
+        }
+        .iv-score-block {
+          display: flex;
+          align-items: baseline;
+          flex-wrap: wrap;
+          gap: 16px;
+        }
+        .iv-score-line {
+          margin: 0;
+          display: flex;
+          align-items: baseline;
+          gap: 8px;
+        }
+        /* accent 白名單第 5 項,也是全階段唯一跳脫四級字階的字級。 */
+        .iv-score-number {
+          font-family: var(--font-sans);
+          font-size: clamp(56px, 9vw, 88px);
+          font-weight: 700;
+          line-height: 1;
+          color: var(--accent);
+        }
+        .iv-score-unit { font-size: 16px; color: var(--muted); }
+        /* 評等徽章:與逐題徽章、未作答徽章同一套中性外觀,不依好壞變色(D-28)。 */
+        .iv-rating-badge {
+          border: 1px solid var(--border);
+          color: var(--fg);
+          border-radius: 999px;
+          padding: 2px 10px;
+          font-size: 13px;
+          white-space: nowrap;
+        }
+        .iv-summary {
+          margin: 16px 0 0;
+          font-size: 15px;
+          font-weight: 400;
+          line-height: 1.6;
+          color: var(--fg);
+          overflow-wrap: anywhere;
+        }
+        /* G-6 免責說明。Label 級,固定顯示,且刻意不在 print 的隱藏清單裡。 */
+        .iv-disclaimer {
+          margin: 16px 0 0;
+          font-size: 13px;
+          font-weight: 400;
+          line-height: 1.2;
+          color: var(--muted);
+        }
+        .iv-qa-heading {
+          margin: 32px 0 0;
+          font-size: 20px;
+          font-weight: 700;
+          line-height: 1.3;
+          color: var(--fg);
+        }
+
+        /* ── 結果頁:逐題回饋摺疊列表(UI-SPEC §9,逐字)────────────────── */
+        .iv-qa-list { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+        .iv-qa-item { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); overflow: hidden; }
+        /* 整列是一顆 <button>,所以要把瀏覽器的按鈕預設值清掉再套 §9 的值。 */
+        .iv-qa-summary-row {
+          display: flex; align-items: center; gap: 12px; padding: 16px;
+          cursor: pointer; font-size: 15px;
+          width: 100%; text-align: left; background: none; border: none;
+          font-family: var(--font-sans); color: var(--fg); min-height: 44px;
+        }
+        .iv-qa-summary-row:hover { color: var(--fg); }
+        .iv-qa-index { font-size: 13px; color: var(--fg); white-space: nowrap; }
+        .iv-qa-badge { border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; font-size: 13px; white-space: nowrap; }
+        .iv-qa-type-tag { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+        /* min-width: 0 是 flex 子項要能被 ellipsis 截斷的前提 —— 預設的 auto
+           會讓它撐到內容寬度,text-overflow 就永遠不會生效。 */
+        .iv-qa-preview { flex: 1; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        /* 收合時 display: none,展開時 block。**不是**條件渲染 ——
+           列印時要靠 print CSS 把它強制展開(§10)。 */
+        .iv-qa-detail { display: none; padding: 0 16px 16px; font-size: 15px; line-height: 1.6; }
+        .iv-qa-item--open .iv-qa-detail { display: block; }
+        .iv-qa-detail .iv-qa-question { margin: 0 0 12px; color: var(--muted); overflow-wrap: anywhere; }
+        .iv-qa-detail .iv-qa-comment { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+        .iv-qa-detail .iv-qa-suggestion-label { font-size: 13px; color: var(--muted); text-transform: uppercase; margin: 12px 0 4px; }
+        .iv-qa-detail .iv-qa-suggestion { margin: 0; color: var(--fg); overflow-wrap: anywhere; }
+
+        /* ── 結果頁動作列(UI-SPEC §11)────────────────────────────────────
+           三顆權重相同、皆為描邊而非填色。結果頁的主要動作已經完成。 */
+        .iv-actions-row { display: flex; gap: 12px; margin-top: 32px; flex-wrap: wrap; }
+        .iv-action-btn {
+          flex: 1; min-width: 160px; min-height: 44px; padding: 12px 24px;
+          border: 1px solid var(--border); border-radius: 4px; background: transparent;
+          color: var(--fg); font-family: var(--font-sans); font-size: 14px; line-height: 1.2;
+          cursor: pointer; transition: border-color 0.2s;
+        }
+        .iv-action-btn:hover { border-color: var(--accent); }
+
         /* ── 錯誤卡(UI-SPEC §7,逐字)────────────────────────────────────
            出題失敗時它是整個畫面唯一的內容,置中顯示於 .iv-flow-column;
            評分失敗時它置頂於 .iv-results,下方接著作答保留區(§8)。
@@ -565,6 +667,9 @@ export default function InterviewTab() {
           .iv-runner-actions { flex-direction: column; }
           .iv-runner-actions .iv-primary-btn,
           .iv-runner-actions .iv-secondary-btn { width: 100%; }
+          /* UI-SPEC §12:窄螢幕上三顆收尾動作改直排,一顆一列滿版。 */
+          .iv-actions-row { flex-direction: column; }
+          .iv-action-btn { flex: none; width: 100%; }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -573,6 +678,31 @@ export default function InterviewTab() {
           .iv-voice-btn { transition: none; }
           .iv-playing-bar { transition: none; }
           .iv-progress-fill { transition: none; }
+          .iv-action-btn { transition: none; }
+        }
+
+        /* ── 列印 / 匯出 PDF(D-12 / UI-SPEC §10,逐字)──────────────────────
+           不引入任何 PDF 套件,window.print() 開瀏覽器原生對話框。
+           scope 只作用於 .iv-results 內。 */
+        @media print {
+          /* 全站深色底在紙上是浪費油墨且經常列印不出來,強制轉白底黑字 */
+          .iv-results, .iv-results * {
+            background: #fff !important;
+            color: #000 !important;
+            box-shadow: none !important;
+            border-color: #ccc !important;
+          }
+          /* 不可列印的頁面外框與互動元件 */
+          .top-nav, .tab-nav, .fun-header,
+          .iv-actions-row, .iv-voice-controls, .iv-progress-track {
+            display: none !important;
+          }
+          /* 摺疊列表在畫面上是收合的,但列印必須強制全展開 ——
+             否則印出來的紙只有題號和一行預覽 */
+          .iv-qa-detail { display: block !important; max-height: none !important; overflow: visible !important; }
+          .iv-qa-summary-row { cursor: default !important; }
+          .iv-qa-preview { display: none !important; } /* 展開時預覽行冗餘,印出時隱藏 */
+          .iv-qa-item { break-inside: avoid; margin-bottom: 16px; }
         }
       `}</style>
 
@@ -619,6 +749,14 @@ export default function InterviewTab() {
           <div className="ai-spinner" />
           <p className="iv-loading-text">正在評分……</p>
         </div>
+      )}
+
+      {state.phase === 'results' && state.result && (
+        <InterviewResults
+          result={state.result}
+          questions={state.questions}
+          onRestart={restartInterview}
+        />
       )}
 
       {/* 出題失敗:使用者還沒投入作答,錯誤卡就是整個畫面(UI-SPEC §7)。 */}
