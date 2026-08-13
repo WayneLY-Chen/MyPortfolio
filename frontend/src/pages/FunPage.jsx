@@ -15,6 +15,7 @@ import MoneyCalculator from '../components/MoneyCalculator'
 import TodoList from '../components/TodoList'
 import TypingRace from '../components/typing-race/TypingRace'
 import DevToolsTab from '../components/devtools/DevToolsTab'
+import InterviewTab from '../components/interview/InterviewTab'
 
 // 骷髏王的 3D 畫布。ogl 只有約 10KB,但選一個小函式庫的全部意義就在於
 // 首屏不用付這筆錢 —— 訪客沒點開尾刀爭奪戰,就不該下載它。
@@ -2044,6 +2045,9 @@ export default function FunPage() {
           <button className={`tab-btn ${activeTab === 'tools' ? 'active' : ''}`} onClick={() => setActiveTab('tools')}>
             工具箱
           </button>
+          <button className={`tab-btn ${activeTab === 'interview' ? 'active' : ''}`} onClick={() => setActiveTab('interview')}>
+            模擬面試
+          </button>
         </div>
 
         <div className="tab-content">
@@ -2170,6 +2174,15 @@ export default function FunPage() {
               <DevToolsTab />
             </div>
           )}
+          {/* 模擬面試刻意**不用**上面那種 {activeTab === 'x' && ...} 的條件渲染:
+              條件渲染會在切分頁時把元件卸載,面試進度、已輸入的作答與評分結果全部歸零,
+              直接違反「切到別的分頁再切回來進度還在,只有重整才歸零」。
+              改成以 display 切換、元件始終掛載。切走時也刻意不主動停止朗讀 ——
+              跨分頁的音訊行為屬於之後共用音訊頻道的範圍,不在這裡預先實作。
+              width: '100%' 的理由同上一段工具箱的註解。 */}
+          <div style={{ marginTop: '20px', width: '100%', display: activeTab === 'interview' ? 'block' : 'none' }}>
+            <InterviewTab />
+          </div>
         </div>
       </main>
       <Footer />

@@ -18,7 +18,7 @@
 // 逐字生效。前綴一律 .iv-(比照 Phase 4 的 .dt-)—— 這裡的 CSS 是全域且未命名空間化的,
 // 前綴是唯一的隔離手段。不使用 Tailwind 工具類、不使用圖示庫、零新增 npm 套件。
 
-import { useEffect, useReducer, useRef } from 'react'
+import { useEffect, useReducer, useRef, useState } from 'react'
 import {
   ACTION_TYPES,
   INITIAL_STATE,
@@ -135,7 +135,22 @@ export default function InterviewTab() {
   const retryQuestions = () => dispatch({ type: ACTION_TYPES.RETRY_QUESTIONS })
   // 重試評分只是把 phase 推回 'scoring',上面那支 effect 就會用**同一份 state**
   // 再組一次 payload —— 與第一次逐字相同(D-20 / REL-1)。這裡刻意不碰 answers。
-  const retryScoring = () => dispatch({ type: ACTION_TYPES.RETRY_SCORING })
+  // 「這一次的評分是重試」——**只影響載入畫面要不要繼續顯示那五段作答**,不是流程狀態,
+  // 所以留在元件裡而不是狀態機裡(狀態機是 05-02 已用測試釘死的契約,不為了畫面細節動它)。
+  //
+  // 為什麼需要它:評分失敗後按下重試,如果畫面換成一顆光禿禿的轉圈,使用者剛被嚇過一次
+  // 「我的字是不是沒了」,又要再盯著空白畫面等 2.5–6.7 秒(最壞約 37 秒)。作答一直留在
+  // 畫面上,他才會相信送出去的是同一批字。第一次評分不顯示 —— 那時還沒有任何事出錯,
+  // 掛一句「你的作答都還在」反而是在暗示有東西可能會不見。
+  const [rescoring, setRescoring] = useState(false)
+  const retryScoring = () => {
+    setRescoring(true)
+    dispatch({ type: ACTION_TYPES.RETRY_SCORING })
+  }
+  useEffect(() => {
+    if (state.phase === 'results' || state.phase === 'setup') setRescoring(false)
+  }, [state.phase])
+
   // 全站唯一會清空 answers 的入口,所以它只掛在結果頁 —— 評分失敗的畫面上不放它。
   const restartInterview = () => dispatch({ type: ACTION_TYPES.RESTART_INTERVIEW })
 
@@ -744,12 +759,25 @@ export default function InterviewTab() {
         </div>
       )}
 
-      {state.phase === 'scoring' && (
-        <div className="iv-flow-column iv-loading">
-          <div className="ai-spinner" />
-          <p className="iv-loading-text">正在評分……</p>
-        </div>
-      )}
+      {/* 第一次評分:單純的載入畫面。
+          重試評分:轉圈上方換成同一個 .iv-results 容器,五段作答繼續留在畫面上 ——
+          UI-SPEC §8 要求「點擊重試後畫面不清空 .iv-preserved-answers」,
+          而作答內容在請求送出前後必須逐字相同。 */}
+      {state.phase === 'scoring' &&
+        (rescoring ? (
+          <div className="iv-results iv-flow-column">
+            <div className="iv-loading">
+              <div className="ai-spinner" />
+              <p className="iv-loading-text">正在評分……</p>
+            </div>
+            <PreservedAnswers questions={state.questions} answers={state.answers} />
+          </div>
+        ) : (
+          <div className="iv-flow-column iv-loading">
+            <div className="ai-spinner" />
+            <p className="iv-loading-text">正在評分……</p>
+          </div>
+        ))}
 
       {state.phase === 'results' && state.result && (
         <InterviewResults
