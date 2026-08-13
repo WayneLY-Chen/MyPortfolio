@@ -29,6 +29,7 @@ import {
 } from './interviewReducer'
 import { fetchQuestions, postScore } from './interviewApi'
 import { useInterviewTts } from './useInterviewTts'
+import InterviewErrorCard, { PreservedAnswers } from './InterviewErrorCard'
 import InterviewRunner from './InterviewRunner'
 import TrackSelect from './TrackSelect'
 
@@ -130,6 +131,10 @@ export default function InterviewTab() {
   const nextQuestion = () => dispatch({ type: ACTION_TYPES.NEXT_QUESTION })
   const skipQuestion = () => dispatch({ type: ACTION_TYPES.SKIP_QUESTION })
   const endEarly = () => dispatch({ type: ACTION_TYPES.END_EARLY })
+  const retryQuestions = () => dispatch({ type: ACTION_TYPES.RETRY_QUESTIONS })
+  // 重試評分只是把 phase 推回 'scoring',上面那支 effect 就會用**同一份 state**
+  // 再組一次 payload —— 與第一次逐字相同(D-20 / REL-1)。這裡刻意不碰 answers。
+  const retryScoring = () => dispatch({ type: ACTION_TYPES.RETRY_SCORING })
 
   return (
     <div className="iv-tab">
@@ -457,6 +462,93 @@ export default function InterviewTab() {
           border: 0;
         }
 
+        /* ── 錯誤卡(UI-SPEC §7,逐字)────────────────────────────────────
+           出題失敗時它是整個畫面唯一的內容,置中顯示於 .iv-flow-column;
+           評分失敗時它置頂於 .iv-results,下方接著作答保留區(§8)。
+           標題與段落的 margin 明確歸零後再補上 §7 的 margin-bottom ——
+           否則 UA 預設的 h2 / p 上下邊距會蓋掉規格裡的間距值。 */
+        .iv-error-card {
+          width: 100%;
+          border: 1px solid var(--border);
+          border-radius: 12px;
+          padding: 32px 28px;
+          text-align: center;
+          background: var(--surface);
+        }
+        .iv-error-eyebrow {
+          margin: 0 0 8px;
+          font-size: 13px;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--muted);
+        }
+        .iv-error-title {
+          margin: 0 0 8px;
+          font-size: 20px;
+          font-weight: 700;
+          line-height: 1.3;
+          color: var(--fg);
+        }
+        .iv-error-body {
+          margin: 0 0 24px;
+          font-size: 15px;
+          color: var(--muted);
+          line-height: 1.6;
+        }
+        /* accent 白名單第 5 項:錯誤卡的重試鈕。 */
+        .iv-error-retry-btn {
+          padding: 14px 32px;
+          background: var(--accent);
+          color: var(--bg);
+          border: none;
+          border-radius: 4px;
+          font-family: var(--font-sans);
+          font-size: 14px;
+          font-weight: 700;
+          line-height: 1.2;
+          cursor: pointer;
+          min-height: 44px;
+        }
+        /* 評分失敗時寬度貼齊卡片(§8)—— 使用者接下來唯一該做的事就是按它。 */
+        .iv-error-retry-btn--block { width: 100%; }
+
+        /* ── 作答保留區(D-20 / UI-SPEC §8,逐字)────────────────────────
+           全文攤開、不摺疊。理由寫在 InterviewErrorCard.jsx 的元件註解裡。 */
+        .iv-preserved-answers { margin-top: 32px; }
+        .iv-preserved-heading {
+          margin: 0 0 16px;
+          font-size: 13px;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--muted);
+        }
+        .iv-preserved-item {
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          padding: 16px;
+          margin-bottom: 12px;
+          background: var(--surface);
+        }
+        .iv-preserved-item .iv-preserved-q {
+          margin: 0 0 6px;
+          font-size: 13px;
+          color: var(--muted);
+        }
+        /* pre-wrap 保留使用者自己打的換行 —— 送出前長什麼樣,這裡就長什麼樣。
+           overflow-wrap 是為了擋住貼上來的超長無空白字串撐破欄寬(同 T-05-17)。 */
+        .iv-preserved-item .iv-preserved-a {
+          margin: 0;
+          font-size: 15px;
+          line-height: 1.6;
+          color: var(--fg);
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+        }
+        .iv-preserved-item--skipped .iv-preserved-a {
+          color: var(--muted);
+          font-style: italic;
+        }
+
         /* ── 行動裝置(D-30 / UI-SPEC §12)──────────────────────────────────
            作答框、語音控制列與按鈕一律走一般文件流,不得固定定位 —— 手機虛擬鍵盤
            會蓋住或推擠固定定位的元素。捲動進可視範圍交給瀏覽器原生行為。 */
@@ -526,6 +618,37 @@ export default function InterviewTab() {
         <div className="iv-flow-column iv-loading">
           <div className="ai-spinner" />
           <p className="iv-loading-text">正在評分……</p>
+        </div>
+      )}
+
+      {/* 出題失敗:使用者還沒投入作答,錯誤卡就是整個畫面(UI-SPEC §7)。 */}
+      {state.phase === 'questions_error' && (
+        <div className="iv-flow-column">
+          <InterviewErrorCard
+            stage="questions"
+            code={state.errorCode}
+            status={state.errorStatus}
+            onRetry={retryQuestions}
+          />
+        </div>
+      )}
+
+      {/* 評分失敗(D-20 —— 本階段最重要的一個畫面)。
+          容器同時掛 .iv-results 與 .iv-flow-column:UI-SPEC §8 的內文說它渲染在
+          「回饋頁本來會出現的同一個位置(.iv-results 容器)」,但同一節的結構圖
+          畫的根節點是 .iv-flow-column。兩者的 max-width 都是 720px,同時掛上去
+          視覺完全一致,又能拿到 .iv-flow-column 在 768px 以下的 4vw 內距。
+          錯誤卡與五段作答是**同一次渲染**,不需要任何額外點擊才看得到;
+          這個畫面上刻意沒有「重新面試」——誤觸它才是真正的資料遺失。 */}
+      {state.phase === 'scoring_error' && (
+        <div className="iv-results iv-flow-column">
+          <InterviewErrorCard
+            stage="scoring"
+            code={state.errorCode}
+            status={state.errorStatus}
+            onRetry={retryScoring}
+          />
+          <PreservedAnswers questions={state.questions} answers={state.answers} />
         </div>
       )}
     </div>
