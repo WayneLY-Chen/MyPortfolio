@@ -1,274 +1,143 @@
-# 🚀 Wayne's Portfolio & Editorial Studio
-
 <div align="center">
 
-**一個全端個人作品集網站 —— 訪客可以在上面實際操作遊戲、工具與 AI 模擬面試,而不只是看一頁靜態履歷。**
+# Wayne's Portfolio
 
-### 👉 [my-portfolio-waynely-chens-projects.vercel.app](https://my-portfolio-waynely-chens-projects.vercel.app)
+**一個可以動手玩的個人作品集網站。**
+遊戲、開發者工具、AI 模擬面試都能直接在站上操作 —— 不只是一頁往下捲的靜態履歷。
+
+### [→ 前往網站](https://my-portfolio-waynely-chens-projects.vercel.app)
 
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev/)
 [![Node.js](https://img.shields.io/badge/Node.js-Express-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql&logoColor=white)](https://neon.tech/)
 [![Socket.io](https://img.shields.io/badge/Socket.io-即時通訊-010101?logo=socket.io&logoColor=white)](https://socket.io/)
-[![Gemini](https://img.shields.io/badge/Gemini-AI%20整合-8E75B2?logo=google&logoColor=white)](https://ai.google.dev/)
-[![Deploy](https://img.shields.io/badge/Vercel-部署中-000000?logo=vercel&logoColor=white)](https://vercel.com/)
+[![Gemini](https://img.shields.io/badge/Gemini-AI-8E75B2?logo=google&logoColor=white)](https://ai.google.dev/)
+[![Vercel](https://img.shields.io/badge/Vercel-部署中-000000?logo=vercel&logoColor=white)](https://vercel.com/)
+
+<br>
+
+<img src="docs/screenshots/fun.png" alt="功能頁:六個互動分頁" width="88%">
 
 </div>
 
----
+<br>
 
-<div align="center">
-  <img src="docs/screenshots/home.png" alt="首頁 About 區段" width="90%">
-  <br><br>
-  <img src="docs/screenshots/fun.png" alt="功能頁:六個互動分頁" width="90%">
-  <br><br>
-  <img src="docs/screenshots/interview.png" alt="AI 模擬面試官的評分結果頁" width="90%">
-</div>
+## 為什麼做成這樣
 
----
+作品集網站最常見的下場,是訪客捲到底、關掉、忘記。
 
-## 📋 目錄
+所以這個站把重心放在 **功能頁 (`/fun`)** —— 六個分頁,每一個都要真的動手才有東西發生:玩一場卡牌 Boss 戰、跟人搶格子、比打字速度、用工具箱處理一段 JSON,或者讓 AI 面你五題再給你逐題的改進建議。
 
-- [這個站在做什麼](#-這個站在做什麼)
-- [核心特色](#-核心特色)
-- [幾個比較有意思的實作](#-幾個比較有意思的實作)
-- [技術棧](#-技術棧)
-- [專案結構](#-專案結構)
-- [本地開發](#-本地開發)
-- [聯繫我](#-聯繫我)
+首頁動畫、專案展示、部落格、會員系統這些都做得完整,但它們是基礎,不是差異化。**差異化是「訪客願意留下來操作」。**
 
----
+<br>
 
-## 🎯 這個站在做什麼
+## 主要功能
 
-作品集網站最容易變成「一頁式靜態履歷」—— 訪客捲到底、關掉、忘記。
+### AI 模擬面試官
 
-這個站的差異化全部集中在 **功能頁 (`/fun`)**:六個分頁,每一個都是可以真的動手玩的東西 —— 遊戲、計算工具、待辦清單、AI 繪圖、開發者工具箱,以及一場 AI 主持的模擬面試。目標很單純:**讓訪客願意留下來操作**,而不只是瀏覽。
+<img src="docs/screenshots/interview.png" alt="模擬面試的評分結果頁" width="100%">
 
-其餘部分(首頁動畫、專案展示、部落格、會員系統)是一個作品集該有的基礎,做得完整但不是重點。
+選一個職缺方向與語言,AI 出五題、逐題語音朗讀、文字作答,最後給總分與**逐題的具體改進建議**。
 
----
+- **四個方向** — 前端 / 後端 / 全端 / 新鮮人,題目由 Gemini 依方向生成(3–4 題技術 + 1–2 題行為)
+- **中英雙語** — 切換語言時題目、AI 回饋與整個介面都跟著換,語音也換聲線
+- **語音朗讀** — 每題自動朗讀,可重聽 / 停止 / 靜音,語速三段可調
+- **結果頁** — 總分、評等、逐題摺疊回饋,可複製純文字或直接列印成 PDF
+- **評分失敗時保住作答** — 五段作答全文留在畫面上,重試送出的請求與第一次逐位元組相同
 
-## 🌟 核心特色
+### Wobot AI 助理
 
-### 🤖 Wobot AI 助理
+站內右下角的常駐助理,由 Google Gemini 驅動。
 
-站內右下角的常駐 AI 助理,由 Google Gemini 驅動。
+- **三種人格** — 正常(專業友善)、傲嬌(毒舌吐槽)、崇拜(極度誇讚)
+- **語音雙向** — Edge TTS 輸出 + 瀏覽器原生語音辨識輸入
+- **表情動畫** — 依對話情境切換(說話、大笑、眨眼、思考)
+- **AI 繪圖** — 整合 Stability AI 即時生成畫像
 
-- **三種人格模式**:正常(專業友善)、傲嬌(毒舌吐槽)、崇拜(極度誇讚)
-- **語音雙向**:Edge TTS (`msedge-tts`) 語音輸出 + 瀏覽器原生語音辨識輸入
-- **表情動畫系統**:依對話情境切換的即時表情(說話、大笑、眨眼、思考)
-- **AI 繪圖**:整合 Stability AI 即時生成畫像
+> 助理對本站的知識目前以系統提示注入([`ai.js`](backend/src/routes/ai.js));`schema.sql` 內已備妥 pgvector 的資料表結構,尚未接入檢索流程。
 
-> 助理對本站的知識目前以系統提示注入(見 [`backend/src/routes/ai.js`](backend/src/routes/ai.js));`schema.sql` 內已備妥 pgvector 的資料表結構,尚未接入檢索流程。
+### 互動遊戲
 
-### 🎯 AI 模擬面試官
+| 遊戲 | 說明 |
+|---|---|
+| **尾刀爭奪戰** | 卡牌制 Boss 戰。魔王是 WebGL 即時光線行進算出來的 3D 骷髏,沒有模型檔 |
+| **陣營大戰** | Socket.io 即時同步的雙人搶格子對戰 |
+| **打字競速** | 中英文題庫,即時計算速度與正確率,附排行榜 |
+| **經典重構** | 貪食蛇、恐龍避障、2048 |
 
-選一個職缺方向與語言,由 AI 出五題、逐題語音朗讀、文字作答,最後給出總分與**逐題的具體改進建議**。
+### 開發者工具箱
 
-- **四個方向**:前端 / 後端 / 全端 / 新鮮人,題目由 Gemini 依方向生成(3–4 題技術 + 1–2 題行為)
-- **中英雙語**:切換語言時題目、AI 回饋與**整個介面**都跟著換,語音也換聲線
-- **語音朗讀**:每題自動朗讀,可重聽 / 停止 / 靜音,語速 0.75x / 1x / 1.25x
-- **結果頁**:總分、評等、總評、逐題摺疊回饋,可一鍵複製純文字或列印成 PDF
-- **評分失敗時保住作答**:五段作答全文留在畫面上,重試送出的請求與第一次逐位元組相同
+七個純前端、零上傳的小工具:JSON 格式化、Base64、JWT 解碼、時間戳轉換、雜湊、UUID、URL 編碼。全部在瀏覽器本機完成,貼進去的內容不會離開你的電腦。
 
-### 🎮 互動遊戲區
+### 其他
 
-- **尾刀爭奪戰**:卡牌制 Boss 戰,魔王是 WebGL 即時光線行進 (raymarching) 算出來的 3D 骷髏,受擊與攻擊都有對應的著色器動畫
-- **陣營大戰**:Socket.io 即時同步的雙人搶格子對戰
-- **打字競速**:中英文題庫,即時計算速度與正確率,附排行榜
-- **經典重構**:貪食蛇、恐龍避障、2048
+- **技術部落格** — Markdown 渲染(GFM + 語法高亮),前端 `sessionStorage` 快取層
+- **會員系統** — Google / GitHub / Facebook / LINE OAuth 2.0 + 本地註冊,JWT 雙 Token
+- **社群互動** — 留言、表情反應、個人待辦清單
+- **視覺** — GSAP ScrollTrigger 滾動動畫、Lenis 平滑滾動、自定義動態游標
 
-### 🧰 開發者工具箱
+<img src="docs/screenshots/home.png" alt="首頁 About 區段" width="100%">
 
-七個純前端、零上傳的小工具(JSON 格式化、Base64、JWT 解碼、時間戳轉換、雜湊、UUID、URL 編碼)。全部在瀏覽器本機完成,貼進去的內容不會離開你的電腦。
+<br>
 
-### ✍️ 技術部落格
+## 幾段值得一看的程式碼
 
-- **前端快取層**:`sessionStorage` 智能快取,切換分頁不重複請求([`frontend/src/utils/fetchBlog.js`](frontend/src/utils/fetchBlog.js))
-- **Markdown 渲染**:支援 GFM、程式碼語法高亮、圖片嵌入
+如果你只想抽幾段來看,我會推薦這幾處 —— 它們都是踩過坑之後才長成現在的樣子。
 
-### 🎨 視覺與動畫
+**[`backend/src/routes/ai.js`](backend/src/routes/ai.js)**
 
-- **滾動動畫**:GSAP ScrollTrigger + SplitType 的逐字進場與段落轉場
-- **平滑滾動**:Lenis 滾動引擎
-- **自定義動態游標**:磁吸效果與互動回饋
-- **Preloader**:首次進站的載入動畫
+- *不採信模型自報的題號。* Gemini 回傳的 `questionIndex` 實測是 1-based,照它對齊會讓兩題拿到同一則評語 —— 而整份回饋看起來格式完全正常,只有逐字讀才會發現錯位。改成只用陣列位置對齊。
+- *語速白名單用 `Map` 而非物件字面值。* `rate` 最終會被內插進 `<prosody rate="...">`;用物件查表時 `'constructor'`、`'__proto__'` 這類鍵會查到 `Object.prototype` 上的東西(truthy,所以 `?? 1` 不會觸發),整包被塞進 SSML。
+- *逾時是每次嘗試各自計時。* 原本把逾時包在整個重試迴圈外面,上游一變慢就直接失敗,重試等於沒有作用。
 
-### 🔐 會員與社群
+**[`frontend/src/components/interview/InterviewTab.jsx`](frontend/src/components/interview/InterviewTab.jsx)**
+評分失敗時保住五段作答。使用者打完五段字最後什麼都沒拿到,是這個功能唯一不可接受的失敗,所以錯誤卡與作答保留區是同一次渲染,重試也不清空。
 
-- **多元登入**:Google / GitHub / Facebook / LINE OAuth 2.0 + 本地註冊
-- **JWT 雙 Token**:Access Token(記憶體)+ Refresh Token(httpOnly cookie)
-- **信箱驗證與密碼重設**:SMTP 寄信流程完整實現
-- **留言、表情反應、個人待辦清單**
+**[`frontend/src/components/boss-skull/BossSkull.jsx`](frontend/src/components/boss-skull/BossSkull.jsx)**
+用 SDF 組合出頭骨形狀並即時光線行進,沒有任何模型檔。依賴只有約 10KB 的 OGL,而不是整包 Three.js。
 
----
+**[`frontend/src/index.css`](frontend/src/index.css)**
+CSS 分層的坑:沒有分層的 `*` reset 永遠贏過 `@layer utilities`,跟具體度無關。這曾讓全站的 Tailwind 間距工具類靜默失效 —— `.p-5` 實測是 0px。
 
-## 🔍 幾個比較有意思的實作
+<br>
 
-如果你只想看幾段程式碼,我會推薦這幾處 —— 它們都是踩過坑之後才長成現在的樣子:
+## 技術棧
 
-| 主題 | 位置 | 為什麼值得看 |
-|---|---|---|
-| 不採信模型自報的題號 | [`backend/src/routes/ai.js`](backend/src/routes/ai.js) | Gemini 回傳的 `questionIndex` 實測是 1-based,照它對齊會讓兩題拿到同一則評語 —— 而整份回饋看起來格式完全正常。改成只用陣列位置對齊 |
-| 語速白名單用 `Map` 而非物件 | [`backend/src/routes/ai.js`](backend/src/routes/ai.js) | `rate` 最終會被內插進 `<prosody rate="...">`;用物件查表時 `'constructor'` 這類鍵會查到 `Object.prototype` 上的東西,整包被塞進 SSML |
-| 逾時是「每次嘗試各自計時」 | [`backend/src/routes/ai.js`](backend/src/routes/ai.js) | 把逾時包在整個重試迴圈外面,上游一變慢就直接失敗,重試等於沒有作用 |
-| 評分失敗時保住五段作答 | [`frontend/src/components/interview/InterviewTab.jsx`](frontend/src/components/interview/InterviewTab.jsx) | 使用者打完五段字最後什麼都沒拿到,是這個功能唯一不可接受的失敗 |
-| WebGL 骷髏魔王 | [`frontend/src/components/boss-skull/BossSkull.jsx`](frontend/src/components/boss-skull/BossSkull.jsx) | 用 SDF 組合出頭骨並即時光線行進,沒有模型檔;依賴只有 ~10KB 的 OGL |
-| CSS 分層的坑 | [`frontend/src/index.css`](frontend/src/index.css) | 沒有分層的 `*` reset 永遠贏過 `@layer utilities`,曾讓全站的 Tailwind 間距工具類靜默失效 |
+| | |
+|---|---|
+| **前端** | React 18 · Vite 5 · Zustand · React Router v6 · Tailwind CSS 4 · Radix UI |
+| **動畫 / 圖形** | GSAP (ScrollTrigger, SplitType) · Framer Motion · Lenis · Matter.js · OGL (WebGL) |
+| **後端** | Node.js · Express · Socket.io · Passport.js · JWT + bcrypt · Nodemailer |
+| **資料** | PostgreSQL (Neon) |
+| **AI / 語音** | Google Gemini · Stability AI · Edge TTS (`msedge-tts`) |
+| **測試** | Vitest（後端 369 個測試） |
+| **部署** | Vercel(前端 + serverless proxy)· Render(後端 + WebSocket)· Neon(資料庫) |
 
----
+<br>
 
-## 🛠 技術棧
-
-### 前端
-
-| 類別 | 技術 |
-|------|------|
-| 框架 | React 18 + Vite 5 |
-| 狀態管理 | Zustand |
-| 動畫 | GSAP (ScrollTrigger, SplitType) + Framer Motion |
-| 滾動引擎 | Lenis |
-| 樣式 | Tailwind CSS 4 |
-| 路由 | React Router v6 |
-| UI 元件 | Radix UI (Dialog, Tooltip, Progress) |
-| 即時通訊 | Socket.io Client |
-| 物理引擎 | Matter.js(遊戲用) |
-| WebGL | OGL(3D 魔王) |
-| Markdown | react-markdown + remark-gfm + rehype-raw |
-
-### 後端
-
-| 類別 | 技術 |
-|------|------|
-| 框架 | Node.js + Express |
-| 資料庫 | PostgreSQL (Neon) |
-| 即時通訊 | Socket.io |
-| AI | Google Gemini API + Stability AI |
-| 語音 | Edge TTS (msedge-tts) |
-| 認證 | Passport.js (Google, GitHub, Facebook, LINE, Local) |
-| 安全 | JWT (Access + Refresh Token) + bcrypt |
-| 寄信 | Nodemailer (SMTP) |
-| 測試 | Vitest(369 個測試) |
-
-### 部署
-
-| 服務 | 用途 |
-|------|------|
-| Vercel | 前端靜態部署 + serverless proxy |
-| Render | 後端 API + WebSocket |
-| Neon | Serverless PostgreSQL |
-
----
-
-## 📂 專案結構
-
-```text
-MyPortfolio/
-├── frontend/                    # 🎨 前端（Vite + React）
-│   ├── src/
-│   │   ├── components/          # UI 元件
-│   │   │   ├── AIAssistant.jsx  #   Wobot AI 助理
-│   │   │   ├── Hero.jsx         #   首頁 Hero 滾動動畫
-│   │   │   ├── About.jsx        #   關於我
-│   │   │   ├── Projects.jsx     #   專案展示
-│   │   │   ├── Blog.jsx         #   部落格列表
-│   │   │   ├── Marquee.jsx      #   跑馬燈
-│   │   │   ├── WorkTimeline.jsx #   工作經歷時間軸
-│   │   │   ├── Certificates.jsx #   證照展示
-│   │   │   ├── Comments.jsx     #   留言系統
-│   │   │   ├── Reactions.jsx    #   表情反應
-│   │   │   ├── YorkieDog.jsx    #   約克夏互動角色
-│   │   │   ├── Preloader.jsx    #   載入動畫
-│   │   │   ├── TopNav.jsx       #   導航列
-│   │   │   ├── Footer.jsx       #   頁尾
-│   │   │   ├── boss-skull/      #   WebGL 3D 骷髏魔王
-│   │   │   ├── devtools/        #   開發者工具箱
-│   │   │   ├── interview/       #   AI 模擬面試官
-│   │   │   ├── typing-race/     #   打字競速
-│   │   │   └── ui/              #   通用 UI 元件
-│   │   ├── pages/               # 頁面路由
-│   │   │   ├── BlogPage.jsx     #   部落格頁
-│   │   │   ├── BlogPostPage.jsx #   文章詳情頁
-│   │   │   ├── ProjectsPage.jsx #   專案頁
-│   │   │   ├── FunPage.jsx      #   功能頁（六個互動分頁）
-│   │   │   ├── Login.jsx        #   登入/註冊
-│   │   │   └── ...              #   其他頁面
-│   │   ├── hooks/               # 自定義 Hooks
-│   │   ├── store/               # Zustand 狀態管理
-│   │   ├── services/            # API 服務層
-│   │   ├── utils/               # 工具函式
-│   │   └── config/              # 設定檔
-│   └── public/                  # 靜態資源
-│
-├── backend/                     # ⚙️ 後端（Node.js + Express）
-│   ├── .env.example             # 環境變數範本
-│   └── src/
-│       ├── index.js             # 伺服器入口
-│       ├── routes/              # API 路由
-│       │   ├── ai.js            #   AI 對話 / TTS / 繪圖 / 模擬面試
-│       │   ├── auth.js          #   認證 (OAuth + JWT)
-│       │   ├── blog.js          #   部落格 CRUD
-│       │   ├── projects.js      #   專案（GitHub API）
-│       │   ├── boss.js          #   Boss 戰
-│       │   ├── faction.js       #   陣營系統
-│       │   ├── leaderboard.js   #   排行榜
-│       │   ├── comments.js      #   留言
-│       │   └── reactions.js     #   表情反應
-│       ├── interview/           # 模擬面試的提示詞、schema 與評測
-│       ├── controllers/         # 控制器層
-│       ├── services/            # 服務層（GitHub 整合）
-│       ├── sockets/             # WebSocket 即時通訊
-│       ├── db/                  # 資料庫
-│       │   ├── schema.sql       #   完整資料表結構
-│       │   ├── seed_blog.js     #   部落格種子資料
-│       │   ├── seed_knowledge.js#   知識庫種子
-│       │   └── index.js         #   DB 連線池
-│       ├── middlewares/         # 中間件
-│       ├── config/              # Passport 設定
-│       └── utils/               # JWT / Mailer 工具
-│
-├── docs/screenshots/            # README 用的截圖
-├── .gitignore
-└── README.md
-```
-
----
-
-## 🚀 本地開發
+## 本地開發
 
 <details>
-<summary><b>展開完整的安裝與部署步驟</b></summary>
+<summary><b>展開安裝、環境變數與部署步驟</b></summary>
 
-### 前置需求
+<br>
 
-- **Node.js** >= 18
-- **PostgreSQL** 資料庫（推薦使用 [Neon](https://neon.tech/) 免費方案）
-- **API Keys**：Gemini API、Stability AI、GitHub Token
-
-### 1. Clone 專案
+**前置需求:** Node.js >= 18、PostgreSQL 資料庫(推薦 [Neon](https://neon.tech/) 免費方案)、Gemini / Stability AI / GitHub Token 三組 API Key。
 
 ```bash
 git clone https://github.com/WayneLY-Chen/MyPortfolio.git
 cd MyPortfolio
-```
 
-### 2. 安裝依賴
-
-```bash
-# 前端
+# 安裝依賴
 cd frontend && npm install
-
-# 後端
 cd ../backend && npm install
+
+# 設定環境變數
+cp .env.example .env      # 在 backend/ 底下,編輯後填入實際值
 ```
 
-### 3. 設定環境變數
-
-```bash
-cp backend/.env.example backend/.env
-# 編輯 backend/.env 填入你的實際值
-```
+### 環境變數
 
 | 變數 | 說明 |
 |------|------|
@@ -276,72 +145,105 @@ cp backend/.env.example backend/.env
 | `GEMINI_API_KEY` | Google Gemini AI API Key |
 | `STABILITY_API_KEY` | Stability AI 繪圖 API Key |
 | `GITHUB_TOKEN` | GitHub Personal Access Token（讀取 Repo 資訊） |
-| `JWT_ACCESS_SECRET` | JWT Access Token 密鑰 |
-| `JWT_REFRESH_SECRET` | JWT Refresh Token 密鑰 |
-| `GOOGLE_CLIENT_*` | Google OAuth 2.0 憑證 |
-| `GITHUB_CLIENT_*` | GitHub OAuth 2.0 憑證 |
-| `LINE_CHANNEL_*` | LINE Login 憑證 |
-| `FACEBOOK_APP_*` | Facebook Login 憑證 |
+| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | JWT 密鑰 |
+| `GOOGLE_CLIENT_*` / `GITHUB_CLIENT_*` | Google、GitHub OAuth 2.0 憑證 |
+| `LINE_CHANNEL_*` / `FACEBOOK_APP_*` | LINE Login、Facebook Login 憑證 |
 | `SMTP_*` | SMTP 寄信設定（Gmail App Password） |
 
-### 4. 初始化資料庫
+完整清單見 [`backend/.env.example`](backend/.env.example)。
+
+### 初始化資料庫
 
 ```bash
 cd backend
-
-# 建立資料表
-psql $DATABASE_URL -f src/db/schema.sql
-
-# 匯入部落格種子資料
-node src/db/seed_blog.js
-
-# 匯入知識庫
-node src/db/seed_knowledge.js
+psql $DATABASE_URL -f src/db/schema.sql   # 建立資料表
+node src/db/seed_blog.js                  # 部落格種子資料
+node src/db/seed_knowledge.js             # Wobot 知識庫
 ```
 
-### 5. 啟動開發伺服器
+### 啟動
 
 ```bash
-# 後端 (port 3001)
-cd backend && npm run dev
-
-# 前端 (port 5173)，開另一個終端
-cd frontend && npm run dev
+cd backend && npm run dev     # port 3001
+cd frontend && npm run dev    # port 5173，另開一個終端
 ```
 
-開啟瀏覽器前往 `http://localhost:5173` 🎉
-
-### 6. 執行測試
-
-```bash
-cd backend && npm test
-```
+開啟 `http://localhost:5173`。跑測試:`cd backend && npm test`。
 
 ### 部署
 
-**前端 → Vercel**：Import GitHub Repo，Root Directory 設為 `frontend`，Build Command `npm run build`，Output Directory `dist`。
-
-**後端 → Render**：Root Directory 設為 `backend`，Build Command `npm install`，Start Command `npm start`，並設定所有環境變數。
-
-**資料庫 → Neon**：建立免費的 PostgreSQL,複製連線字串到 `DATABASE_URL`,執行 `schema.sql` 與 seed 腳本。
+- **前端 → Vercel**:Root Directory 設為 `frontend`,Build Command `npm run build`,Output Directory `dist`
+- **後端 → Render**:Root Directory 設為 `backend`,Build Command `npm install`,Start Command `npm start`,並設定所有環境變數
+- **資料庫 → Neon**:建立免費 PostgreSQL,複製連線字串到 `DATABASE_URL`,執行 `schema.sql` 與 seed 腳本
 
 </details>
 
----
+<details>
+<summary><b>展開專案結構</b></summary>
 
-## 👨‍💻 聯繫我
+<br>
 
-**陳林淯 (Wayne)**
-*Creative Developer | Full-Stack Explorer*
+```text
+MyPortfolio/
+├── frontend/
+│   └── src/
+│       ├── components/
+│       │   ├── AIAssistant.jsx      # Wobot AI 助理
+│       │   ├── Hero.jsx             # 首頁滾動動畫
+│       │   ├── About.jsx            # 關於我
+│       │   ├── Projects.jsx         # 專案展示
+│       │   ├── Blog.jsx             # 部落格
+│       │   ├── WorkTimeline.jsx     # 工作經歷時間軸
+│       │   ├── Certificates.jsx     # 證照展示
+│       │   ├── Comments.jsx         # 留言系統
+│       │   ├── YorkieDog.jsx        # 約克夏互動角色
+│       │   ├── boss-skull/          # WebGL 3D 骷髏魔王
+│       │   ├── devtools/            # 開發者工具箱
+│       │   ├── interview/           # AI 模擬面試官
+│       │   ├── typing-race/         # 打字競速
+│       │   └── ui/                  # 通用元件
+│       ├── pages/
+│       │   ├── FunPage.jsx          # 功能頁（六個互動分頁）
+│       │   ├── BlogPage.jsx         # 部落格
+│       │   ├── ProjectsPage.jsx     # 專案
+│       │   └── Login.jsx            # 登入 / 註冊
+│       ├── hooks/  store/  services/  utils/  config/
+│
+├── backend/
+│   ├── .env.example
+│   └── src/
+│       ├── index.js                 # 伺服器入口
+│       ├── routes/
+│       │   ├── ai.js                # AI 對話 / TTS / 繪圖 / 模擬面試
+│       │   ├── auth.js              # 認證（OAuth + JWT）
+│       │   ├── blog.js  projects.js  boss.js  faction.js
+│       │   └── leaderboard.js  comments.js  reactions.js
+│       ├── interview/               # 面試的提示詞、schema 與評測
+│       ├── sockets/                 # WebSocket 即時通訊
+│       ├── db/                      # schema.sql、種子腳本、連線池
+│       ├── controllers/  services/  middlewares/  config/  utils/
+│
+└── docs/screenshots/
+```
 
-[![GitHub](https://img.shields.io/badge/GitHub-WayneLY--Chen-181717?logo=github)](https://github.com/WayneLY-Chen)
-[![Instagram](https://img.shields.io/badge/Instagram-@mr.w__1022-E4405F?logo=instagram&logoColor=white)](https://www.instagram.com/mr.w_1022/?hl=zh-tw)
-[![Email](https://img.shields.io/badge/Email-qweasd226410@gmail.com-EA4335?logo=gmail&logoColor=white)](mailto:qweasd226410@gmail.com)
+</details>
+
+<br>
 
 ---
 
 <div align="center">
 
-> 💡 歡迎 ⭐ Star 此專案，或到站上右下角找 **Wobot 助理**問問關於我的事!
+### 陳林淯 (Wayne)
+
+Creative Developer · Full-Stack Explorer
+
+[![GitHub](https://img.shields.io/badge/GitHub-WayneLY--Chen-181717?logo=github)](https://github.com/WayneLY-Chen)
+[![Instagram](https://img.shields.io/badge/Instagram-@mr.w__1022-E4405F?logo=instagram&logoColor=white)](https://www.instagram.com/mr.w_1022/?hl=zh-tw)
+[![Email](https://img.shields.io/badge/Email-qweasd226410@gmail.com-EA4335?logo=gmail&logoColor=white)](mailto:qweasd226410@gmail.com)
+
+<br>
+
+歡迎到站上右下角找 **Wobot** 問問關於我的事
 
 </div>
