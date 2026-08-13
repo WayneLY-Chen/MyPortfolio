@@ -1,10 +1,15 @@
-# 🚀 Wayne's Portfolio & Editorial Studio
-
 <div align="center">
 
-**一個全端個人作品集網站 —— 訪客可以在上面實際操作遊戲、工具與 AI 模擬面試,而不只是看一頁靜態履歷。**
+# 🚀 Wayne's Portfolio & Editorial Studio
 
-### 👉 [my-portfolio-waynely-chens-projects.vercel.app](https://my-portfolio-waynely-chens-projects.vercel.app)
+**一個全端個人作品集網站**
+訪客可以在上面實際操作遊戲、工具與 AI 模擬面試,而不只是看一頁靜態履歷。
+
+<br>
+
+[![前往網站](https://img.shields.io/badge/🔗%20前往網站-C8942A?style=for-the-badge&logoColor=white)](https://my-portfolio-waynely-chens-projects.vercel.app)
+
+<br>
 
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev/)
 [![Node.js](https://img.shields.io/badge/Node.js-Express-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
@@ -13,16 +18,21 @@
 [![Gemini](https://img.shields.io/badge/Gemini-AI%20整合-8E75B2?logo=google&logoColor=white)](https://ai.google.dev/)
 [![Deploy](https://img.shields.io/badge/Vercel-部署中-000000?logo=vercel&logoColor=white)](https://vercel.com/)
 
-</div>
+<br>
 
----
+<img src="docs/screenshots/fun.png" alt="功能頁:六個互動分頁" width="92%">
 
-<div align="center">
-  <img src="docs/screenshots/home.png" alt="首頁 About 區段" width="90%">
-  <br><br>
-  <img src="docs/screenshots/fun.png" alt="功能頁:六個互動分頁" width="90%">
-  <br><br>
-  <img src="docs/screenshots/interview.png" alt="AI 模擬面試官的評分結果頁" width="90%">
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/interview.png" alt="AI 模擬面試官的評分結果頁"></td>
+    <td width="50%"><img src="docs/screenshots/home.png" alt="首頁 About 區段"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>AI 模擬面試官</b> — 逐題評分與改進建議</sub></td>
+    <td align="center"><sub><b>首頁</b> — GSAP 滾動動畫與個人介紹</sub></td>
+  </tr>
+</table>
+
 </div>
 
 ---
@@ -108,60 +118,58 @@
 
 如果你只想看幾段程式碼,我會推薦這幾處 —— 它們都是踩過坑之後才長成現在的樣子:
 
-| 主題 | 位置 | 為什麼值得看 |
-|---|---|---|
-| 不採信模型自報的題號 | [`backend/src/routes/ai.js`](backend/src/routes/ai.js) | Gemini 回傳的 `questionIndex` 實測是 1-based,照它對齊會讓兩題拿到同一則評語 —— 而整份回饋看起來格式完全正常。改成只用陣列位置對齊 |
-| 語速白名單用 `Map` 而非物件 | [`backend/src/routes/ai.js`](backend/src/routes/ai.js) | `rate` 最終會被內插進 `<prosody rate="...">`;用物件查表時 `'constructor'` 這類鍵會查到 `Object.prototype` 上的東西,整包被塞進 SSML |
-| 逾時是「每次嘗試各自計時」 | [`backend/src/routes/ai.js`](backend/src/routes/ai.js) | 把逾時包在整個重試迴圈外面,上游一變慢就直接失敗,重試等於沒有作用 |
-| 評分失敗時保住五段作答 | [`frontend/src/components/interview/InterviewTab.jsx`](frontend/src/components/interview/InterviewTab.jsx) | 使用者打完五段字最後什麼都沒拿到,是這個功能唯一不可接受的失敗 |
-| WebGL 骷髏魔王 | [`frontend/src/components/boss-skull/BossSkull.jsx`](frontend/src/components/boss-skull/BossSkull.jsx) | 用 SDF 組合出頭骨並即時光線行進,沒有模型檔;依賴只有 ~10KB 的 OGL |
-| CSS 分層的坑 | [`frontend/src/index.css`](frontend/src/index.css) | 沒有分層的 `*` reset 永遠贏過 `@layer utilities`,曾讓全站的 Tailwind 間距工具類靜默失效 |
+| 主題 | 檔案 | 為什麼值得看 |
+|:---|:---|:---|
+| **不採信模型自報的題號** | [`ai.js`](backend/src/routes/ai.js) | Gemini 回傳的 `questionIndex` 實測是 1-based,照它對齊會讓兩題拿到同一則評語 —— 而整份回饋看起來格式完全正常 |
+| **語速白名單用 `Map`** | [`ai.js`](backend/src/routes/ai.js) | `rate` 最終會被內插進 `<prosody rate="...">`;用物件查表時 `'constructor'` 這類鍵會查到 `Object.prototype` 上的東西 |
+| **逾時每次嘗試各自計時** | [`ai.js`](backend/src/routes/ai.js) | 把逾時包在整個重試迴圈外面,上游一變慢就直接失敗,重試等於沒有作用 |
+| **評分失敗時保住作答** | [`InterviewTab.jsx`](frontend/src/components/interview/InterviewTab.jsx) | 使用者打完五段字最後什麼都沒拿到,是這個功能唯一不可接受的失敗 |
+| **WebGL 骷髏魔王** | [`BossSkull.jsx`](frontend/src/components/boss-skull/BossSkull.jsx) | 用 SDF 組合出頭骨並即時光線行進,沒有模型檔;依賴只有 ~10KB 的 OGL |
+| **CSS 分層的坑** | [`index.css`](frontend/src/index.css) | 沒有分層的 `*` reset 永遠贏過 `@layer utilities`,曾讓全站的 Tailwind 間距工具類靜默失效 |
 
 ---
 
 ## 🛠 技術棧
 
-### 前端
+### 🎨 前端
 
 | 類別 | 技術 |
-|------|------|
-| 框架 | React 18 + Vite 5 |
-| 狀態管理 | Zustand |
-| 動畫 | GSAP (ScrollTrigger, SplitType) + Framer Motion |
-| 滾動引擎 | Lenis |
-| 樣式 | Tailwind CSS 4 |
-| 路由 | React Router v6 |
-| UI 元件 | Radix UI (Dialog, Tooltip, Progress) |
-| 即時通訊 | Socket.io Client |
-| 物理引擎 | Matter.js(遊戲用) |
-| WebGL | OGL(3D 魔王) |
-| Markdown | react-markdown + remark-gfm + rehype-raw |
+|:---|:---|
+| **框架 / 路由** | React 18 · Vite 5 · React Router v6 |
+| **狀態管理** | Zustand |
+| **樣式 / UI** | Tailwind CSS 4 · Radix UI (Dialog, Tooltip, Progress) |
+| **動畫 / 滾動** | GSAP (ScrollTrigger, SplitType) · Framer Motion · Lenis |
+| **圖形 / 遊戲** | OGL (WebGL 3D 魔王) · Matter.js (物理引擎) |
+| **即時通訊** | Socket.io Client |
+| **Markdown** | react-markdown · remark-gfm · rehype-raw |
 
-### 後端
+### ⚙️ 後端
 
 | 類別 | 技術 |
-|------|------|
-| 框架 | Node.js + Express |
-| 資料庫 | PostgreSQL (Neon) |
-| 即時通訊 | Socket.io |
-| AI | Google Gemini API + Stability AI |
-| 語音 | Edge TTS (msedge-tts) |
-| 認證 | Passport.js (Google, GitHub, Facebook, LINE, Local) |
-| 安全 | JWT (Access + Refresh Token) + bcrypt |
-| 寄信 | Nodemailer (SMTP) |
-| 測試 | Vitest(369 個測試) |
+|:---|:---|
+| **框架 / 即時通訊** | Node.js · Express · Socket.io |
+| **資料庫** | PostgreSQL (Neon) |
+| **AI / 語音** | Google Gemini · Stability AI · Edge TTS (`msedge-tts`) |
+| **認證 / 安全** | Passport.js (Google, GitHub, Facebook, LINE, Local) · JWT 雙 Token · bcrypt |
+| **寄信** | Nodemailer (SMTP) |
+| **測試** | Vitest — 369 個測試 |
 
-### 部署
+### ☁️ 部署
 
 | 服務 | 用途 |
-|------|------|
-| Vercel | 前端靜態部署 + serverless proxy |
-| Render | 後端 API + WebSocket |
-| Neon | Serverless PostgreSQL |
+|:---|:---|
+| **Vercel** | 前端靜態部署 + serverless proxy |
+| **Render** | 後端 API + WebSocket |
+| **Neon** | Serverless PostgreSQL |
 
 ---
 
 ## 📂 專案結構
+
+<details>
+<summary><b>展開完整目錄樹</b></summary>
+
+<br>
 
 ```text
 MyPortfolio/
@@ -233,12 +241,16 @@ MyPortfolio/
 └── README.md
 ```
 
+</details>
+
 ---
 
 ## 🚀 本地開發
 
 <details>
 <summary><b>展開完整的安裝與部署步驟</b></summary>
+
+<br>
 
 ### 前置需求
 
@@ -331,17 +343,20 @@ cd backend && npm test
 
 ## 👨‍💻 聯繫我
 
-**陳林淯 (Wayne)**
-*Creative Developer | Full-Stack Explorer*
-
-[![GitHub](https://img.shields.io/badge/GitHub-WayneLY--Chen-181717?logo=github)](https://github.com/WayneLY-Chen)
-[![Instagram](https://img.shields.io/badge/Instagram-@mr.w__1022-E4405F?logo=instagram&logoColor=white)](https://www.instagram.com/mr.w_1022/?hl=zh-tw)
-[![Email](https://img.shields.io/badge/Email-qweasd226410@gmail.com-EA4335?logo=gmail&logoColor=white)](mailto:qweasd226410@gmail.com)
-
----
-
 <div align="center">
 
-> 💡 歡迎 ⭐ Star 此專案，或到站上右下角找 **Wobot 助理**問問關於我的事!
+### 陳林淯 (Wayne)
+
+*Creative Developer · Full-Stack Explorer*
+
+<br>
+
+[![GitHub](https://img.shields.io/badge/GitHub-WayneLY--Chen-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/WayneLY-Chen)
+[![Instagram](https://img.shields.io/badge/Instagram-@mr.w__1022-E4405F?style=for-the-badge&logo=instagram&logoColor=white)](https://www.instagram.com/mr.w_1022/?hl=zh-tw)
+[![Email](https://img.shields.io/badge/Email-聯絡我-EA4335?style=for-the-badge&logo=gmail&logoColor=white)](mailto:qweasd226410@gmail.com)
+
+<br>
+
+💡 歡迎 ⭐ Star 此專案,或到站上右下角找 **Wobot 助理**問問關於我的事!
 
 </div>
