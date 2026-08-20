@@ -1,18 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import useAuthStore from '../store/authStore'
 import { API_URL } from '../config/api'
+import { guestSessionHeaders } from '../config/guestSession'
 
 const EMOJIS = ['👍', '❤️', '😂', '🔥', '🚀']
 
-// 取得或生成 sessionId 以識別訪客
-const getSessionId = () => {
-  let id = localStorage.getItem('wobot_session_id')
-  if (!id) {
-    id = 'sess_' + Math.random().toString(36).substr(2, 9)
-    localStorage.setItem('wobot_session_id', id)
-  }
-  return id
-}
+// 訪客身分改由 /auth/guest-session 簽發並簽章，前端不再自產識別碼 ——
+// 自產的值後端會盲信，等於任何人都能冒用他人身分或無限灌計數。
+// 詳見 src/config/guestSession.js。
 
 export default function Reactions({ targetType, targetId }) {
   const { accessToken, silentRefresh } = useAuthStore()
@@ -22,11 +17,11 @@ export default function Reactions({ targetType, targetId }) {
 
   const load = useCallback(async () => {
     try {
-      const sessionId = getSessionId()
+      const guestHeaders = await guestSessionHeaders()
       const res = await fetch(`${API_URL}/reactions?targetType=${targetType}&targetId=${targetId}`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
-          'x-session-id': sessionId
+          ...guestHeaders
         }
       })
       const data = await res.json()
@@ -44,15 +39,15 @@ export default function Reactions({ targetType, targetId }) {
   useEffect(() => { load() }, [load])
 
   const toggle = async (emoji) => {
-    const sessionId = getSessionId()
-    
+    const guestHeaders = await guestSessionHeaders()
+
     const sendRequest = async (token) => {
       return await fetch(`${API_URL}/reactions/toggle`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
-          'x-session-id': sessionId
+          ...guestHeaders
         },
         body: JSON.stringify({ targetType, targetId, emoji })
       }).then(r => r.json())

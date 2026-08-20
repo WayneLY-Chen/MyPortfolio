@@ -190,3 +190,54 @@ describe('POST /api/ai/tts (REL-03: hard timeout + single-response guarantee)', 
     expect(res.headers['content-type']).toMatch(/^audio\/mpeg/);
   });
 });
+
+describe('POST /api/ai/tts (SSML 注入防護)', () => {
+  // msedge-tts 的 _SSMLTemplate 是純字串內插、完全不跳脫：
+  //   <voice name="${this._voice}"> ... ${input}
+  // 而其 setMetadata() 對聲線的檢查只是未錨定的 /\w{2}-\w{2}/，
+  // 字串裡任何位置有 xx-xx 就通過。以下兩個值修補前都能成功注入 SSML。
+  const INJECTED_VOICE = "zh-CN\"><audio src=\"https://evil.example/x.mp3\"/><voice name=\"";
+  const INJECTED_TEXT = "嗨<audio src=\"https://evil.example/x.mp3\"/>";
+
+  it('注入用的聲線被換成預設值，不會原樣傳給 setMetadata', async () => {
+    const resPromise = fireRequest(buildApp(), { text: "你好", voice: INJECTED_VOICE });
+    const inst = await waitForInstance();
+    inst.audioStream.emit('end');
+    await resPromise;
+
+    const passedVoice = inst.setMetadata.mock.calls[0][0];
+    expect(passedVoice).toBe('zh-CN-XiaoxiaoNeural');
+    expect(passedVoice).not.toContain('evil.example');
+  });
+
+  it('白名單內的聲線原樣傳遞，正常功能不受影響', async () => {
+    const resPromise = fireRequest(buildApp(), { text: "hello", voice: 'en-US-AriaNeural' });
+    const inst = await waitForInstance();
+    inst.audioStream.emit('end');
+    await resPromise;
+
+    expect(inst.setMetadata.mock.calls[0][0]).toBe('en-US-AriaNeural');
+  });
+
+  it('文字裡的 SSML 標籤被 XML 跳脫，不會原樣進入合成內容', async () => {
+    const resPromise = fireRequest(buildApp(), { text: INJECTED_TEXT });
+    const inst = await waitForInstance();
+    inst.audioStream.emit('end');
+    await resPromise;
+
+    const passedText = inst.toStream.mock.calls[0][0];
+    expect(passedText).not.toContain("<audio");
+    expect(passedText).toContain('&lt;audio');
+  });
+
+  it('超過長度上限的文字回 400，且完全不會建立 MsEdgeTTS 連線', async () => {
+    const res = await fireRequest(buildApp(), { text: 'x'.repeat(2001) });
+    expect(res.status).toBe(400);
+    expect(__lastInstance()).toBeUndefined();
+  });
+
+  it('空白文字回 400', async () => {
+    const res = await fireRequest(buildApp(), { text: '   ' });
+    expect(res.status).toBe(400);
+  });
+});

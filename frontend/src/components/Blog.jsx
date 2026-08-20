@@ -20,6 +20,7 @@ import { Button } from './ui/button'
 import { useToast } from './ui/Toast'
 import fetchBlogCached from '../utils/fetchBlog'
 import { API_URL } from '../config/api'
+import { isBlockCode } from '../utils/markdownCode'
 
 const CopyButton = ({ text }) => {
   const [copied, setCopied] = useState(false);
@@ -932,11 +933,18 @@ export default function Blog({ limit = 3 }) {
                                 ),
                                 strong: ({node, ...props}) => <strong style={{ color: '#fff', fontWeight: 700 }} {...props} />,
                                 img: ({node, ...props}) => <img style={{ maxWidth: '100%', height: 'auto', borderRadius: '8px', margin: '16px 0' }} {...props} />,
-                                code: ({node, inline, className, children, ...props}) => {
+                                code: ({node, className, children, ...props}) => {
                                   const match = /language-(\w+)/.exec(className || '');
                                   const content = String(children).replace(/\n$/, '');
+
+                                  // react-markdown v9 起移除了 inline prop（本專案為 v10），原本的
+                                  // `!inline` 因此恆為 true，導致每個行內程式碼都被畫成整塊區塊，
+                                  // 把句子撕成兩半（README 裡的 `msedge-tts`、`ai.js` 等等）。
+                                  // 改為從內容本身判斷：圍籬區塊會帶 language-* class，沒指定語言的
+                                  // 圍籬區塊則必然含換行，而 markdown 的行內程式碼不可能跨行。
+                                  const isBlock = isBlockCode(className, content);
                                   
-                                  return !inline ? (
+                                  return isBlock ? (
                                     <div className="code-block-container" style={{ position: 'relative', margin: '16px 0', borderRadius: '8px', overflow: 'hidden' }}>
                                       <div style={{ 
                                         position: 'absolute', 

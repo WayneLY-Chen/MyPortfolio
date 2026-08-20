@@ -22,6 +22,8 @@ import fetchProjectsCached from '../utils/fetchProjects'
 import Reactions from './Reactions'
 import { useToast } from './ui/Toast'
 import { API_URL } from '../config/api'
+import { isBlockCode } from '../utils/markdownCode'
+import { resolveRepoUrl } from '../utils/repoAssetUrl'
 const CopyButton = ({ text }) => {
   const [copied, setCopied] = useState(false);
   
@@ -925,12 +927,13 @@ export default function Projects({ limit = 3 }) {
                               p: ({node, ...props}) => <p style={{ marginBottom: '16px' }} {...props} />,
                               ul: ({node, ...props}) => <ul style={{ paddingLeft: '20px', marginBottom: '16px', listStyleType: 'square' }} {...props} />,
                               li: ({node, ...props}) => <li style={{ marginBottom: '6px' }} {...props} />,
-                              a: ({node, ...props}) => {
+                              a: ({node, href, ...props}) => {
                                 // 只包圖片的連結（如徽章）不加底線，維持乾淨排列
                                 const imageOnly = node?.children?.length === 1 && node.children[0].tagName === 'img'
                                 return (
                                   <a
                                     {...props}
+                                    href={resolveRepoUrl(href, modal.url)}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     onClick={(e) => { e.stopPropagation(); }}
@@ -949,9 +952,13 @@ export default function Projects({ limit = 3 }) {
                               img: ({node, src, ...props}) => {
                                 // shields.io 徽章等小圖示：inline 排列（跟 GitHub 一致），不獨佔一行
                                 const isBadge = /shields\.io|badgen\.net|img\.shields|\/badge\//.test(src || '')
+                                // README 的圖片多為相對路徑（docs/screenshots/*.png）。GitHub 上相對 repo
+                                // 解析，在本站則相對本站網域解析而破圖 —— 補成 raw.githubusercontent 網址。
+                                // 徽章等絕對網址不受影響，resolveRepoUrl 會原樣回傳。
+                                const resolvedSrc = resolveRepoUrl(src, modal.url, { raw: true })
                                 return isBadge
-                                  ? <img src={src} style={{ display: 'inline-block', verticalAlign: 'middle', height: '20px', width: 'auto', margin: '3px 4px', borderRadius: '4px' }} {...props} />
-                                  : <img src={src} style={{ display: 'block', maxWidth: '100%', height: 'auto', borderRadius: '8px', margin: '16px 0' }} {...props} />
+                                  ? <img src={resolvedSrc} style={{ display: 'inline-block', verticalAlign: 'middle', height: '20px', width: 'auto', margin: '3px 4px', borderRadius: '4px' }} {...props} />
+                                  : <img src={resolvedSrc} style={{ display: 'block', maxWidth: '100%', height: 'auto', borderRadius: '8px', margin: '16px 0' }} {...props} />
                               },
                               blockquote: ({node, ...props}) => <blockquote style={{ margin: '16px 0', padding: '10px 18px', borderLeft: '3px solid rgba(200,148,42,0.5)', background: 'rgba(200,148,42,0.05)', borderRadius: '0 8px 8px 0', color: '#bbb' }} {...props} />,
                               hr: ({node, ...props}) => <hr style={{ border: 'none', borderTop: '1px solid rgba(255,255,255,0.1)', margin: '28px 0' }} {...props} />,
@@ -964,11 +971,18 @@ export default function Projects({ limit = 3 }) {
                               th: ({node, ...props}) => <th style={{ textAlign: 'left', padding: '10px 16px', color: '#C8942A', fontWeight: 700, fontSize: '13px', letterSpacing: '0.03em', textTransform: 'uppercase', borderBottom: '1px solid rgba(200,148,42,0.25)', overflowWrap: 'anywhere', wordBreak: 'break-word' }} {...props} />,
                               td: ({node, ...props}) => <td style={{ padding: '10px 16px', color: '#bbb', borderBottom: '1px solid rgba(255,255,255,0.05)', verticalAlign: 'top', overflowWrap: 'anywhere', wordBreak: 'break-word' }} {...props} />,
                               tr: ({node, ...props}) => <tr {...props} />,
-                              code: ({node, inline, className, children, ...props}) => {
+                              code: ({node, className, children, ...props}) => {
                                 const match = /language-(\w+)/.exec(className || '');
                                 const content = String(children).replace(/\n$/, '');
+
+                                // react-markdown v9 起移除了 inline prop（本專案為 v10），原本的
+                                // `!inline` 因此恆為 true，導致每個行內程式碼都被畫成整塊區塊，
+                                // 把句子撕成兩半（README 裡的 `msedge-tts`、`ai.js` 等等）。
+                                // 改為從內容本身判斷：圍籬區塊會帶 language-* class，沒指定語言的
+                                // 圍籬區塊則必然含換行，而 markdown 的行內程式碼不可能跨行。
+                                const isBlock = isBlockCode(className, content);
                                 
-                                return !inline ? (
+                                return isBlock ? (
                                   <div className="code-block-container" style={{ position: 'relative', margin: '16px 0', borderRadius: '8px', overflow: 'hidden' }}>
                                     <div style={{ 
                                       position: 'absolute', 

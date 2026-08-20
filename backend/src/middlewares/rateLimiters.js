@@ -92,4 +92,17 @@ const bossLimiter = rateLimit({
   limit: 60,
 });
 
-module.exports = { loginLimiter, aiLimiter, ttsLimiter, commentsLimiter, syncLimiter, bossLimiter };
+// 表情反應以 req.userId 優先、IP 為輔計量。這個功能訪客免登入即可使用，
+// 多數呼叫者沒有帳號身分，因此不能只用 req.userId 分桶。
+//
+// 額度取每分鐘 30 次：真人在一篇文章上點表情不會超過個位數，30 次留給
+// 快速切換不同表情與多開分頁的情況。此限流與 resolveGuestSession 的憑證
+// 驗證互補——後者讓身分不可偽造，前者限制單一來源的操作頻率。
+const reactionsLimiter = rateLimit({
+  ...commonOptions,
+  windowMs: 60 * 1000,
+  limit: 30,
+  keyGenerator: aiOrIpKeyGenerator,
+});
+
+module.exports = { loginLimiter, aiLimiter, ttsLimiter, commentsLimiter, syncLimiter, bossLimiter, reactionsLimiter };
