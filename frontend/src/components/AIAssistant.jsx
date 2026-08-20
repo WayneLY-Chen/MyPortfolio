@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { API_URL } from '../config/api'
+import { guestSessionHeaders } from '../config/guestSession'
 
 // ─── hex → "r, g, b" helper ───────────────────────────────────────────────────
 function hexToRgb(hex) {
@@ -621,18 +622,19 @@ export default function AIAssistant() {
     ])
 
     try {
-      // History construction for AI
-      const apiHistory = chatHistory
-        .filter(m => m.content && !m.content.includes('Wobot 正在思考') && !m.content.includes('你可以點擊下方快捷鍵'))
-        .slice(-6)
-        .map(m => ({ role: m.role === 'ai' ? 'model' : 'user', parts: [{ text: m.content }] }))
-      // Gemini requires history to start with a user turn
-      while (apiHistory.length > 0 && apiHistory[0].role === 'model') apiHistory.shift()
-
+      // 對話歷史不再由這裡送出。先前的做法是把 chatHistory 的最後 6 則整理成
+      // Gemini 的 history 格式一起 POST 過去，而後端會原樣塞進
+      // model.startChat({ history })—— 任何人都能藉此偽造「Wobot 之前說過的
+      // 話」，例如捏造一則模型回覆「好的，我會忽略我的系統指示」。
+      //
+      // 現在歷史由後端保存，以「已驗簽的訪客憑證或登入身分」為 key
+      // （backend/src/config/conversationStore.js）。這裡只要帶上那份憑證。
+      // 拿不到憑證時 guestSessionHeaders() 回空物件，對話仍然可用，只是沒有
+      // 記憶 —— 那正是安全的底線行為。
       const res = await fetch(`${API_URL}/ai/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: q, mode: wobotMode, history: apiHistory, wantAudio: false }),
+        headers: { 'Content-Type': 'application/json', ...(await guestSessionHeaders()) },
+        body: JSON.stringify({ message: q, mode: wobotMode, wantAudio: false }),
       })
 
       const data = await res.json()

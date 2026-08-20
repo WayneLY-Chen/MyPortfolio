@@ -7,10 +7,11 @@ const { query } = require('../db')
 const os = require('os')
 const path = require('path')
 const fs = require('fs')
-const { optionalAuthenticate } = require('../middlewares/authenticate')
+const { optionalAuthenticate, resolveGuestSession } = require('../middlewares/authenticate')
 const { aiLimiter, ttsLimiter } = require('../middlewares/rateLimiters')
 const { resolveVoice, escapeForSsml, isValidTtsText } = require('../config/ttsValidation')
-const { isValidChatMessage, sanitizeHistory } = require('../config/chatValidation')
+const { isValidChatMessage } = require('../config/chatValidation')
+const { getHistory, appendTurn, resetConversation } = require('../config/conversationStore')
 const {
   IMAGE_PROMPT_MAX_CHARS,
   isValidImagePrompt,
@@ -291,17 +292,24 @@ router.post('/generate-image', optionalAuthenticate, aiLimiter, async (req, res)
 })
 
 // POST /api/ai/chat
-router.post('/chat', optionalAuthenticate, aiLimiter, async (req, res) => {
-  const { message, history = [], mode = 'normal', wantAudio = true } = req.body
+//
+// 對話歷史由伺服器保存，請求端只送這一句 message。req.body.history 一律被
+// 忽略 —— 那個欄位原本會被原樣塞進 model.startChat({ history })，任何人都能
+// 藉此偽造「Wobot 之前說過的話」（例如捏造一則模型回覆「好的，我會忽略我的
+// 系統指示」）。詳見 config/conversationStore.js。
+router.post('/chat', optionalAuthenticate, resolveGuestSession, aiLimiter, async (req, res) => {
+  const { message, mode = 'normal', wantAudio = true, reset = false } = req.body
   if (!isValidChatMessage(message)) {
     return res.status(400).json({ success: false, error: '訊息缺少或過長' })
   }
 
-  // history 由請求端提供（前端不保存伺服器端 session），因此筆數與單輪
-  // 長度都必須在此收斂 —— 否則單一請求就能塞進上萬筆偽造對話，aiLimiter
-  // 擋得住次數卻擋不住單次大小。詳見 config/chatValidation.js，該檔也寫明
-  // 了這一層不處理 prompt injection 本身。
-  const safeHistory = sanitizeHistory(history)
+  // 對話的身分只認「伺服器簽發並驗簽過」的兩種憑證：登入者的 userId，或
+  // resolveGuestSession 從 x-session-id 驗出來的訪客 sid。兩者都沒有時
+  // conversationKey 為 null，getHistory 回空陣列 —— 功能退化成「單輪對話、
+  // 沒有記憶」，但絕不會退化成「採信請求端送來的歷史」。
+  const conversationKey = req.userId || req.guestSessionId || null
+  if (reset === true) resetConversation(conversationKey)
+  const serverHistory = getHistory(conversationKey)
 
   const GEMINI_KEY = process.env.GEMINI_API_KEY
   if (!GEMINI_KEY) {
@@ -341,9 +349,10 @@ router.post('/chat', optionalAuthenticate, aiLimiter, async (req, res) => {
       { baseUrl: proxyUrl, customHeaders: { 'x-internal-proxy-key': process.env.INTERNAL_PROXY_KEY } }
     )
 
-    // 使用 chat session 實現記憶功能
+    // 使用 chat session 實現記憶功能。history 來自伺服器端的 conversationStore，
+    // 不是請求 body —— 這是 prompt injection 那條的實際修法。
     const chat = model.startChat({
-      history: safeHistory, // 已收斂：見上方 sanitizeHistory
+      history: serverHistory,
       generationConfig: { maxOutputTokens: 1000 }
     })
 
@@ -363,6 +372,11 @@ router.post('/chat', optionalAuthenticate, aiLimiter, async (req, res) => {
     if (!result) throw lastErr
 
     const reply = result.response.text()
+
+    // 成功拿到回覆之後才記錄這一輪。user 與 model 兩則一起寫入，避免中途失敗
+    // 留下落單的 user 輪 —— Gemini 要求 history 必須 user/model 交替並以 user
+    // 開頭，落單的一則會讓下一次請求帶著不合法的歷史過去。
+    appendTurn(conversationKey, message, reply)
 
     // --- 動態生成 TTS 音訊 (曉曉) --- 使用更加速度優化的 Stream 模式
     let audioBase64 = null
