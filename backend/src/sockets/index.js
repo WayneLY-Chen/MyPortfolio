@@ -3,6 +3,11 @@ const gameState = require('./gameState');
 const { factionState, bossState, resetFaction, resetBoss } = gameState;
 const { verifyGuestSessionToken } = require('../utils/jwt');
 const { normalizeDamage, normalizePlayerName, recordDamage } = require('../config/bossValidation');
+const {
+  isValidGridIndex,
+  normalizeTeam,
+  teamColor,
+} = require('../config/factionValidation');
 
 // 紀錄中斷連線的計時器
 const disconnectTimers = {};
@@ -67,26 +72,37 @@ function initSockets(server) {
     // ─── 陣營大戰邏輯 ───────────────────────────────────────────────
     
     // 加入/更新大廳狀態
+    // name / team 先前完全未驗證：20 萬字的名字會原樣存進常駐的 players
+    // 物件並廣播給每一位連線者（實測確認），team 則接受任意字串。兩者現在
+    // 都經過 config/factionValidation.js 收斂。
     socket.on('join_faction', (data) => {
       const { name, team } = data || {};
       if (!sessionId) return;
-      
+
       const existing = factionState.players[sessionId];
+      // 空字串或未帶值時保留既有名字（重連、以及「還沒填暱稱就按加入」都會
+      // 走到這裡），與修改前 name || existing?.name || 預設值 的行為一致；
+      // 有帶值時才做正規化。
+      const resolvedName =
+        name === undefined || name === null || name === ''
+          ? (existing?.name || normalizePlayerName(null))
+          : normalizePlayerName(name);
+
       factionState.players[sessionId] = {
         socketId: socket.id,
         sessionId,
-        name: name || existing?.name || '勇者',
-        team: team || existing?.team || null,
+        name: resolvedName,
+        team: normalizeTeam(team) || existing?.team || null,
         isReady: existing?.isReady || false
       };
-      
+
       io.emit('lobby_update', { players: factionState.players, phase: factionState.phase });
-      
+
       // 送出目前的棋盤與狀態給這位新進來的玩家 (同步歷史資料)
-      socket.emit('faction_init', { 
-        grid: factionState.grid, 
-        phase: factionState.phase, 
-        timeLeft: factionState.timeLeft 
+      socket.emit('faction_init', {
+        grid: factionState.grid,
+        phase: factionState.phase,
+        timeLeft: factionState.timeLeft
       });
     });
 
@@ -105,14 +121,22 @@ function initSockets(server) {
       }
     });
 
+    // index 先前完全未驗證，實測確認兩種後果（見 config/factionValidation.js）：
+    //   index = 'length'  → RangeError → uncaughtException → 行程中止
+    //   index = 3000000   → grid 膨脹到三百萬格，且每次落子都整份廣播
     socket.on('faction_move', (index) => {
       if (factionState.phase !== 'playing') return;
+      if (!isValidGridIndex(index)) return;
       const player = factionState.players[sessionId];
-      if (!player || !player.team) return;
-      
-      const color = player.team === 'blue' ? '#3b82f6' : '#f97316';
+      if (!player) return;
+      const color = teamColor(player.team);
+      // 未選邊（team 為 null）或隊伍不在白名單上時不落子。
+      // 三元式原本是「team 等於 blue 就用藍色，否則一律用橘色」，任何非
+      // blue 的值——包含攻擊者自訂的字串——都會被當成橘隊並廣播出去。
+      if (!color) return;
+
       factionState.grid[index] = color;
-      
+
       io.emit('grid_update', { index, color, grid: factionState.grid });
     });
 
@@ -124,9 +148,14 @@ function initSockets(server) {
 
     // ─── 尾刀爭奪戰邏輯 ───────────────────────────────────────────────
     
+    // 名字先前未經正規化就存進常駐狀態並廣播 —— 上一輪修了 boss_attack 的
+    // player_name，卻漏了同一份狀態的另一個寫入點。實測 20 萬字的名字會原樣
+    // 存下並廣播給所有連線者。
     socket.on('boss_join', (name) => {
-      console.log(`[Boss] ${name} 加入戰場`);
-      if (sessionId) bossState.players[sessionId] = name;
+      if (!sessionId) return;
+      const safeName = normalizePlayerName(name);
+      console.log('[Boss] ' + safeName + ' 加入戰場');
+      bossState.players[sessionId] = safeName;
       io.emit('boss_update', { bossState, updatePlayers: true });
       socket.emit('boss_init', { bossState });
     });
