@@ -20,6 +20,7 @@ const factionRouter = require('./routes/faction');
 const bossRouter = require('./routes/boss');
 
 const { initSockets } = require('./sockets');
+const { guardRouter } = require('./middlewares/asyncGuard');
 
 const app = express();
 const server = http.createServer(app);
@@ -128,17 +129,23 @@ app.get('/health/db', async (_req, res) => {
 });
 
 // API Routes
+//
+// 每個 router 掛載前都先過 guardRouter：Express 4 不會接住 async handler 的
+// rejection，那類例外會變成 unhandledRejection，Node 24 預設中止行程 ——
+// 也就是一個未驗證身分就能觸發的遠端 DoS（本輪已在 /api/ai/generate-image
+// 實測到一個實例）。guardRouter 把每個 handler 的 rejection 導向 next()，
+// 交給下方的全域錯誤中介層。詳見 middlewares/asyncGuard.js。
 
-app.use('/api/projects', projectsRouter);
-app.use('/api/profile', profileRouter);
-app.use('/api/blog', blogRouter);
-app.use('/auth', authRoutes);
-app.use('/api/comments', commentsRoutes);
-app.use('/api/ai', aiRouter);
-app.use('/api/leaderboard', leaderboardRouter);
-app.use('/api/reactions', reactionsRouter);
-app.use('/api/faction', factionRouter);
-app.use('/api/boss', bossRouter);
+app.use('/api/projects', guardRouter(projectsRouter));
+app.use('/api/profile', guardRouter(profileRouter));
+app.use('/api/blog', guardRouter(blogRouter));
+app.use('/auth', guardRouter(authRoutes));
+app.use('/api/comments', guardRouter(commentsRoutes));
+app.use('/api/ai', guardRouter(aiRouter));
+app.use('/api/leaderboard', guardRouter(leaderboardRouter));
+app.use('/api/reactions', guardRouter(reactionsRouter));
+app.use('/api/faction', guardRouter(factionRouter));
+app.use('/api/boss', guardRouter(bossRouter));
 
 // 404 Handler
 
