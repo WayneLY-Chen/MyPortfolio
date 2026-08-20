@@ -2,6 +2,7 @@ const { Server } = require('socket.io');
 const gameState = require('./gameState');
 const { factionState, bossState, resetFaction, resetBoss } = gameState;
 const { verifyGuestSessionToken } = require('../utils/jwt');
+const { normalizeDamage, normalizePlayerName, recordDamage } = require('../config/bossValidation');
 
 // 紀錄中斷連線的計時器
 const disconnectTimers = {};
@@ -130,17 +131,22 @@ function initSockets(server) {
       socket.emit('boss_init', { bossState });
     });
 
+    // 驗證規則與 routes/boss.js 的 POST /attack 共用 config/bossValidation.js。
+    // 這條才是前端實際走的路徑（FunPage.jsx 的 socket.emit），先前完全沒有驗證：
+    // damage 送 'abc' 會讓 bossState.hp 變成 NaN 且永不復原（NaN 減任何數仍是
+    // NaN，is_alive 也永遠不會轉 false），單一封包即可癱瘓整個功能直到重啟。
     socket.on('boss_attack', (data) => {
       if (!bossState.is_alive) return;
-      const { name, damage, skillName, skillType } = data;
-      
+
+      const damage = normalizeDamage(data?.damage);
+      if (damage === null) return;
+      const name = normalizePlayerName(data?.name);
+      const { skillName, skillType } = data || {};
+
       bossState.hp = Math.max(0, bossState.hp - damage);
-      
-      // 更新傷害排行
-      let p = bossState.kills.find(k => k.player_name === name);
-      if (p) p.total_damage += damage;
-      else bossState.kills.push({ player_name: name, total_damage: damage });
-      bossState.kills.sort((a, b) => b.total_damage - a.total_damage);
+
+      // 更新傷害排行（含 MAX_TRACKED_PLAYERS 上限，避免不重複名字灌爆記憶體）
+      recordDamage(bossState, name, damage);
 
       const isKill = bossState.hp === 0;
       if (isKill) {
@@ -149,24 +155,24 @@ function initSockets(server) {
       }
 
       // 廣播攻擊與狀態
-      io.emit('boss_update', { 
+      io.emit('boss_update', {
         bossState: { ...bossState }, // 展開以確保 Socket.io 送出最新副本
-        attacker: name, 
-        damage, 
+        attacker: name,
+        damage,
         skillName,
         skillType,
-        isKill 
+        isKill
       });
     });
 
+    // 重置會清空全場狀態與整份傷害排行。前端的「重置骷髏王」按鈕只在
+    // !bossState.is_alive 時才渲染（FunPage.jsx），因此在伺服器端補上同一道
+    // 條件不會影響任何合法操作，但可擋掉「戰鬥進行中把別人的傷害排行清掉」
+    // 的惡意重置。socket 只帶訪客 sessionId、沒有管理員身分，無法比照 REST
+    // 的 /reset 鎖成管理員 —— 那會讓玩家再也無法開下一場。
     socket.on('boss_reset', () => {
-      // Correctly update the properties of the imported object
-      bossState.hp = 10000;
-      bossState.max_hp = 10000;
-      bossState.is_alive = true;
-      bossState.killed_by = null;
-      bossState.kills = [];
-      bossState.players = {}; // 重置時也清空玩家列表，邀請重新加入
+      if (bossState.is_alive) return;
+      resetBoss();
       io.emit('boss_update', { bossState, reset: true });
     });
 
