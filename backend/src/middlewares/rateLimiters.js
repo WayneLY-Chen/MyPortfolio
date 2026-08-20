@@ -78,4 +78,18 @@ const syncLimiter = rateLimit({
   keyGenerator: (req) => req.userId,
 });
 
-module.exports = { loginLimiter, aiLimiter, ttsLimiter, commentsLimiter, syncLimiter };
+// 尾刀爭奪戰的 REST 端點以 IP 計量。這個功能訪客免登入即可遊玩，因此不能
+// 以 req.userId 分桶（多數呼叫者根本沒有身分）。額度取每分鐘 60 次：一名
+// 玩家出一張牌約需數秒，正常遊玩遠達不到，但可擋住腳本化的洗榜與洗傷害。
+//
+// 注意涵蓋範圍：前端實際走的是 Socket.io 的 boss_attack 事件，那條路徑不
+// 經過 Express middleware，因此不受本 limiter 約束。socket 層的濫用防護
+// 依靠 bossValidation.js 的數值上限與 MAX_TRACKED_PLAYERS 陣列上限，兩者
+// 是互補而非重複。
+const bossLimiter = rateLimit({
+  ...commonOptions,
+  windowMs: 60 * 1000,
+  limit: 60,
+});
+
+module.exports = { loginLimiter, aiLimiter, ttsLimiter, commentsLimiter, syncLimiter, bossLimiter };

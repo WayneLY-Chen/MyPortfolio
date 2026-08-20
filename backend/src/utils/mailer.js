@@ -35,8 +35,20 @@ const transporter = SMTP_CONFIGURED
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
+      // TLS 憑證驗證預設開啟（fail-closed）。先前這裡無條件寫死
+      // rejectUnauthorized: false，等於在所有環境——包含 production——關閉
+      // SMTP 連線的憑證驗證。能對這條連線做中間人的攻擊者可攔下 SMTP_USER /
+      // SMTP_PASS 與全部信件內容，其中包含寄給使用者的密碼重設連結。
+      //
+      // 若本機開發確實需要對自簽憑證的 SMTP 伺服器測試，明確設定
+      // SMTP_ALLOW_SELF_SIGNED=true。額外加上 NODE_ENV 判斷，是為了讓這個
+      // 變數即使被誤設到正式環境也不會生效——關閉憑證驗證這種事不該只靠
+      // 一道開關。
       tls: {
-        rejectUnauthorized: false, // 本機開發或自簽憑證環境允許 TLS 握手
+        rejectUnauthorized: !(
+          process.env.SMTP_ALLOW_SELF_SIGNED === 'true' &&
+          process.env.NODE_ENV !== 'production'
+        ),
       },
     })
   : null;

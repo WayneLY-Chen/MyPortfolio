@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useToast } from './ui/Toast'
+import { evaluateMoneyExpression } from './moneyExpression'
 
 export default function MoneyCalculator() {
   const [participants, setParticipants] = useState([])
@@ -39,9 +40,10 @@ export default function MoneyCalculator() {
       return
     }
     try {
-      // Evaluate math expression, replacing all non math characters
-      const cleanExp = itemPriceExp.replace(/[^0-9+\-*/().]/g, "")
-      const amount = eval(cleanExp)
+      // 以 moneyExpression.js 的解析器求值：無法解析時回傳 null，
+      // 由下方 catch 顯示「金額算式錯誤」，不再靜默算出錯誤金額。
+      const amount = evaluateMoneyExpression(itemPriceExp)
+      if (amount === null) throw new Error('invalid expression')
       setItemList([...itemList, { name: itemName, amount, consumers: [...selectedConsumers] }])
       setItemName('')
       setItemPriceExp('')
@@ -65,9 +67,8 @@ export default function MoneyCalculator() {
 
     try {
       setLoading(true)
-      const cleanTotalExp = totalBillExp.replace(/[^0-9+\-*/().]/g, "")
-      if (!cleanTotalExp) throw new Error()
-      const finalTotalBill = eval(cleanTotalExp)
+      const finalTotalBill = evaluateMoneyExpression(totalBillExp)
+      if (finalTotalBill === null) throw new Error('invalid expression')
 
       let specificTotal = 0
       itemList.forEach(item => {
