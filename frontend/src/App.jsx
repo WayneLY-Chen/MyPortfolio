@@ -85,12 +85,10 @@ function HomePage({ loaded, setLoaded, hasSeenPreloader }) {
 
 export default function App() {
   return (
-    <BrowserRouter
-      future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true
-      }}
-    >
+    // react-router v7 起，v7_startTransition 與 v7_relativeSplatPath 已是預設
+    // 行為，先前為了預先遷移而顯式開啟的 future flag 不再需要，留著只會讓人
+    // 誤以為還有開關可調。
+    <BrowserRouter>
       <AppInner />
     </BrowserRouter>
   )
