@@ -154,7 +154,7 @@
 | **AI / 語音** | Google Gemini · Stability AI · Edge TTS (`msedge-tts`) |
 | **認證 / 安全** | Passport.js (Google, GitHub, Facebook, LINE, Local) · JWT 雙 Token · bcrypt · Helmet |
 | **寄信** | Nodemailer (SMTP) |
-| **測試** | Vitest — 後端 399 個測試 · node:test — 前端 43 個測試 |
+| **測試** | Vitest — 後端 430 個測試 · node:test — 前端 43 個測試 |
 
 ### ☁️ 部署
 
