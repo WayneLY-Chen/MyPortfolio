@@ -10,6 +10,7 @@ const fs = require('fs')
 const { optionalAuthenticate } = require('../middlewares/authenticate')
 const { aiLimiter, ttsLimiter } = require('../middlewares/rateLimiters')
 const { resolveVoice, escapeForSsml, isValidTtsText } = require('../config/ttsValidation')
+const { isValidChatMessage, sanitizeHistory } = require('../config/chatValidation')
 const {
   TRACKS,
   LANGUAGES,
@@ -259,7 +260,15 @@ router.post('/generate-image', optionalAuthenticate, aiLimiter, async (req, res)
 // POST /api/ai/chat
 router.post('/chat', optionalAuthenticate, aiLimiter, async (req, res) => {
   const { message, history = [], mode = 'normal', wantAudio = true } = req.body
-  if (!message) return res.status(400).json({ success: false, error: '缺少訊息' })
+  if (!isValidChatMessage(message)) {
+    return res.status(400).json({ success: false, error: '訊息缺少或過長' })
+  }
+
+  // history 由請求端提供（前端不保存伺服器端 session），因此筆數與單輪
+  // 長度都必須在此收斂 —— 否則單一請求就能塞進上萬筆偽造對話，aiLimiter
+  // 擋得住次數卻擋不住單次大小。詳見 config/chatValidation.js，該檔也寫明
+  // 了這一層不處理 prompt injection 本身。
+  const safeHistory = sanitizeHistory(history)
 
   const GEMINI_KEY = process.env.GEMINI_API_KEY
   if (!GEMINI_KEY) {
@@ -301,7 +310,7 @@ router.post('/chat', optionalAuthenticate, aiLimiter, async (req, res) => {
 
     // 使用 chat session 實現記憶功能
     const chat = model.startChat({
-      history: history, // 客戶端傳來的歷史紀錄
+      history: safeHistory, // 已收斂：見上方 sanitizeHistory
       generationConfig: { maxOutputTokens: 1000 }
     })
 
