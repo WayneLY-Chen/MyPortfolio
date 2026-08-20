@@ -1,10 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getBlogPosts, getBlogPostBySlug, updateBlogPost, createBlogPost, deleteBlogPost } = require('../controllers/blogController');
-const { authenticate, requireAdmin, optionalAuthenticate, resolveGuestSession } = require('../middlewares/authenticate');
-const { reactionsLimiter } = require('../middlewares/rateLimiters');
-const { isAllowedEmoji } = require('../config/reactionValidation');
-const { query } = require('../db');
+const { authenticate, requireAdmin } = require('../middlewares/authenticate');
 
 // GET /api/blog
 router.get('/', getBlogPosts);
@@ -21,65 +18,16 @@ router.delete('/:id', authenticate, requireAdmin, deleteBlogPost);
 // GET /api/blog/:slug
 router.get('/:slug', getBlogPostBySlug);
 
-// GET /api/blog/:postId/reactions
-router.get('/:postId/reactions', optionalAuthenticate, resolveGuestSession, async (req, res) => {
-  const postId = req.params.postId
-  try {
-    const result = await query(
-      `SELECT emoji, COUNT(*) as count FROM post_reactions WHERE post_id = $1 GROUP BY emoji ORDER BY count DESC`,
-      [postId]
-    )
-    res.json({ success: true, data: result.rows })
-  } catch (err) {
-    // 這裡刻意在失敗時回空陣列而非 500：表情計數是文章頁的附屬資訊，
-    // 查不到不應該讓整篇文章讀不了。但錯誤要留下 log，不能靜默吞掉。
-    console.error('[BlogReactions] 查詢失敗:', err.stack || err.message)
-    res.json({ success: true, data: [] })
-  }
-})
-
-// POST /api/blog/:postId/reactions
+// GET/POST /api/blog/:postId/reactions 已於此處移除，連同 post_reactions 資料表。
 //
-// 身分改由已驗簽的憑證決定，不再採信 request body 的 session_id。原本的
-// 寫法有兩個問題：
-//   1. session_id 完全由請求端自報，送別人的值就能刪掉別人的反應，送無限
-//      個假值就能把計數灌到任意數字。
-//   2. `const sid = session_id || 'anon'` 讓所有沒帶值的訪客共用同一個身分
-//      —— 甲按讚之後乙按同一個表情會把甲的刪掉。這不需要攻擊，正常使用就
-//      會互相干擾。
-router.post('/:postId/reactions', optionalAuthenticate, resolveGuestSession, reactionsLimiter, async (req, res) => {
-  const { emoji } = req.body
-  const postId = req.params.postId
-
-  if (!isAllowedEmoji(emoji)) {
-    return res.status(400).json({ success: false, error: '不支援的表情' })
-  }
-
-  // 以 user_id 優先、guest session 為輔，兩者都沒有就拒絕寫入。
-  const column = req.userId ? 'user_id' : (req.guestSessionId ? 'session_id' : null)
-  const value = req.userId || req.guestSessionId
-  if (!column) {
-    return res.status(401).json({ success: false, error: '需要有效的身分憑證' })
-  }
-
-  try {
-    const existing = await query(
-      `SELECT id FROM post_reactions WHERE post_id = $1 AND emoji = $2 AND ${column} = $3`,
-      [postId, emoji, value]
-    )
-    if (existing.rows.length > 0) {
-      await query('DELETE FROM post_reactions WHERE id = $1', [existing.rows[0].id])
-      return res.json({ success: true, action: 'removed' })
-    }
-    await query(
-      `INSERT INTO post_reactions (post_id, user_id, session_id, emoji) VALUES ($1, $2, $3, $4)`,
-      [postId, req.userId || null, req.guestSessionId || null, emoji]
-    )
-    return res.json({ success: true, action: 'added' })
-  } catch (err) {
-    console.error('[BlogReactions] 寫入失敗:', err.stack || err.message)
-    return res.status(500).json({ success: false, error: '操作失敗' })
-  }
-})
+// 兩個端點是「部落格文章專屬表情反應」的第一版設計，配一張只含 post_id 的
+// post_reactions 資料表。它們在版控可見的歷史裡從來沒有被任何前端程式碼呼叫過
+// —— BlogPostPage.jsx 從第一個 commit 起就已經改用通用的 <Reactions
+// targetType targetId>，走的是 controllers/reactionsController.js 與 reactions
+// 資料表（target_type + target_id，同時服務 blog / project / comment）。
+//
+// 沒有呼叫端的可寫入端點，最安全的狀態是不存在：加固只能縮小攻擊面，移除才
+// 是消除。資料表本身不在自動 migration 裡刪除（DROP TABLE 不可逆，且會在每次
+// 部署時執行），改以 db/drop_post_reactions.sql 提供手動執行的腳本。
 
 module.exports = router;

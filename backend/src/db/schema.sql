@@ -98,17 +98,6 @@ CREATE TABLE IF NOT EXISTS blog_posts (
 
 CREATE INDEX IF NOT EXISTS idx_blog_posts_slug ON blog_posts(slug);
 
--- 表情符號反應
-CREATE TABLE IF NOT EXISTS post_reactions (
-  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  post_id    UUID        NOT NULL REFERENCES blog_posts(id) ON DELETE CASCADE,
-  user_id    UUID        REFERENCES users(id) ON DELETE SET NULL,
-  session_id VARCHAR(64),
-  emoji      VARCHAR(10) NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_reactions_post ON post_reactions(post_id);
-
 -- 遊戲排行榜
 CREATE TABLE IF NOT EXISTS leaderboard (
   id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),

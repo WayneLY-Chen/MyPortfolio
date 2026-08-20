@@ -91,18 +91,6 @@ export default function BlogPostPage() {
         .md-code { background: #111; border: 1px solid #222; border-radius: 4px; padding: 2px 8px; font-size: 13px; color: var(--accent); font-family: monospace; }
         .md-ul { margin: 0 0 20px 24px; }
         .md-ul li { color: #aaa; font-size: 16px; line-height: 1.85; margin-bottom: 8px; }
-        .emoji-reactions { padding: 48px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin: 48px 0; }
-        .reactions-label { font-size: 13px; color: var(--muted); margin-bottom: 20px; letter-spacing: 0.05em; }
-        .emoji-buttons { display: flex; gap: 12px; flex-wrap: wrap; }
-        .emoji-btn {
-          display: flex; align-items: center; gap: 8px;
-          background: var(--surface); border: 1px solid var(--border);
-          border-radius: 100px; padding: 10px 18px; cursor: pointer;
-          transition: border-color 0.3s, background 0.3s;
-        }
-        .emoji-btn:hover { border-color: var(--accent); background: rgba(212,240,41,0.08); }
-        .emoji-icon { font-size: 20px; }
-        .emoji-count { font-family: var(--font-sans); font-size: 13px; font-weight: 700; color: var(--fg); }
         .post-comments { max-width: 760px; margin: 0 auto; padding: 0 6vw 80px; }
         .post-comments-title { font-family: var(--font-sans); font-size: 22px; font-weight: 800; text-transform: uppercase; margin-bottom: 32px; letter-spacing: 0.05em; }
         .post-status { padding: 120px 6vw; text-align: center; color: var(--muted); }
