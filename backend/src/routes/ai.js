@@ -9,6 +9,7 @@ const path = require('path')
 const fs = require('fs')
 const { optionalAuthenticate } = require('../middlewares/authenticate')
 const { aiLimiter, ttsLimiter } = require('../middlewares/rateLimiters')
+const { resolveVoice, escapeForSsml, isValidTtsText } = require('../config/ttsValidation')
 const {
   TRACKS,
   LANGUAGES,
@@ -89,13 +90,18 @@ function buildSystemPrompt(mode, p) {
 - 計算區（分帳計算器）：可新增多位參與者，輸入消費項目與金額，自動計算每人應付金額，適合聚餐或團體活動分帳使用。
 - 待辦事項（Todo List）：可新增任務並設定提醒時間，時間到時會自動彈出通知，資料儲存於 localStorage，登入後才能使用提醒功能。`;
 
-  const modeInstructions = {
-    normal: '以專業、友善、熱情的語氣回答。繁體中文為主。回答要簡潔有重點。',
-    roast: '傲嬌毒舌模式。帶有吐槽感，偶爾嘲諷訪客，但還是會回答問題。繁體中文，口吻犀利有趣。',
-    praise: '把作者當神一樣崇拜，極盡讚美。語氣誇張熱情。繁體中文。'
-  }
+  // 必須是 Map，不可以改回物件字面值 —— 與本檔 TTS_RATE_WHITELIST 完全同一
+  // 個理由。mode 由請求端提供，用物件字面值查表時送 constructor /
+  // __proto__ / toString / valueOf / hasOwnProperty 會查到 Object.prototype
+  // 上的東西（truthy，所以 || 不會觸發），整包被內插進 system prompt，
+  // 取代掉原本的人格指令。實測五個鍵全部命中。Map 沒有原型鍵可命中。
+  const modeInstructions = new Map([
+    ["normal", '以專業、友善、熱情的語氣回答。繁體中文為主。回答要簡潔有重點。'],
+    ["roast", '傲嬌毒舌模式。帶有吐槽感，偶爾嘲諷訪客，但還是會回答問題。繁體中文，口吻犀利有趣。'],
+    ["praise", '把作者當神一樣崇拜，極盡讚美。語氣誇張熱情。繁體中文。'],
+  ])
 
-  return `${knowledgeBase}\n\n${modeInstructions[mode] || modeInstructions.normal}`
+  return `${knowledgeBase}\n\n${modeInstructions.get(mode) ?? modeInstructions.get('normal')}`
 }
 
 // /tts 逾時上限（ms）— 使用者主動觸發的逐句朗讀，給比 /chat 內部動態 TTS（4000/3000ms）更寬鬆的上限
@@ -112,16 +118,27 @@ const TTS_RATE_WHITELIST = new Map([[0.75, 0.75], [1, 1], [1.25, 1.25]])
 
 // POST /api/ai/tts
 router.post('/tts', optionalAuthenticate, ttsLimiter, async (req, res) => {
-  const { text, voice = 'zh-CN-XiaoxiaoNeural', rate } = req.body
-  if (!text) return res.status(400).json({ success: false, error: '缺少文字' })
+  const { text, voice, rate } = req.body
+  if (!isValidTtsText(text)) {
+    return res.status(400).json({ success: false, error: '文字缺少或過長' })
+  }
+
+  // 聲線一律走白名單，絕不採信請求端的值。msedge-tts 會把它原樣內插進
+  // <voice name="..."> 且不做任何跳脫，其內部的 /\w{2}-\w{2}/ 檢查是未錨定的
+  // 搜尋，擋不住注入。詳見 config/ttsValidation.js。
+  const safeVoice = resolveVoice(voice)
 
   try {
     const tts = new MsEdgeTTS()
-    await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3)
+    await tts.setMetadata(safeVoice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3)
 
-    const cleanText = text
+    const rawText = text
       .replace(/[*_~\[\]#`]/g, "")
       .replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "");
+
+    // XML 跳脫是真正封住 SSML 注入的那一步。上面兩個 replace 只是去掉唸起來
+    // 奇怪的 markdown 符號與 emoji，不具安全意義 —— 它們不含 < > & 引號。
+    const cleanText = escapeForSsml(rawText)
 
     // rate 屬於 ProsodyOptions,是 toStream() 的第二個參數 —— setMetadata() 的
     // MetadataOptions 裡沒有這個欄位,傳過去型別合法但執行期完全沒效果。
@@ -249,7 +266,6 @@ router.post('/chat', optionalAuthenticate, aiLimiter, async (req, res) => {
     console.error('[AI Chat] GEMINI_API_KEY is missing in process.env!');
     return res.status(500).json({ success: false, reply: '未設定 Gemini API Key，請檢查環境變數。' })
   }
-  console.log(`[AI Chat] Using Gemini Key: ${GEMINI_KEY.substring(0, 8)}...`);
 
   try {
     const genAI = new GoogleGenerativeAI(GEMINI_KEY)
