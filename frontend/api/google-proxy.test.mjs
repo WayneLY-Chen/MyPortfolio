@@ -47,14 +47,28 @@ function withEnvKey(value, fn) {
     });
 }
 
-test('INTERNAL_PROXY_KEY 未設定、請求不帶標頭 → 不是 401（寬限模式放行）', async () => {
+test('INTERNAL_PROXY_KEY 未設定 → 503（fail-closed，不再寬限放行）', async () => {
   await withEnvKey(undefined, async () => {
-    // req.url 故意不含 /api/google-proxy/，讓放行後的下一步（URL 解析）以 400 失敗，
-    // 全程不觸發任何網路存取，也不會碰到真的 Gemini。
-    const req = { method: 'POST', url: '/api/not-the-right-path', headers: {} };
+    // 密鑰缺席時必須在碰到 GEMINI_API_KEY 之前就擋下來。req.url 指向合法的
+    // proxy 路徑，證明擋下來的原因是閘門本身，而非後續 URL 解析失敗。
+    const req = { method: 'POST', url: '/api/google-proxy/v1beta/models', headers: {} };
     const res = createRes();
     await handler(req, res);
-    assert.notStrictEqual(res.statusCode, 401);
+    assert.strictEqual(res.statusCode, 503);
+    assert.deepStrictEqual(res.body, { error: 'Proxy not configured' });
+  });
+});
+
+test('未設定 PROXY_ALLOWED_ORIGINS 時不得回傳 CORS 標頭', async () => {
+  await withEnvKey('test-only-secret-value', async () => {
+    const req = {
+      method: 'OPTIONS',
+      url: '/api/google-proxy/v1beta/models',
+      headers: { origin: 'https://evil.example' },
+    };
+    const res = createRes();
+    await handler(req, res);
+    assert.strictEqual(res.headers['Access-Control-Allow-Origin'], undefined);
   });
 });
 

@@ -1,18 +1,38 @@
+// 允許跨網域呼叫的來源白名單（逗號分隔）。這支 proxy 目前只由後端 ai.js 與
+// evals 腳本以 server-to-server 方式呼叫 —— 那類請求不帶 Origin、也不受 CORS
+// 規範約束，因此預設不發任何 CORS 標頭。之所以留這個環境變數而非直接刪掉整段：
+// 日後若真的需要讓瀏覽器直接呼叫，補設環境變數即可，不必再改回萬用字元。
+const allowedOrigins = (process.env.PROXY_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-goog-api-client, x-internal-proxy-key');
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-goog-api-client, x-internal-proxy-key');
+  }
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  // 共享密鑰閘門（D-04/D-05）：寬限模式上線。這段必須在任何碰到
+  // 共享密鑰閘門（D-04/D-05）：fail-closed。這段必須在任何碰到
   // process.env.GEMINI_API_KEY 的程式碼之前執行，否則閘門形同虛設。
+  //
+  // 密鑰未設定時一律拒絕服務，不再以「寬限模式」放行：放行代表任何人都能
+  // 用本站的 GEMINI_API_KEY 呼叫 Gemini（帳單由站方支付），而失敗是靜默的
+  // —— Vercel 的 preview 環境若沒繼承這個變數，就會在無人察覺的情況下變成
+  // 一個對全網開放的免費 Gemini 代理。寧可整個功能壞掉讓人立刻發現。
   const internalProxyKey = process.env.INTERNAL_PROXY_KEY;
   if (!internalProxyKey) {
-    console.warn('Google Proxy: INTERNAL_PROXY_KEY 未設定，暫以寬限模式放行所有請求。');
-  } else if (req.headers['x-internal-proxy-key'] !== internalProxyKey) {
+    console.error('Google Proxy: INTERNAL_PROXY_KEY 未設定，拒絕服務。');
+    return res.status(503).json({ error: 'Proxy not configured' });
+  }
+  if (req.headers['x-internal-proxy-key'] !== internalProxyKey) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -44,7 +64,8 @@ export default async function handler(req, res) {
     const data = await response.text();
     res.status(response.status).send(data);
   } catch (err) {
+    // 內部錯誤細節（上游主機名、網路堆疊訊息）只寫 log，不回給呼叫端。
     console.error('Google Proxy Error:', err);
-    res.status(500).json({ error: 'Proxy fetch failed', details: err.message });
+    res.status(500).json({ error: 'Proxy fetch failed' });
   }
 }
