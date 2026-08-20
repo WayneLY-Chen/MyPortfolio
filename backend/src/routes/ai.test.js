@@ -241,3 +241,105 @@ describe('POST /api/ai/tts (SSML 注入防護)', () => {
     expect(res.status).toBe(400);
   });
 });
+
+// ---------------------------------------------------------------------------
+// /generate-image 與 /summarize 的輸入驗證（config/aiInputValidation.js）
+//
+// 這裡是路由層的回歸測試 —— 單元測試在 config/aiInputValidation.test.js。
+// 兩邊都要，因為單元測試證明不了「路由真的呼叫了驗證函式」。
+describe('POST /api/ai/generate-image 輸入驗證', () => {
+  // 修補前的實測結果（vitest + supertest，STABILITY_API_KEY 未設定）：
+  //
+  //   prompt=12345 (number)  -> outcome=HUNG-NO-RESPONSE
+  //                             unhandledRejections=["prompt.split is not a function"]
+  //   prompt={a:1} (object)  -> 同上
+  //   prompt=[1,2] (array)   -> 同上
+  //   prompt=true (boolean)  -> 同上
+  //   prompt="a cat" (string)-> outcome=200
+  //
+  // 請求永遠不回應，而 backend/src/index.js 沒有註冊 unhandledRejection
+  // handler，Node 24 的預設行為是中止行程。也就是一個未登入的訪客送
+  // {"prompt": 1} 就能讓整個後端掛掉。
+  //
+  // 這裡除了斷言狀態碼，也攔 unhandledRejection —— 只斷言「回了 400」無法區分
+  // 「驗證擋下」與「別的原因剛好也回 400」，而 rejection 才是那個真正致命的訊號。
+  const probeGenerateImage = async (body) => {
+    const rejections = [];
+    const onRejection = (reason) => rejections.push(reason);
+    process.on('unhandledRejection', onRejection);
+    const res = await Promise.race([
+      request(buildApp()).post('/api/ai/generate-image').send(body),
+      new Promise((resolve) => setTimeout(() => resolve({ status: 'HUNG-NO-RESPONSE' }), 2000)),
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    process.off('unhandledRejection', onRejection);
+    return { status: res.status, rejections: rejections.map((r) => String(r && r.message)) };
+  };
+
+  beforeEach(() => {
+    delete process.env.STABILITY_API_KEY;
+  });
+
+  it('非字串 prompt 回 400，且不再產生未攔截的 rejection', async () => {
+    for (const prompt of [12345, { a: 1 }, [1, 2], true]) {
+      const out = await probeGenerateImage({ prompt });
+      expect(out.status, `prompt=${JSON.stringify(prompt)} 應回 400`).toBe(400);
+      expect(
+        out.rejections,
+        `prompt=${JSON.stringify(prompt)} 產生未攔截的 rejection —— 真實伺服器會中止行程`
+      ).toEqual([]);
+    }
+  }, 20000);
+
+  // SANITY：合法輸入必須仍然走得通，否則上面每一則 400 都可能只是「全部都壞了」。
+  it('合法字串 prompt 仍然正常回應（示範模式）', async () => {
+    const out = await probeGenerateImage({ prompt: 'a cat sitting on a keyboard' });
+    expect(out.status).toBe(200);
+    expect(out.rejections).toEqual([]);
+  }, 20000);
+
+  it('缺少 prompt 回 400', async () => {
+    const res = await request(buildApp()).post('/api/ai/generate-image').send({});
+    expect(res.status).toBe(400);
+  });
+
+  it('超過 2000 字的 prompt 回 400，不會送進第三方 API', async () => {
+    const res = await request(buildApp())
+      .post('/api/ai/generate-image')
+      .send({ prompt: 'x'.repeat(2001) });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('POST /api/ai/summarize 輸入驗證', () => {
+  it('非字串 content 回 400', async () => {
+    for (const content of [123, { a: 1 }, [1]]) {
+      const res = await request(buildApp()).post('/api/ai/summarize').send({ content });
+      expect(res.status, `content=${JSON.stringify(content)} 應回 400`).toBe(400);
+    }
+  });
+
+  it('缺少 content 回 400', async () => {
+    const res = await request(buildApp()).post('/api/ai/summarize').send({ title: 'x' });
+    expect(res.status).toBe(400);
+  });
+
+  it('超過長度上限的 content 回 400', async () => {
+    const res = await request(buildApp())
+      .post('/api/ai/summarize')
+      .send({ content: 'x'.repeat(20001) });
+    expect(res.status).toBe(400);
+  });
+
+  // 修補前 title 完全沒有上限也沒有 slice，body 上限（100kb）內的任何長度都會
+  // 整份進入 prompt 並送進 Gemini 計費。這裡驗證它在到達模型之前就被截斷 ——
+  // 沒有 GEMINI_API_KEY 時會停在 500，那一步已經在驗證之後，足以證明驗證通過
+  // 而非被長度擋下（若 title 仍會被當成錯誤，狀態碼會是 400）。
+  it('超長 title 不會讓請求被拒，而是被截斷後繼續', async () => {
+    delete process.env.GEMINI_API_KEY;
+    const res = await request(buildApp())
+      .post('/api/ai/summarize')
+      .send({ content: '正常內容', title: 'T'.repeat(100000) });
+    expect(res.status).not.toBe(400);
+  });
+});
