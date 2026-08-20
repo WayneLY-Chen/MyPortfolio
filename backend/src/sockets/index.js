@@ -3,6 +3,11 @@ const gameState = require('./gameState');
 const { factionState, bossState, resetFaction, resetBoss } = gameState;
 const { verifyGuestSessionToken } = require('../utils/jwt');
 const { normalizeDamage, normalizePlayerName, recordDamage } = require('../config/bossValidation');
+const {
+  isValidGridIndex,
+  normalizeTeam,
+  teamColor,
+} = require('../config/factionValidation');
 
 // 紀錄中斷連線的計時器
 const disconnectTimers = {};
@@ -54,6 +59,29 @@ function initSockets(server) {
     const sessionId = socket.data.sessionId;
     console.log(`[Socket] 玩家連線: ${socket.id}, Session: ${sessionId}`);
 
+    // socket.io 不會攔截事件 handler 內拋出的例外 —— 它會一路變成
+    // uncaughtException，而本行程沒有註冊 uncaughtException handler，
+    // Node 24 的預設處置是中止行程。也就是任何一個 handler 裡沒被擋下的
+    // 例外，都是一個「送一個封包就能讓後端掛掉」的遠端 DoS。
+    //
+    // 本輪實測到的實例：faction_move 送 index='length' 會讓
+    // factionState.grid['length'] = 色碼 拋 RangeError: Invalid array length。
+    // 那一處已在上游修好輸入驗證，這裡是同類問題的最後一道防線 —— 例外被記錄
+    // 下來、那一次事件失敗，但連線與行程都還活著。
+    //
+    // 這裡刻意只包 socket 事件，不在行程層面攔 uncaughtException：行程層面的
+    // 攔截會讓所有來源的例外都被吞掉（包含真正需要重啟才安全的狀態損壞），
+    // 而 socket 事件 handler 都是同步的、彼此獨立，單一事件失敗不影響其他連線。
+    const on = (event, handler) => {
+      socket.on(event, (...args) => {
+        try {
+          handler(...args);
+        } catch (err) {
+          console.error(`[Socket] 事件 ${event} 處理失敗 (session=${sessionId}):`, err.stack || err.message);
+        }
+      });
+    };
+
     // 如果該玩家之前斷線在倒數中，清除計時器 (重連成功)
     if (sessionId && disconnectTimers[sessionId]) {
       console.log(`[Socket] 玩家 ${sessionId} 在 15s 內重連儲存成功`);
@@ -67,30 +95,41 @@ function initSockets(server) {
     // ─── 陣營大戰邏輯 ───────────────────────────────────────────────
     
     // 加入/更新大廳狀態
-    socket.on('join_faction', (data) => {
+    // name / team 先前完全未驗證：20 萬字的名字會原樣存進常駐的 players
+    // 物件並廣播給每一位連線者（實測確認），team 則接受任意字串。兩者現在
+    // 都經過 config/factionValidation.js 收斂。
+    on('join_faction', (data) => {
       const { name, team } = data || {};
       if (!sessionId) return;
-      
+
       const existing = factionState.players[sessionId];
+      // 空字串或未帶值時保留既有名字（重連、以及「還沒填暱稱就按加入」都會
+      // 走到這裡），與修改前 name || existing?.name || 預設值 的行為一致；
+      // 有帶值時才做正規化。
+      const resolvedName =
+        name === undefined || name === null || name === ''
+          ? (existing?.name || normalizePlayerName(null))
+          : normalizePlayerName(name);
+
       factionState.players[sessionId] = {
         socketId: socket.id,
         sessionId,
-        name: name || existing?.name || '勇者',
-        team: team || existing?.team || null,
+        name: resolvedName,
+        team: normalizeTeam(team) || existing?.team || null,
         isReady: existing?.isReady || false
       };
-      
+
       io.emit('lobby_update', { players: factionState.players, phase: factionState.phase });
-      
+
       // 送出目前的棋盤與狀態給這位新進來的玩家 (同步歷史資料)
-      socket.emit('faction_init', { 
-        grid: factionState.grid, 
-        phase: factionState.phase, 
-        timeLeft: factionState.timeLeft 
+      socket.emit('faction_init', {
+        grid: factionState.grid,
+        phase: factionState.phase,
+        timeLeft: factionState.timeLeft
       });
     });
 
-    socket.on('faction_ready', (ready) => {
+    on('faction_ready', (ready) => {
       if (!sessionId || !factionState.players[sessionId]) return;
       factionState.players[sessionId].isReady = ready;
       
@@ -105,18 +144,26 @@ function initSockets(server) {
       }
     });
 
-    socket.on('faction_move', (index) => {
+    // index 先前完全未驗證，實測確認兩種後果（見 config/factionValidation.js）：
+    //   index = 'length'  → RangeError → uncaughtException → 行程中止
+    //   index = 3000000   → grid 膨脹到三百萬格，且每次落子都整份廣播
+    on('faction_move', (index) => {
       if (factionState.phase !== 'playing') return;
+      if (!isValidGridIndex(index)) return;
       const player = factionState.players[sessionId];
-      if (!player || !player.team) return;
-      
-      const color = player.team === 'blue' ? '#3b82f6' : '#f97316';
+      if (!player) return;
+      const color = teamColor(player.team);
+      // 未選邊（team 為 null）或隊伍不在白名單上時不落子。
+      // 三元式原本是「team 等於 blue 就用藍色，否則一律用橘色」，任何非
+      // blue 的值——包含攻擊者自訂的字串——都會被當成橘隊並廣播出去。
+      if (!color) return;
+
       factionState.grid[index] = color;
-      
+
       io.emit('grid_update', { index, color, grid: factionState.grid });
     });
 
-    socket.on('faction_forfeit', () => {
+    on('faction_forfeit', () => {
       if (factionState.phase === 'playing') {
         handleForfeit(io, sessionId);
       }
@@ -124,9 +171,14 @@ function initSockets(server) {
 
     // ─── 尾刀爭奪戰邏輯 ───────────────────────────────────────────────
     
-    socket.on('boss_join', (name) => {
-      console.log(`[Boss] ${name} 加入戰場`);
-      if (sessionId) bossState.players[sessionId] = name;
+    // 名字先前未經正規化就存進常駐狀態並廣播 —— 上一輪修了 boss_attack 的
+    // player_name，卻漏了同一份狀態的另一個寫入點。實測 20 萬字的名字會原樣
+    // 存下並廣播給所有連線者。
+    on('boss_join', (name) => {
+      if (!sessionId) return;
+      const safeName = normalizePlayerName(name);
+      console.log('[Boss] ' + safeName + ' 加入戰場');
+      bossState.players[sessionId] = safeName;
       io.emit('boss_update', { bossState, updatePlayers: true });
       socket.emit('boss_init', { bossState });
     });
@@ -135,7 +187,7 @@ function initSockets(server) {
     // 這條才是前端實際走的路徑（FunPage.jsx 的 socket.emit），先前完全沒有驗證：
     // damage 送 'abc' 會讓 bossState.hp 變成 NaN 且永不復原（NaN 減任何數仍是
     // NaN，is_alive 也永遠不會轉 false），單一封包即可癱瘓整個功能直到重啟。
-    socket.on('boss_attack', (data) => {
+    on('boss_attack', (data) => {
       if (!bossState.is_alive) return;
 
       const damage = normalizeDamage(data?.damage);
@@ -170,7 +222,7 @@ function initSockets(server) {
     // 條件不會影響任何合法操作，但可擋掉「戰鬥進行中把別人的傷害排行清掉」
     // 的惡意重置。socket 只帶訪客 sessionId、沒有管理員身分，無法比照 REST
     // 的 /reset 鎖成管理員 —— 那會讓玩家再也無法開下一場。
-    socket.on('boss_reset', () => {
+    on('boss_reset', () => {
       if (bossState.is_alive) return;
       resetBoss();
       io.emit('boss_update', { bossState, reset: true });
@@ -178,7 +230,7 @@ function initSockets(server) {
 
     // ─── 斷線處理 ──────────────────────────────────────────────────
     
-    socket.on('disconnect', () => {
+    on('disconnect', () => {
       console.log(`[Socket] 玩家斷開: ${socket.id}, Session: ${sessionId}`);
       
       // 處理 Faction 斷線

@@ -7,10 +7,19 @@ const { query } = require('../db')
 const os = require('os')
 const path = require('path')
 const fs = require('fs')
-const { optionalAuthenticate } = require('../middlewares/authenticate')
+const { optionalAuthenticate, resolveGuestSession } = require('../middlewares/authenticate')
 const { aiLimiter, ttsLimiter } = require('../middlewares/rateLimiters')
 const { resolveVoice, escapeForSsml, isValidTtsText } = require('../config/ttsValidation')
-const { isValidChatMessage, sanitizeHistory } = require('../config/chatValidation')
+const { isValidChatMessage } = require('../config/chatValidation')
+const { getHistory, appendTurn, resetConversation } = require('../config/conversationStore')
+const {
+  IMAGE_PROMPT_MAX_CHARS,
+  isValidImagePrompt,
+  SUMMARY_CONTENT_MAX_CHARS,
+  normalizeSummaryType,
+  normalizeSummaryTitle,
+  isValidSummaryContent,
+} = require('../config/aiInputValidation')
 const {
   TRACKS,
   LANGUAGES,
@@ -197,7 +206,16 @@ const SDXL_VALID = new Set([
 // POST /api/ai/generate-image
 router.post('/generate-image', optionalAuthenticate, aiLimiter, async (req, res) => {
   let { prompt, width = 1024, height = 1024 } = req.body
-  if (!prompt) return res.status(400).json({ success: false, error: '缺少 prompt' })
+  // 修補前這裡只有 `if (!prompt)`，非字串（數字、物件、陣列、布林）一律放行，
+  // 之後在 prompt.split('') 爆掉 —— 那個位置沒有 try/catch，而 Express 4 不會
+  // 接住 async handler 的 rejection，因此變成 unhandledRejection，Node 24 預設
+  // 中止行程。詳見 config/aiInputValidation.js。
+  if (!isValidImagePrompt(prompt)) {
+    return res.status(400).json({
+      success: false,
+      error: `prompt 缺少、格式不正確，或超過 ${IMAGE_PROMPT_MAX_CHARS} 字`,
+    })
+  }
   width = Number(width); height = Number(height)
   if (!SDXL_VALID.has(`${width}x${height}`)) { width = 1024; height = 1024 }
 
@@ -210,7 +228,9 @@ router.post('/generate-image', optionalAuthenticate, aiLimiter, async (req, res)
       const translateRes = await axios.get(translateUrl)
       if (translateRes.data && translateRes.data[0] && translateRes.data[0][0][0]) {
         englishPrompt = translateRes.data[0][0][0]
-        console.log(`[AI Image] Google Translated: "${prompt}" -> "${englishPrompt}"`)
+        // 只記長度不記內容：prompt 完全由請求端控制，含換行的字串會在 log 裡
+        // 偽造出額外的行（log injection）。翻譯是否成功用長度就看得出來。
+        console.log(`[AI Image] Google Translated: ${prompt.length} chars -> ${String(englishPrompt).length} chars`)
       }
     } catch (e) {
       console.warn('[AI Image] Translate failed, using original prompt:', e.message)
@@ -248,27 +268,48 @@ router.post('/generate-image', optionalAuthenticate, aiLimiter, async (req, res)
       }
     )
     const data = await response.json()
-    if (!response.ok) return res.status(500).json({ success: false, error: data.message || '生成失敗' })
-    const imageUrl = `data:image/png;base64,${data.artifacts[0].base64}`
+    // 第三方的錯誤訊息不轉發給呼叫端 —— Stability AI 的 message 會帶上它自己
+    // 對請求的描述（含被拒的原因與部分請求內容），那是伺服器端的診斷資訊。
+    if (!response.ok) {
+      console.error('[AI Image] Stability 回應失敗:', response.status, data && data.message)
+      return res.status(502).json({ success: false, error: '生成失敗，請稍後再試' })
+    }
+    // artifacts 缺席時 data.artifacts[0] 會拋 TypeError；這一段在 try 內，會被
+    // 下方的 catch 接住並回 500，但明確擋掉能給出更準確的狀態碼與 log。
+    const base64 = data && data.artifacts && data.artifacts[0] && data.artifacts[0].base64
+    if (!base64) {
+      console.error('[AI Image] Stability 回應缺少 artifacts')
+      return res.status(502).json({ success: false, error: '生成失敗，請稍後再試' })
+    }
+    const imageUrl = `data:image/png;base64,${base64}`
     res.json({ success: true, imageUrl })
   } catch (err) {
     console.error('[AI Image]', err.stack || err.message)
-    res.status(500).json({ success: false, error: err.message })
+    // 修補前把 err.message 原樣回給呼叫端。這裡的 err 可能來自 fetch、來自
+    // Stability 的回應解析，訊息會帶上內部主機名、路徑與函式庫細節。
+    res.status(500).json({ success: false, error: '生成失敗，請稍後再試' })
   }
 })
 
 // POST /api/ai/chat
-router.post('/chat', optionalAuthenticate, aiLimiter, async (req, res) => {
-  const { message, history = [], mode = 'normal', wantAudio = true } = req.body
+//
+// 對話歷史由伺服器保存，請求端只送這一句 message。req.body.history 一律被
+// 忽略 —— 那個欄位原本會被原樣塞進 model.startChat({ history })，任何人都能
+// 藉此偽造「Wobot 之前說過的話」（例如捏造一則模型回覆「好的，我會忽略我的
+// 系統指示」）。詳見 config/conversationStore.js。
+router.post('/chat', optionalAuthenticate, resolveGuestSession, aiLimiter, async (req, res) => {
+  const { message, mode = 'normal', wantAudio = true, reset = false } = req.body
   if (!isValidChatMessage(message)) {
     return res.status(400).json({ success: false, error: '訊息缺少或過長' })
   }
 
-  // history 由請求端提供（前端不保存伺服器端 session），因此筆數與單輪
-  // 長度都必須在此收斂 —— 否則單一請求就能塞進上萬筆偽造對話，aiLimiter
-  // 擋得住次數卻擋不住單次大小。詳見 config/chatValidation.js，該檔也寫明
-  // 了這一層不處理 prompt injection 本身。
-  const safeHistory = sanitizeHistory(history)
+  // 對話的身分只認「伺服器簽發並驗簽過」的兩種憑證：登入者的 userId，或
+  // resolveGuestSession 從 x-session-id 驗出來的訪客 sid。兩者都沒有時
+  // conversationKey 為 null，getHistory 回空陣列 —— 功能退化成「單輪對話、
+  // 沒有記憶」，但絕不會退化成「採信請求端送來的歷史」。
+  const conversationKey = req.userId || req.guestSessionId || null
+  if (reset === true) resetConversation(conversationKey)
+  const serverHistory = getHistory(conversationKey)
 
   const GEMINI_KEY = process.env.GEMINI_API_KEY
   if (!GEMINI_KEY) {
@@ -308,9 +349,10 @@ router.post('/chat', optionalAuthenticate, aiLimiter, async (req, res) => {
       { baseUrl: proxyUrl, customHeaders: { 'x-internal-proxy-key': process.env.INTERNAL_PROXY_KEY } }
     )
 
-    // 使用 chat session 實現記憶功能
+    // 使用 chat session 實現記憶功能。history 來自伺服器端的 conversationStore，
+    // 不是請求 body —— 這是 prompt injection 那條的實際修法。
     const chat = model.startChat({
-      history: safeHistory, // 已收斂：見上方 sanitizeHistory
+      history: serverHistory,
       generationConfig: { maxOutputTokens: 1000 }
     })
 
@@ -330,6 +372,11 @@ router.post('/chat', optionalAuthenticate, aiLimiter, async (req, res) => {
     if (!result) throw lastErr
 
     const reply = result.response.text()
+
+    // 成功拿到回覆之後才記錄這一輪。user 與 model 兩則一起寫入，避免中途失敗
+    // 留下落單的 user 輪 —— Gemini 要求 history 必須 user/model 交替並以 user
+    // 開頭，落單的一則會讓下一次請求帶著不合法的歷史過去。
+    appendTurn(conversationKey, message, reply)
 
     // --- 動態生成 TTS 音訊 (曉曉) --- 使用更加速度優化的 Stream 模式
     let audioBase64 = null
@@ -367,11 +414,15 @@ router.post('/chat', optionalAuthenticate, aiLimiter, async (req, res) => {
 
     res.json({ success: true, reply, audio: audioBase64 })
   } catch (err) {
-    console.error('[AI Chat] Detailed Error Object:', err);
-    let errorMsg = '我的大腦發生意外了，喵... (GoogleGenerativeAI Error)';
-    const isQuota = err.message.includes('429') || err.message.includes('quota')
-    const isBusy = err.message.includes('503') || err.message.includes('demand') || err.message.includes('Unavailable')
-    const isModel = err.message.includes('not found') || err.message.includes('404')
+    console.error('[AI Chat]', err.stack || err.message);
+    // err 未必是 Error —— 第三方函式庫 reject 一個字串或物件時 err.message 是
+    // undefined，.includes 會在 catch 內再拋一次；那一次沒有任何東西接得住，
+    // 會變成 unhandledRejection（Express 4 不接 async handler 的 rejection），
+    // Node 24 預設中止行程。先收斂成字串再比對。
+    const errMessage = String((err && err.message) || err || '')
+    const isQuota = errMessage.includes('429') || errMessage.includes('quota')
+    const isBusy = errMessage.includes('503') || errMessage.includes('demand') || errMessage.includes('Unavailable')
+    const isModel = errMessage.includes('not found') || errMessage.includes('404')
 
     let reply
     if (isQuota) {
@@ -405,14 +456,26 @@ router.post('/chat', optionalAuthenticate, aiLimiter, async (req, res) => {
       console.warn('[AI Chat] Error-path TTS regeneration failed:', e.stack || e.message)
     }
 
-    res.status(500).json({ success: false, reply, audio: audioBase64, error: err.message })
+    // 不回傳 err.message：上面已經依錯誤類別給了對使用者有意義的 reply，
+    // 原始訊息只會多洩漏 Gemini SDK 的請求網址、模型名稱與內部路徑。
+    res.status(500).json({ success: false, reply, audio: audioBase64 })
   }
 })
 
 // POST /api/ai/summarize
 router.post('/summarize', optionalAuthenticate, aiLimiter, async (req, res) => {
   const { type, title, content } = req.body
-  if (!content) return res.status(400).json({ success: false, error: '缺少內容' })
+  // 修補前只有 `if (!content)`：非字串會走到 content.slice() 上，而 title
+  // 是唯一一個原樣、無界進入 prompt 的欄位（content 至少有 slice(0, 2000)），
+  // 因此 body 上限內的任何長度都會整份送進 Gemini 計費。
+  if (!isValidSummaryContent(content)) {
+    return res.status(400).json({
+      success: false,
+      error: `內容缺少、格式不正確，或超過 ${SUMMARY_CONTENT_MAX_CHARS} 字`,
+    })
+  }
+  const safeType = normalizeSummaryType(type)
+  const safeTitle = normalizeSummaryTitle(title) || '無標題'
 
   const GEMINI_KEY = process.env.GEMINI_API_KEY
   if (!GEMINI_KEY) return res.status(500).json({ success: false, error: '未設定 Key' })
@@ -421,14 +484,21 @@ router.post('/summarize', optionalAuthenticate, aiLimiter, async (req, res) => {
     const genAI = new GoogleGenerativeAI(GEMINI_KEY)
     const model = genAI.getGenerativeModel({
       model: 'gemini-3.1-flash-lite',
-      systemInstruction: '你是 Wayne 個人網站的 AI 助理 Wobot。請用繁體中文精簡總結內容。'
+      // 摘要會被前端以 markdown 渲染，因此明確要求純文字 markdown。這不是
+      // XSS 的防線（真正的防線是 Projects.jsx 不再對 AI 輸出啟用 rehypeRaw），
+      // 只是讓模型少產出需要被丟掉的東西。
+      systemInstruction:
+        '你是 Wayne 個人網站的 AI 助理 Wobot。請用繁體中文精簡總結內容。'
+        + '只輸出純文字與基本 markdown，不要輸出任何 HTML 標籤。'
     })
-    const prompt = `請總結以下${type === 'blog' ? '部落格文章' : '專案'}：\n標題：${title || '無標題'}\n內容：${content.slice(0, 2000)}`
+    const prompt = `請總結以下${safeType === 'blog' ? '部落格文章' : '專案'}：\n標題：${safeTitle}\n內容：${content.slice(0, 2000)}`
     const result = await model.generateContent(prompt)
     res.json({ success: true, summary: result.response.text() })
   } catch (err) {
     console.error('[AI Summarize]', err.stack || err.message)
-    res.status(500).json({ success: false, error: err.message })
+    // 修補前把 err.message 原樣回給呼叫端。Gemini SDK 的錯誤訊息會帶上請求
+    // 網址與模型名稱等內部細節，那是伺服器端的診斷資訊。
+    res.status(500).json({ success: false, error: '摘要產生失敗，請稍後再試' })
   }
 })
 

@@ -49,6 +49,7 @@ import { query, pool, runMigrations, migrationsReady } from '../db/__mocks__/ind
 import { fetchUserRepos, fetchRepoLanguages, fetchRepoReadme } from '../services/__mocks__/githubService.js';
 import passportStub from '../config/__mocks__/passport.js';
 import { MsEdgeTTS, OUTPUT_FORMAT } from './__mocks__/msedge-tts.js';
+import * as geminiStub from './__mocks__/google-generative-ai.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // `msedge-tts` is a third-party package resolved via node_modules, not a
@@ -64,6 +65,7 @@ const redirects = [
   { realPath: path.resolve(__dirname, '../services/githubService.js'), mockExports: { fetchUserRepos, fetchRepoLanguages, fetchRepoReadme } },
   { realPath: path.resolve(__dirname, '../config/passport.js'), mockExports: passportStub },
   { realPath: nodeRequire.resolve('msedge-tts'), mockExports: { MsEdgeTTS, OUTPUT_FORMAT } },
+  { realPath: nodeRequire.resolve('@google/generative-ai'), mockExports: geminiStub },
 ];
 
 if (!Module._load.__gsdDbMockPatched) {

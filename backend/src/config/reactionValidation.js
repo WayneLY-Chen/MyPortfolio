@@ -4,15 +4,17 @@
 // bossValidation.js）：驗證規則集中在 config/ 下的獨立模組，路由層只負責
 // 接收與回應。
 //
-// 為什麼要共用：本專案有兩套各自獨立的表情反應實作——
+// 為什麼獨立成一個模組：本專案原本有兩套各自獨立的表情反應實作——
 //   routes/reactions.js  + controllers/reactionsController.js → reactions 資料表
 //   routes/blog.js 的 /:postId/reactions                      → post_reactions 資料表
-// 兩者先前都沒有任何 emoji 驗證。與 Boss 戰 REST/Socket 那次相同，只修一邊
-// 等於沒修，因此規則只留一份在這裡。
+// 兩者先前都沒有任何 emoji 驗證，因此規則集中在這裡，避免只修一邊。後來查明
+// 第二套（blog.js 那對端點與 post_reactions 資料表）在版控可見的歷史裡從來
+// 沒有被任何前端呼叫過，已整組移除，現在只剩第一套在用這個模組。
 
 // 允許的表情，取前端兩份清單的聯集：
 //   frontend/src/components/Reactions.jsx  → 👍 ❤️ 😂 🔥 🚀
-//   frontend/src/pages/BlogPostPage.jsx    → 👍 ❤️ 🔥 🤔 😮
+//   frontend/src/pages/BlogPostPage.jsx    → 👍 ❤️ 🔥 🤔 😮（該頁的死程式碼，已移除）
+// 聯集維持原樣，不因為死程式碼被移除就縮小既有的允許集合。
 // 兩份清單本來就不一致，這裡取聯集是為了不讓任何一頁的既有行為壞掉。
 //
 // 為什麼需要白名單：emoji 欄位先前完全未驗證，任何字串都能寫進資料庫。

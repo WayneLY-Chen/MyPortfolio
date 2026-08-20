@@ -6,6 +6,7 @@ import Footer from '../components/Footer'
 import Comments from '../components/Comments'
 import Reactions from '../components/Reactions'
 import useLenis from '../hooks/useLenis'
+import { renderMarkdown } from '../utils/blogMarkdown'
 
 const GRADIENTS = [
   'linear-gradient(135deg, #d4f029 0%, #b8d400 100%)',
@@ -17,26 +18,6 @@ const GRADIENTS = [
 
 
 
-function renderMarkdown(text) {
-  if (!text) return ''
-  let html = text
-  html = html.replace(/```[\w]*\n([\s\S]*?)```/g, (_, code) =>
-    `<pre class="md-pre"><code>${code.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</code></pre>`
-  )
-  html = html.replace(/^## (.+)$/gm, '<h2 class="md-h2">$1</h2>')
-  html = html.replace(/^### (.+)$/gm, '<h3 class="md-h3">$1</h3>')
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>')
-  html = html.replace(/`([^`]+)`/g, '<code class="md-code">$1</code>')
-  html = html.replace(/^- (.+)$/gm, '<li>$1</li>')
-  html = html.replace(/(<li>[\s\S]+?<\/li>)\n(?!<li>)/g, '$1</ul>\n')
-  html = html.replace(/(?:^|\n)(<li>)/g, '\n<ul class="md-ul">$1')
-  html = html.replace(/\n\n/g, '</p><p class="md-p">')
-  html = `<p class="md-p">${html}</p>`
-  html = html.replace(/<p class="md-p">(<(?:h[23]|pre|ul)[^>]*>)/g, '$1')
-  html = html.replace(/(<\/(?:h[23]|pre|ul)>)<\/p>/g, '$1')
-  return html
-}
 
 
 
@@ -91,18 +72,6 @@ export default function BlogPostPage() {
         .md-code { background: #111; border: 1px solid #222; border-radius: 4px; padding: 2px 8px; font-size: 13px; color: var(--accent); font-family: monospace; }
         .md-ul { margin: 0 0 20px 24px; }
         .md-ul li { color: #aaa; font-size: 16px; line-height: 1.85; margin-bottom: 8px; }
-        .emoji-reactions { padding: 48px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin: 48px 0; }
-        .reactions-label { font-size: 13px; color: var(--muted); margin-bottom: 20px; letter-spacing: 0.05em; }
-        .emoji-buttons { display: flex; gap: 12px; flex-wrap: wrap; }
-        .emoji-btn {
-          display: flex; align-items: center; gap: 8px;
-          background: var(--surface); border: 1px solid var(--border);
-          border-radius: 100px; padding: 10px 18px; cursor: pointer;
-          transition: border-color 0.3s, background 0.3s;
-        }
-        .emoji-btn:hover { border-color: var(--accent); background: rgba(212,240,41,0.08); }
-        .emoji-icon { font-size: 20px; }
-        .emoji-count { font-family: var(--font-sans); font-size: 13px; font-weight: 700; color: var(--fg); }
         .post-comments { max-width: 760px; margin: 0 auto; padding: 0 6vw 80px; }
         .post-comments-title { font-family: var(--font-sans); font-size: 22px; font-weight: 800; text-transform: uppercase; margin-bottom: 32px; letter-spacing: 0.05em; }
         .post-status { padding: 120px 6vw; text-align: center; color: var(--muted); }
