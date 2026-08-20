@@ -15,13 +15,7 @@ const GRADIENTS = [
   'linear-gradient(135deg, #373b44 0%, #4286f4 100%)',
 ]
 
-const EMOJIS = ['👍', '❤️', '🔥', '🤔', '😮']
 
-function getSessionId() {
-  let id = localStorage.getItem('reaction_session_id')
-  if (!id) { id = Math.random().toString(36).substring(2, 15); localStorage.setItem('reaction_session_id', id) }
-  return id
-}
 
 function renderMarkdown(text) {
   if (!text) return ''
