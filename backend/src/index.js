@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const http = require('http');
@@ -25,6 +26,21 @@ const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
 
 // Middleware
+
+// 安全標頭。掛在最前面，讓所有回應（含 CORS 預檢與錯誤回應）都帶上。
+//
+// crossOriginResourcePolicy 明確設為 cross-origin：helmet 預設是 same-origin，
+// 而本服務是公開 API，前端在另一個網域（Vercel）。目前 /ai/tts 的音訊是用
+// fetch + res.blob() 取回的（CORS 模式，不受 CORP 約束），所以預設值今天不會
+// 出問題；但只要哪天改成用 <audio src> 直接載入就會變成 no-cors 請求而被擋，
+// 且症狀難以追查。對公開 API 而言 same-origin 也換不到實質保護，故明確放寬。
+//
+// 其餘預設值（CSP、X-Content-Type-Options、Referrer-Policy、HSTS 等）維持
+// helmet 的預設。本服務只回傳 JSON 與二進位音訊、不產生 HTML 頁面，預設 CSP
+// 不會影響任何既有行為，但能保護框架自動產生的錯誤頁。
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 
 // CORS
 const frontendUrls = (process.env.FRONTEND_URL || '').split(',').map(u => u.trim()).filter(Boolean);
