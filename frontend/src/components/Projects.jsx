@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import ReactMarkdown from 'react-markdown'
 import rehypeRaw from 'rehype-raw'
+import rehypeSanitize from 'rehype-sanitize'
+import { README_SANITIZE_SCHEMA } from '../utils/markdownSanitize'
 import remarkGfm from 'remark-gfm'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
@@ -112,7 +114,8 @@ function AiSummaryButton({ type, title, content }) {
           ) : (
             <div className="ai-summary-content" style={{ fontSize: '13.5px', color: '#bbb', lineHeight: 1.7 }}>
               <ReactMarkdown
-                rehypePlugins={[rehypeRaw]}
+                // AI 摘要不啟用 rehypeRaw：模型輸出沒有任何需要原始 HTML 的理由，
+                // 拿掉之後 React 內建的跳脫就會生效。詳見 utils/markdownSanitize.js。
                 remarkPlugins={[remarkGfm]}
                 components={{
                   p: ({node, ...props}) => <p style={{ margin: 0 }} {...props} />,
@@ -919,7 +922,7 @@ export default function Projects({ limit = 3 }) {
                       ) : (
                         <div className="project-content-markdown" style={{ fontSize: '17px', color: '#aaa', lineHeight: 1.85, fontWeight: 300, marginBottom: '32px', overflowWrap: 'break-word', wordBreak: 'break-word' }}>
                           <ReactMarkdown
-                            rehypePlugins={[rehypeRaw]}
+                            rehypePlugins={[rehypeRaw, [rehypeSanitize, README_SANITIZE_SCHEMA]]}
                             remarkPlugins={[remarkGfm]}
                             components={{
                               h1: ({node, ...props}) => <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: 800, margin: '24px 0 12px' }} {...props} />,

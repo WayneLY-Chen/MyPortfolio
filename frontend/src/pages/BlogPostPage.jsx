@@ -6,6 +6,7 @@ import Footer from '../components/Footer'
 import Comments from '../components/Comments'
 import Reactions from '../components/Reactions'
 import useLenis from '../hooks/useLenis'
+import { renderMarkdown } from '../utils/blogMarkdown'
 
 const GRADIENTS = [
   'linear-gradient(135deg, #d4f029 0%, #b8d400 100%)',
@@ -17,26 +18,6 @@ const GRADIENTS = [
 
 
 
-function renderMarkdown(text) {
-  if (!text) return ''
-  let html = text
-  html = html.replace(/```[\w]*\n([\s\S]*?)```/g, (_, code) =>
-    `<pre class="md-pre"><code>${code.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</code></pre>`
-  )
-  html = html.replace(/^## (.+)$/gm, '<h2 class="md-h2">$1</h2>')
-  html = html.replace(/^### (.+)$/gm, '<h3 class="md-h3">$1</h3>')
-  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>')
-  html = html.replace(/`([^`]+)`/g, '<code class="md-code">$1</code>')
-  html = html.replace(/^- (.+)$/gm, '<li>$1</li>')
-  html = html.replace(/(<li>[\s\S]+?<\/li>)\n(?!<li>)/g, '$1</ul>\n')
-  html = html.replace(/(?:^|\n)(<li>)/g, '\n<ul class="md-ul">$1')
-  html = html.replace(/\n\n/g, '</p><p class="md-p">')
-  html = `<p class="md-p">${html}</p>`
-  html = html.replace(/<p class="md-p">(<(?:h[23]|pre|ul)[^>]*>)/g, '$1')
-  html = html.replace(/(<\/(?:h[23]|pre|ul)>)<\/p>/g, '$1')
-  return html
-}
 
 
 
