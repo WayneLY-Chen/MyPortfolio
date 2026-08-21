@@ -15,6 +15,8 @@ const {
   isValidEmail,
   isValidDisplayName,
   isValidPassword,
+  normalizeEmail,
+  isSameEmail,
 } = require('../config/registrationValidation');
  
 // bcrypt 的 cost factor。先前 POST /register 用 12、POST /reset-password 用 10，
@@ -101,7 +103,9 @@ router.post('/register', registerLimiter, async (req, res) => {
     return res.status(400).json({ success: false, error: `密碼需為 ${PASSWORD_MIN_LEN}–${PASSWORD_MAX_LEN} 個字元` });
   }
   try {
-    const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
+    // LOWER() 比對：修補前 a@example.com 與 A@example.com 會通過這道檢查
+    // 而變成兩個帳號。詳見 config/registrationValidation.js。
+    const existing = await query('SELECT id FROM users WHERE LOWER(email) = LOWER($1)', [email]);
     if (existing.rows.length > 0) {
       return res.status(409).json({ success: false, error: 'Email 已被使用' });
     }
@@ -127,7 +131,7 @@ router.post('/register', registerLimiter, async (req, res) => {
          (email, password_hash, display_name, role, is_verified, verification_token, verification_expires_at)
        VALUES ($1, $2, $3, 'visitor', false, $4, $5)
        RETURNING id, email, display_name, avatar_url, role, is_verified, created_at`,
-      [email.trim(), passwordHash, display_name.trim(), verificationToken, verificationExpiresAt]
+      [normalizeEmail(email), passwordHash, display_name.trim(), verificationToken, verificationExpiresAt]
     );
     const user = result.rows[0];
 
@@ -185,7 +189,9 @@ router.get('/verify', async (req, res) => {
     // 賦予 role: 'admin'。需在 .env 設定 ADMIN_EMAIL 以指定管理員帳號。
     // 用同一句 UPDATE 的 CASE 表達式完成，避免多一次查詢或競態；未命中
     // ADMIN_EMAIL 時 role 維持 POST /register 寫入的既有值不變。
-    const promoteToAdmin = user.email === process.env.ADMIN_EMAIL;
+    // 不分大小寫比對。這不是放寬：走到這一行代表使用者已經收到寄往該
+    // 信箱的驗證信並點擊了其中的連結，也就是必須真的控制那個信箱。
+    const promoteToAdmin = isSameEmail(user.email, process.env.ADMIN_EMAIL);
     // 標記帳號為已驗證並清除 token
     await query(
       `UPDATE users
@@ -213,7 +219,7 @@ router.post('/resend-verification', emailDispatchLimiter, async (req, res) => {
   }
   try {
     const result = await query(
-      'SELECT id, email, is_verified FROM users WHERE email = $1 AND is_active = true',
+      'SELECT id, email, is_verified FROM users WHERE LOWER(email) = LOWER($1) AND is_active = true',
       [email]
     );
     // 無論帳號是否存在，回傳相同訊息以防止帳號枚舉
@@ -269,7 +275,7 @@ router.post('/forgot-password', emailDispatchLimiter, async (req, res) => {
   }
   try {
     const result = await query(
-      'SELECT id, email FROM users WHERE email = $1 AND is_active = true',
+      'SELECT id, email FROM users WHERE LOWER(email) = LOWER($1) AND is_active = true',
       [email]
     );
     if (result.rows.length === 0) {
