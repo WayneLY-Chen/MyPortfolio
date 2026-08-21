@@ -1,14 +1,21 @@
 const { Pool } = require('pg');
 require('dotenv').config();
+const { resolveDbSslOption, describeSslMode } = require('../config/dbSsl');
 
 const dbUrl = process.env.DATABASE_URL || '';
-const isHostedDb = dbUrl.includes('supabase.co') || dbUrl.includes('supabase.com') || dbUrl.includes('neon.tech');
 
+// TLS 憑證驗證改為 fail-closed。先前這裡是 `{ rejectUnauthorized: false }`。
+//
+// 重要的前提，別誤讀：那行其實是死碼。pg 的 connection-parameters.js 讓連線
+// 字串解析出來的值覆蓋程式傳入的值，因此只要 DATABASE_URL 帶了 sslmode，
+// 程式這一側寫什麼都會被丟掉（已實測）。憑證驗證一直都是開著的。
+//
+// 改它的理由有二：一是 DATABASE_URL 若哪天換成不含 sslmode 的版本，那行就
+// 會活過來並真的關掉驗證；二是死碼會誤導下一個讀它的人。
+// 完整的實測結果與 pg v9 的行為變更詳見 config/dbSsl.js。
 const pool = new Pool({
   connectionString: dbUrl,
-  ssl: isHostedDb || process.env.NODE_ENV === 'production'
-    ? { rejectUnauthorized: false }
-    : false,
+  ssl: resolveDbSslOption(dbUrl),
 });
 
 pool.on('connect', () => {
@@ -23,6 +30,19 @@ try {
   console.log(`[DB] Target host: ${new URL(dbUrl).hostname}`);
 } catch {
   console.log('[DB] Target host: (無法解析 DATABASE_URL)');
+}
+
+// 把「這條連線到底會不會驗證伺服器身分」變成啟動時看得見的一行。
+//
+// 這一段存在的理由是 pg v9 的行為變更：sslmode=require/prefer/verify-ca 屆時
+// 會改成「加密但不驗證身分」，而程式碼擋不住（連線字串永遠覆蓋程式設定）。
+// 沒有這行警告的話，那次退化不會有任何錯誤、任何行為變化，只是從某次
+// npm update 起就不再驗證對方是誰。詳見 config/dbSsl.js。
+const sslStatus = describeSslMode(dbUrl);
+if (sslStatus.level === 'warn') {
+  console.warn(`[DB] TLS 設定警告: ${sslStatus.message}`);
+} else if (sslStatus.level === 'ok') {
+  console.log(`[DB] TLS: ${sslStatus.message}`);
 }
 
 // 自動執行資料庫欄位遷移，確保新增欄位存在
