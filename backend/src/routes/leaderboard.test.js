@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Must be the first statements, before every other import — see
 // backend/src/routes/auth.test.js for why vi.mock('../db') must precede the
@@ -10,6 +10,15 @@ import request from 'supertest';
 import leaderboardRouter from './leaderboard.js';
 import { query } from '../db';
 import { LEGACY_SELECT } from '../config/leaderboardQuery.js';
+import { _resetAllLimitersForTests } from '../middlewares/rateLimiters.js';
+
+// POST /api/leaderboard 這一輪補上了 leaderboardLimiter（每分鐘 20 次，以 IP
+// 計量）。本檔在同一個行程內對同一條路由發數十次請求，全部來自 127.0.0.1，
+// 不重置計數的話後半段測試會一律拿到 429 —— 失敗原因會變成「額度用完」而
+// 不是被測的邏輯。
+beforeEach(() => {
+  _resetAllLimitersForTests();
+});
 
 // Build a fresh, minimal Express app per call, mounting only the leaderboard
 // router at the same path backend/src/index.js uses (index.js:122) — never
@@ -273,14 +282,34 @@ describe('既有行為(必填欄位與分數格式,本計畫未改動)', () => {
     expect(res.body).toEqual({ success: false, error: '分數無效' });
   });
 
-  it('query reject 時 → 500 且回應形狀為 { success: false, error }', async () => {
-    query.mockRejectedValueOnce(new Error('DB 掛了'));
+  it('query reject 時 → 500，且不把原始錯誤訊息回給呼叫端', async () => {
+    // 修補前這裡回的是 err.message 本身。pg 的錯誤訊息會帶上主機位址、
+    // 連接埠與 SQL 片段（實測過一個真實例子的形狀：
+    // "connect ECONNREFUSED 10.0.0.5:5432"），那是伺服器端的診斷資訊，
+    // 只該進 log。
+    query.mockRejectedValueOnce(new Error('connect ECONNREFUSED 10.0.0.5:5432'));
     const res = await request(buildApp()).post('/api/leaderboard').send({
       player_name: 'test',
       score: 10,
     });
     expect(res.status).toBe(500);
-    expect(res.body).toEqual({ success: false, error: 'DB 掛了' });
+    expect(res.body).toEqual({ success: false, error: '寫入排行榜失敗' });
+    expect(JSON.stringify(res.body)).not.toContain('ECONNREFUSED');
+    expect(JSON.stringify(res.body)).not.toContain('10.0.0.5');
+  });
+
+  it('超過每分鐘 20 次之後回 429 —— 這個端點免登入且每次呼叫都寫一列', async () => {
+    const app = buildApp();
+    query.mockResolvedValue({ rows: [] });
+    const statuses = [];
+    for (let i = 0; i < 22; i++) {
+      const res = await request(app).post('/api/leaderboard').send({ player_name: 'p', score: 1 });
+      statuses.push(res.status);
+    }
+    // 前 20 次通過，第 21、22 次被擋
+    expect(statuses.slice(0, 20).every((s) => s === 200), `前 20 次應全部成功，實際: ${statuses.slice(0, 20)}`).toBe(true);
+    expect(statuses[20]).toBe(429);
+    expect(statuses[21]).toBe(429);
   });
 });
 

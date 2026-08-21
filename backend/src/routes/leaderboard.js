@@ -11,6 +11,7 @@ const {
   ACCURACY_THRESHOLD,
 } = require('../config/leaderboardValidation')
 const { buildLeaderboardSelect } = require('../config/leaderboardQuery')
+const { leaderboardLimiter } = require('../middlewares/rateLimiters')
 
 // GET /api/leaderboard?game=snake&limit=10
 // D-34:打字榜(typing_zh/typing_en)改為每位玩家只回傳個人最佳成績,SQL 形狀
@@ -31,7 +32,10 @@ router.get('/', async (req, res) => {
 })
 
 // POST /api/leaderboard
-router.post('/', async (req, res) => {
+// leaderboardLimiter 是這次補上的。這個端點免登入、每次呼叫都在 leaderboard
+// 表插入一列，而先前完全沒有限流 —— 上方的驗證擋得住不合理的分數與暱稱，
+// 擋不住「合法但無限多」的寫入。資料庫是 Neon，儲存與運算都計費。
+router.post('/', leaderboardLimiter, async (req, res) => {
   const { game_type, player_name, score, accuracy } = req.body
   if (!player_name || score === undefined) return res.status(400).json({ success: false, error: '缺少必要欄位' })
 
@@ -90,8 +94,9 @@ router.post('/', async (req, res) => {
     )
     res.json({ success: true })
   } catch (err) {
-    console.error('[Leaderboard] 寫入失敗:', err.message)
-    res.status(500).json({ success: false, error: err.message })
+    console.error('[Leaderboard] 寫入失敗:', err.stack || err.message)
+    // 不回傳 err.message：pg 的錯誤訊息會帶上主機位址、連接埠與 SQL 片段。
+    res.status(500).json({ success: false, error: '寫入排行榜失敗' })
   }
 })
 

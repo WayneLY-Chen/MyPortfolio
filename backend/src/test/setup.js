@@ -50,6 +50,7 @@ import { fetchUserRepos, fetchRepoLanguages, fetchRepoReadme } from '../services
 import passportStub from '../config/__mocks__/passport.js';
 import { MsEdgeTTS, OUTPUT_FORMAT } from './__mocks__/msedge-tts.js';
 import * as geminiStub from './__mocks__/google-generative-ai.js';
+import * as rateLimitersModule from '../middlewares/rateLimiters.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // `msedge-tts` is a third-party package resolved via node_modules, not a
@@ -66,6 +67,13 @@ const redirects = [
   { realPath: path.resolve(__dirname, '../config/passport.js'), mockExports: passportStub },
   { realPath: nodeRequire.resolve('msedge-tts'), mockExports: { MsEdgeTTS, OUTPUT_FORMAT } },
   { realPath: nodeRequire.resolve('@google/generative-ai'), mockExports: geminiStub },
+  // 這一筆不是替身，而是「讓兩條載入路徑指向同一個真實模組」。
+  // rateLimiters.js 匯出的是有狀態的物件（每個 limiter 各自持有一個
+  // MemoryStore 計數器）。測試檔以 import 取得它、路由檔以 require 取得它，
+  // 兩條路徑本來會拿到兩份互不相干的實例 —— 於是測試裡呼叫
+  // _resetAllLimitersForTests() 重置的是一個影子物件，路由用的那份計數
+  // 從來沒被清掉，後半段測試一律拿到 429（實測確認過）。
+  { realPath: path.resolve(__dirname, '../middlewares/rateLimiters.js'), mockExports: rateLimitersModule },
 ];
 
 if (!Module._load.__gsdDbMockPatched) {

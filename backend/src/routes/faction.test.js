@@ -34,13 +34,17 @@ describe('GET /api/faction/results (D-03: the one route that must stay alive)', 
     expect(res.body).toEqual({ success: true, data: rows });
   });
 
-  it('returns 500 with { success: false, message } when the query rejects', async () => {
-    query.mockRejectedValueOnce(new Error('DB 掛了'));
+  it('returns 500 when the query rejects, without leaking the original error message', async () => {
+    // 修補前這裡回的是 err.message 本身。pg 的錯誤訊息會帶上主機位址、
+    // 連接埠與 SQL 片段，那是伺服器端的診斷資訊，只該進 log。
+    query.mockRejectedValueOnce(new Error('connect ECONNREFUSED 10.0.0.5:5432'));
 
     const res = await request(buildApp()).get('/api/faction/results');
 
     expect(res.status).toBe(500);
-    expect(res.body).toEqual({ success: false, message: 'DB 掛了' });
+    expect(res.body).toEqual({ success: false, message: '讀取戰績失敗' });
+    expect(JSON.stringify(res.body)).not.toContain('ECONNREFUSED');
+    expect(JSON.stringify(res.body)).not.toContain('10.0.0.5');
   });
 });
 

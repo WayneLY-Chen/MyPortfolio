@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
 
 // Must be the first statements, before every other import.
 vi.mock('../db');
@@ -11,6 +11,7 @@ import request from 'supertest';
 import authRouter from './auth.js';
 import { generateAccessToken, verifyGuestSessionToken } from '../utils/jwt.js';
 import { query } from '../db';
+import { _resetAllLimitersForTests } from '../middlewares/rateLimiters.js';
 
 // backend/src/routes/auth.js's LINE and Facebook callback routes gate on
 // these env vars BEFORE ever calling passport.authenticate (a guard in
@@ -304,5 +305,75 @@ describe('POST /auth/logout', () => {
     // landed — it fails against the unmodified implementation.
     const pathMatch = clearingCookie.match(/Path=([^;]+)/i);
     expect(pathMatch?.[1]).toBe('/');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 第三輪資安修補的回歸測試
+describe('第三輪：限流、refresh token 撤銷、is_active、輸入驗證', () => {
+  beforeEach(() => {
+    _resetAllLimitersForTests();
+  });
+
+  // POST /auth/reset-password 先前只更新 password_hash。refresh token 的效期
+  // 是 30 天，因此攻擊者手上只要有一份還沒過期的 refresh cookie，受害者改完
+  // 密碼之後他仍能繼續換發 access token —— 改密碼卻趕不走入侵者，等於沒改。
+  it('重設密碼會撤銷該帳號目前所有的 refresh token', async () => {
+    query.mockResolvedValueOnce({ rows: [{ id: 'u-1', email: 'a@example.com' }] }); // 找 token
+    query.mockResolvedValueOnce({ rows: [] });                                      // UPDATE 密碼
+    query.mockResolvedValueOnce({ rows: [], rowCount: 3 });                         // 撤銷 refresh token
+
+    const res = await request(buildApp())
+      .post('/auth/reset-password')
+      .send({ token: 'reset-token', newPassword: 'a-very-good-password' });
+
+    expect(res.status).toBe(200);
+    const revokeCall = query.mock.calls.find(
+      (c) => typeof c[0] === 'string' && c[0].includes('refresh_tokens') && c[0].includes('revoked_at = NOW()')
+    );
+    expect(revokeCall, '沒有執行撤銷 refresh token 的 UPDATE').toBeDefined();
+    expect(revokeCall[0]).toContain('user_id = $1');
+    expect(revokeCall[1]).toEqual(['u-1']);
+  });
+
+  // 本專案在登入、忘記密碼、重寄驗證信、重設密碼四處都檢查 is_active，
+  // 唯獨 /auth/refresh 沒有 —— 被停用的帳號可以靠既有 cookie 續命 30 天。
+  it('/auth/refresh 的查詢帶上 is_active = true', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    await request(buildApp()).post('/auth/refresh').set('Cookie', ['refresh_token=x']);
+    expect(query.mock.calls[0][0]).toContain('u.is_active = true');
+  });
+
+  it('register 擋掉非字串與格式錯誤的 email、超長的 display_name、過短的密碼', async () => {
+    for (const body of [
+      { email: 123, password: 'password123', display_name: 'n' },
+      { email: 'notanemail', password: 'password123', display_name: 'n' },
+      { email: 'a@b.com', password: 'password123', display_name: 'x'.repeat(51) },
+      { email: 'a@b.com', password: 'short', display_name: 'n' },
+      { email: 'a@b.com', password: 'x'.repeat(201), display_name: 'n' },
+    ]) {
+      const res = await request(buildApp()).post('/auth/register').send(body);
+      expect(res.status, `${JSON.stringify(body).slice(0, 60)} 應回 400`).toBe(400);
+    }
+    // 全部都應該在碰資料庫之前就被擋下
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  // 兩個會寄信的端點先前完全沒有限流。它們都以 body 的 email 決定收件人，
+  // 因此沒有限流等於「任何人都能無限次觸發寄信到別人的信箱」。
+  it.each([
+    ['/auth/forgot-password'],
+    ['/auth/resend-verification'],
+  ])('%s 超過 15 分鐘 5 次之後回 429', async (path) => {
+    query.mockResolvedValue({ rows: [] });
+    const app = buildApp();
+    const statuses = [];
+    for (let i = 0; i < 7; i++) {
+      const res = await request(app).post(path).send({ email: 'victim@example.com' });
+      statuses.push(res.status);
+    }
+    expect(statuses.slice(0, 5).every((s) => s !== 429), `前 5 次不該被擋: ${statuses}`).toBe(true);
+    expect(statuses[5]).toBe(429);
+    expect(statuses[6]).toBe(429);
   });
 });
