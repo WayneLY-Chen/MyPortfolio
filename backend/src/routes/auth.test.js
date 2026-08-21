@@ -377,3 +377,68 @@ describe('第三輪：限流、refresh token 撤銷、is_active、輸入驗證',
     expect(statuses[6]).toBe(429);
   });
 });
+
+describe('Email 大小寫（第四輪）', () => {
+  beforeEach(() => {
+    _resetAllLimitersForTests();
+  });
+
+  // 修補前這六處全部是逐字比對，因此同一個信箱可以註冊出兩個帳號，
+  // 而用大寫註冊的人打小寫會登不進去。
+  it('register 的唯一性檢查以 LOWER() 比對', async () => {
+    query.mockResolvedValueOnce({ rows: [{ id: 'existing' }] });
+    const res = await request(buildApp())
+      .post('/auth/register')
+      .send({ email: 'A@Example.com', password: 'password123', display_name: 'n' });
+
+    expect(query.mock.calls[0][0]).toContain('LOWER(email) = LOWER($1)');
+    expect(res.status).toBe(409);
+  });
+
+  it('register 寫入的 email 一律是小寫', async () => {
+    query.mockResolvedValueOnce({ rows: [] });
+    query.mockResolvedValueOnce({ rows: [{ id: 'u1', email: 'a@example.com', display_name: 'n', role: 'visitor' }] });
+
+    await request(buildApp())
+      .post('/auth/register')
+      .send({ email: '  A@Example.COM  ', password: 'password123', display_name: 'n' });
+
+    expect(query.mock.calls[1][1][0]).toBe('a@example.com');
+  });
+
+  it('忘記密碼與重寄驗證信也以 LOWER() 比對', async () => {
+    query.mockResolvedValue({ rows: [] });
+    await request(buildApp()).post('/auth/forgot-password').send({ email: 'A@Example.com' });
+    expect(query.mock.calls[0][0]).toContain('LOWER(email) = LOWER($1)');
+
+    query.mockClear();
+    await request(buildApp()).post('/auth/resend-verification').send({ email: 'A@Example.com' });
+    expect(query.mock.calls[0][0]).toContain('LOWER(email) = LOWER($1)');
+  });
+
+  it('ADMIN_EMAIL 的比對不分大小寫，但 ADMIN_EMAIL 未設定時絕不提權', async () => {
+    const original = process.env.ADMIN_EMAIL;
+
+    // 大小寫不同仍然提權
+    process.env.ADMIN_EMAIL = 'Admin@Example.com';
+    query.mockResolvedValueOnce({
+      rows: [{ id: 'u1', email: 'admin@example.com', display_name: 'a', role: 'visitor', is_verified: false, verification_expires_at: new Date(Date.now() + 3600_000) }],
+    });
+    query.mockResolvedValueOnce({ rows: [] });
+    await request(buildApp()).get('/auth/verify').query({ token: 't1' });
+    expect(query.mock.calls[1][1][1], '大小寫不同時仍應提權').toBe(true);
+
+    // ADMIN_EMAIL 未設定時，任何帳號都不得被提權
+    query.mockClear();
+    delete process.env.ADMIN_EMAIL;
+    query.mockResolvedValueOnce({
+      rows: [{ id: 'u2', email: 'someone@example.com', display_name: 'b', role: 'visitor', is_verified: false, verification_expires_at: new Date(Date.now() + 3600_000) }],
+    });
+    query.mockResolvedValueOnce({ rows: [] });
+    await request(buildApp()).get('/auth/verify').query({ token: 't2' });
+    expect(query.mock.calls[1][1][1], 'ADMIN_EMAIL 未設定時不得提權').toBe(false);
+
+    if (original === undefined) delete process.env.ADMIN_EMAIL;
+    else process.env.ADMIN_EMAIL = original;
+  });
+});

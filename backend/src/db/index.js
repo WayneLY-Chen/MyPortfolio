@@ -45,6 +45,11 @@ const runMigrations = async () => {
   await pool.query(`ALTER TABLE profile ADD COLUMN IF NOT EXISTS certificates TEXT;`);
   await pool.query(`ALTER TABLE profile ADD COLUMN IF NOT EXISTS experience TEXT;`);
 
+  // Email 大小寫：查詢一律用 LOWER(email) = LOWER($1) 比對（見
+  // config/registrationValidation.js），這個函式索引讓那些查詢仍然走得到索引。
+  // CREATE INDEX IF NOT EXISTS 是累加式的，不動任何既有資料，重複執行安全。
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_users_email_lower ON users (LOWER(email));');
+
   console.log('[DB] 資料庫欄位遷移完成');
 };
 

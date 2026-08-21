@@ -31,6 +31,7 @@
 // 其餘情況一律拒絕，而不是走一個新的確認流程。
 // ─────────────────────────────────────────────────────────────────────────
 const { query } = require('../db');
+const { normalizeEmail, isSameEmail } = require('./registrationValidation');
 
 /**
  * @param {string} provider - 'google' | 'github' | 'line' | 'facebook'
@@ -62,7 +63,7 @@ const handleOAuth = async (provider, profileId, email, displayName, avatarUrl, e
 
     let user;
     if (email) {
-      const byEmail = await query('SELECT * FROM users WHERE email = $1', [email]);
+      const byEmail = await query('SELECT * FROM users WHERE LOWER(email) = LOWER($1) ORDER BY created_at ASC', [email]);
       if (byEmail.rows.length > 0) {
         if (emailVerified) {
           // 既有行為維持：provider 明確聲明這次的 email 已驗證，沿用
@@ -92,12 +93,15 @@ const handleOAuth = async (provider, profileId, email, displayName, avatarUrl, e
     // provider 明確聲明這次的 email 已驗證」——否則攻擊者能在把關較鬆的
     // provider 上用 ADMIN_EMAIL 註冊，在該帳號尚不存在時直接生出 role
     // 為 admin 的帳號。這與上面的合併閘門同根因、同一種修法。
-    const isAdmin = email === process.env.ADMIN_EMAIL && emailVerified === true;
+    // 與 ADMIN_EMAIL 的比對改為不分大小寫。這不是放寬：要靠它取得 admin，
+    // 仍然必須由 provider 明確聲明該 email 已驗證（emailVerified === true），
+    // 也就是必須真的控制那個信箱。詳見 config/registrationValidation.js。
+    const isAdmin = isSameEmail(email, process.env.ADMIN_EMAIL) && emailVerified === true;
 
     if (!user) {
       const result = await query(
         'INSERT INTO users (email, display_name, avatar_url, role, is_verified) VALUES ($1, $2, $3, $4, true) RETURNING *',
-        [email, displayName, avatarUrl, isAdmin ? 'admin' : 'visitor']
+        [normalizeEmail(email), displayName, avatarUrl, isAdmin ? 'admin' : 'visitor']
       );
       user = result.rows[0];
       // is_verified 在此仍固定為 true，不得改動：02-04(SEC-06/D-15) 讓

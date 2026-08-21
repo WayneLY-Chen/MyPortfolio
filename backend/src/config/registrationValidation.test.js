@@ -10,6 +10,8 @@ import {
   isValidEmail,
   isValidDisplayName,
   isValidPassword,
+  normalizeEmail,
+  isSameEmail,
 } from './registrationValidation.js';
 
 describe('isValidEmail', () => {
@@ -86,5 +88,33 @@ describe('isValidPassword', () => {
     expect(isValidPassword(12345678)).toBe(false);
     expect(isValidPassword(null)).toBe(false);
     expect(isValidPassword(undefined)).toBe(false);
+  });
+});
+
+describe('normalizeEmail / isSameEmail（email 大小寫）', () => {
+  it('normalizeEmail 轉小寫並去前後空白', () => {
+    expect(normalizeEmail('  A@Example.COM  ')).toBe('a@example.com');
+    expect(normalizeEmail('a@example.com')).toBe('a@example.com');
+  });
+
+  it('isSameEmail 對只差大小寫的信箱回 true', () => {
+    expect(isSameEmail('a@example.com', 'A@Example.com')).toBe(true);
+    expect(isSameEmail('  A@EXAMPLE.COM ', 'a@example.com')).toBe(true);
+  });
+
+  it('isSameEmail 對不同信箱回 false', () => {
+    expect(isSameEmail('a@example.com', 'b@example.com')).toBe(false);
+  });
+
+  // 這一條是安全性關鍵：isSameEmail 用於與 ADMIN_EMAIL 比對。若 ADMIN_EMAIL
+  // 未設定（undefined），絕不能讓「沒有 email」或「空字串」與它相等而拿到 admin。
+  it('任一方缺少、非字串或空白時一律 false —— 不得讓 undefined 與 undefined 相等', () => {
+    expect(isSameEmail(undefined, undefined)).toBe(false);
+    expect(isSameEmail(null, null)).toBe(false);
+    expect(isSameEmail('', '')).toBe(false);
+    expect(isSameEmail('   ', '   ')).toBe(false);
+    expect(isSameEmail('a@example.com', undefined)).toBe(false);
+    expect(isSameEmail(undefined, 'a@example.com')).toBe(false);
+    expect(isSameEmail(123, 123)).toBe(false);
   });
 });

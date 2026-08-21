@@ -38,7 +38,20 @@ const DUMMY_HASH_FOR_TIMING_EQUALIZATION =
 
 const verifyLocalCredentials = async (email, password, done) => {
   try {
-    const result = await query('SELECT * FROM users WHERE email = $1 AND is_active = true', [email]);
+    // LOWER() 比對而不是逐字比對：主流信箱服務不分大小寫，逐字比對會讓
+    // 用大寫註冊的人打小寫登不進去。刻意不改資料庫裡的既有值 —— 見
+    // config/registrationValidation.js 的說明。
+    const result = await query(
+      'SELECT * FROM users WHERE LOWER(email) = LOWER($1) AND is_active = true ORDER BY created_at ASC',
+      [email]
+    );
+    if (result.rows.length > 1) {
+      // 只在資料庫裡已經存在「只差大小寫」的重複帳號時才會發生。這裡不
+      // 自行合併或刪除任何一筆（不可逆），只留下明確的紀錄，並沿用最早
+      // 建立的那一筆繼續比對密碼 —— 密碼比對本身仍然照常執行，因此不會
+      // 讓任何人登入自己不知道密碼的帳號。
+      console.warn('[Auth] 偵測到只差大小寫的重複 email 帳號，共 ' + result.rows.length + ' 筆；請執行 db/report_duplicate_emails.sql 檢視');
+    }
     if (result.rows.length === 0) {
       // 查無使用者——陪跑一次 bcrypt.compare 拉平耗時，結果捨棄不用。
       await bcrypt.compare(password, DUMMY_HASH_FOR_TIMING_EQUALIZATION);

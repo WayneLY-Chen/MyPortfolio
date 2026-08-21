@@ -98,6 +98,10 @@ CREATE TABLE IF NOT EXISTS blog_posts (
 
 CREATE INDEX IF NOT EXISTS idx_blog_posts_slug ON blog_posts(slug);
 
+-- Email 一律以 LOWER() 比對（見 config/registrationValidation.js），
+-- 這個函式索引讓那些查詢走得到索引。
+CREATE INDEX IF NOT EXISTS idx_users_email_lower ON users (LOWER(email));
+
 -- 遊戲排行榜
 CREATE TABLE IF NOT EXISTS leaderboard (
   id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
