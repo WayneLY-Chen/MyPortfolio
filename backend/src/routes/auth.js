@@ -6,9 +6,21 @@ const crypto = require('crypto');
 const { query } = require('../db');
 const { generateAccessToken, generateRefreshToken, setRefreshTokenCookie, verifyAccessToken, generateGuestSessionToken } = require('../utils/jwt');
 const { authenticate } = require('../middlewares/authenticate');
-const { loginLimiter } = require('../middlewares/rateLimiters');
+const { loginLimiter, emailDispatchLimiter, registerLimiter, passwordResetLimiter } = require('../middlewares/rateLimiters');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/mailer');
+const {
+  DISPLAY_NAME_MAX_LEN,
+  PASSWORD_MIN_LEN,
+  PASSWORD_MAX_LEN,
+  isValidEmail,
+  isValidDisplayName,
+  isValidPassword,
+} = require('../config/registrationValidation');
  
+// bcrypt 的 cost factor。先前 POST /register 用 12、POST /reset-password 用 10，
+// 也就是重設密碼會把該帳號的雜湊強度降一級。集中成一個常數，兩處共用。
+const BCRYPT_COST = 12;
+
 // 解析多個前端網址，取第一個作為跳轉目的地
 const getPrimaryFrontendUrl = () => {
   const urls = (process.env.FRONTEND_URL || '').split(',').map(u => u.trim()).filter(Boolean);
@@ -72,20 +84,28 @@ const oauthCallbackGuard = (provider) => (req, res, next) => {
 };
 
 // POST /auth/register
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
   const { email, password, display_name } = req.body;
-  if (!email || !password || !display_name) {
-    return res.status(400).json({ success: false, error: '請填寫所有必要欄位' });
+  // 修補前的檢查是 `!email || !password || !display_name` 加上
+  // `password.length < 8`。非字串型別一路放行（!123 為 false），email 沒有
+  // 格式檢查，display_name 沒有長度上限 —— body 上限 100kb 內的任何長度都會
+  // 寫進資料庫，而 display_name 會以留言者名稱的形式出現在公開頁面上。
+  // 詳見 config/registrationValidation.js。
+  if (!isValidEmail(email)) {
+    return res.status(400).json({ success: false, error: 'Email 格式不正確' });
   }
-  if (password.length < 8) {
-    return res.status(400).json({ success: false, error: '密碼至少需要 8 個字元' });
+  if (!isValidDisplayName(display_name)) {
+    return res.status(400).json({ success: false, error: `顯示名稱需為 1–${DISPLAY_NAME_MAX_LEN} 個字元` });
+  }
+  if (!isValidPassword(password)) {
+    return res.status(400).json({ success: false, error: `密碼需為 ${PASSWORD_MIN_LEN}–${PASSWORD_MAX_LEN} 個字元` });
   }
   try {
     const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
     if (existing.rows.length > 0) {
       return res.status(409).json({ success: false, error: 'Email 已被使用' });
     }
-    const passwordHash = await bcrypt.hash(password, 12);
+    const passwordHash = await bcrypt.hash(password, BCRYPT_COST);
 
     // D-17（第二現場，02-PROVIDER-EMAIL-VERIFICATION.md「追加發現」一節）：
     // 這裡過去會在註冊當下就比對 email === ADMIN_EMAIL 並直接寫入
@@ -107,7 +127,7 @@ router.post('/register', async (req, res) => {
          (email, password_hash, display_name, role, is_verified, verification_token, verification_expires_at)
        VALUES ($1, $2, $3, 'visitor', false, $4, $5)
        RETURNING id, email, display_name, avatar_url, role, is_verified, created_at`,
-      [email, passwordHash, display_name, verificationToken, verificationExpiresAt]
+      [email.trim(), passwordHash, display_name.trim(), verificationToken, verificationExpiresAt]
     );
     const user = result.rows[0];
 
@@ -186,7 +206,7 @@ router.get('/verify', async (req, res) => {
 });
 
 // POST /auth/resend-verification
-router.post('/resend-verification', async (req, res) => {
+router.post('/resend-verification', emailDispatchLimiter, async (req, res) => {
   const { email } = req.body;
   if (!email) {
     return res.status(400).json({ success: false, error: '請提供 Email' });
@@ -240,7 +260,7 @@ router.post('/login', loginLimiter, (req, res, next) => {
 });
 
 // POST /auth/forgot-password
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', emailDispatchLimiter, async (req, res) => {
   const { email } = req.body;
   // 無論是否找到帳號，一律回傳相同訊息以防止帳號枚舉攻擊
   const successMsg = { message: '若此 Email 已註冊，重設密碼連結已寄出' };
@@ -278,7 +298,7 @@ router.post('/forgot-password', async (req, res) => {
 });
 
 // POST /auth/reset-password
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', passwordResetLimiter, async (req, res) => {
   const { token, newPassword } = req.body;
   if (!token || !newPassword) {
     return res.status(400).json({ error: '連結無效或已過期，請重新申請' });
@@ -298,7 +318,10 @@ router.post('/reset-password', async (req, res) => {
       return res.status(400).json({ error: '連結無效或已過期，請重新申請' });
     }
     const user = result.rows[0];
-    const passwordHash = await bcrypt.hash(newPassword, 10);
+    // cost 必須與 POST /register 一致。先前這裡寫 10、註冊寫 12——也就是
+    // 使用者每重設一次密碼，自己的雜湊強度就被降一級。同一個常數只該有一個
+    // 定義來源。
+    const passwordHash = await bcrypt.hash(newPassword, BCRYPT_COST);
     await query(
       `UPDATE users
        SET password_hash = $1,
@@ -308,7 +331,22 @@ router.post('/reset-password', async (req, res) => {
        WHERE id = $2`,
       [passwordHash, user.id]
     );
-    console.log('[Auth] 密碼重設成功:', user.email);
+
+    // 撤銷這個帳號目前所有的 refresh token。
+    //
+    // 這是「重設密碼」這件事的重點：使用者會走到這裡，最常見的原因就是懷疑
+    // 帳號被入侵。refresh token 的效期是 30 天，先前重設密碼完全不影響它們
+    // —— 攻擊者只要手上有一份還沒過期的 refresh cookie，就能在受害者改完
+    // 密碼之後繼續無限換發 access token。改密碼卻趕不走入侵者，等於沒改。
+    //
+    // 刻意不排除「發起這次重設的那個工作階段」：走 email 連結重設密碼的人
+    // 本來就不一定登入著，而回應訊息本來就是「請重新登入」。全部撤銷最單純，
+    // 也不會有「哪一個 session 是本人」的判斷失誤。
+    const revoked = await query(
+      'UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL',
+      [user.id]
+    );
+    console.log(`[Auth] 密碼重設成功: ${user.email}，已撤銷 ${revoked.rowCount ?? 0} 個 refresh token`);
     return res.status(200).json({ message: '密碼已成功重設，請重新登入' });
   } catch (err) {
     console.error('[Auth] 重設密碼失敗:', err.message);
@@ -396,7 +434,12 @@ router.post('/refresh', async (req, res) => {
   const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
   try {
     const result = await query(
-      'SELECT rt.*, u.role FROM refresh_tokens rt JOIN users u ON rt.user_id = u.id WHERE rt.token_hash = $1 AND rt.revoked_at IS NULL AND rt.expires_at > NOW()',
+      // u.is_active 是這次補上的條件。本專案在登入（config/localVerify.js）、
+      // 忘記密碼、重寄驗證信、重設密碼四處都檢查 is_active，唯獨這裡沒有
+      // —— 也就是一個被停用的帳號，只要手上還有沒過期的 refresh cookie，
+      // 就能繼續換發 access token 長達 30 天。停用一個帳號卻趕不走它，等於
+      // 沒停用。
+      'SELECT rt.*, u.role FROM refresh_tokens rt JOIN users u ON rt.user_id = u.id WHERE rt.token_hash = $1 AND rt.revoked_at IS NULL AND rt.expires_at > NOW() AND u.is_active = true',
       [tokenHash]
     );
     if (result.rows.length === 0) return res.status(401).json({ success: false, error: 'Refresh Token 無效或已過期' });

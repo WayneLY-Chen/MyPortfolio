@@ -103,7 +103,7 @@ export default function BlogPostPage() {
 
             <div className="post-comments">
               <h2 className="post-comments-title">留言區</h2>
-              <Comments targetType="blog" targetId={post.id} />
+              <Comments type="blog" id={post.id} />
             </div>
           </>
         )}

@@ -1,5 +1,21 @@
 const rateLimit = require('express-rate-limit');
-const { ipKeyGenerator } = rateLimit;
+const { ipKeyGenerator, MemoryStore } = rateLimit;
+
+// 每個 limiter 都掛一個自己的 MemoryStore 實例。
+//
+// 不指定 store 時 express-rate-limit 會自己建一個，但外部就拿不到它，
+// 計數也就無法重置。整合測試（例如 routes/leaderboard.test.js）會在同一個
+// 行程內對同一條路由發數十次請求，全部來自 127.0.0.1 —— 沒有重置手段的話
+// 第 N 次之後一律回 429，測試失敗的原因會變成「額度用完」而不是被測的邏輯。
+//
+// 刻意不用「NODE_ENV === test 就 skip」的做法：那會讓限流在測試環境完全不
+// 生效，於是「這條路由到底有沒有掛上 limiter」這件事就再也測不到了 ——
+// 而那正是這一輪發現 leaderboard 漏掛限流的那一類問題。
+const stores = [];
+const makeStore = () => { const s = new MemoryStore(); stores.push(s); return s; };
+
+/** 測試用：清掉所有 limiter 的計數。 */
+const _resetAllLimitersForTests = () => { for (const s of stores) s.resetAll(); };
 
 // 集中管理本專案所有的 rate limiter。四組端點（登入 / AI / TTS / 留言 / 專案同步）
 // 共用同一組回應格式與 header 設定，避免各自維護一份、格式日後漂移時要改四處。
@@ -18,6 +34,7 @@ const commonOptions = {
 // 訪客偶爾打錯密碼 —— 10 次的額度刻意寬鬆（D-07：訪客可能是面試官，誤擋代價較高）。
 const loginLimiter = rateLimit({
   ...commonOptions,
+  store: makeStore(),
   windowMs: 15 * 60 * 1000,
   limit: 10,
 });
@@ -39,6 +56,7 @@ const aiOrIpKeyGenerator = (req) => req.userId || ipKeyGenerator(req.ip);
 // 合計每小時 40 次。
 const aiLimiter = rateLimit({
   ...commonOptions,
+  store: makeStore(),
   windowMs: 60 * 60 * 1000,
   limit: 40,
   keyGenerator: aiOrIpKeyGenerator,
@@ -53,6 +71,7 @@ const aiLimiter = rateLimit({
 // 40 則回覆 × 每則約 7 個分句，與 aiLimiter 的實際可用量對齊。
 const ttsLimiter = rateLimit({
   ...commonOptions,
+  store: makeStore(),
   windowMs: 60 * 60 * 1000,
   limit: 300,
   keyGenerator: aiOrIpKeyGenerator,
@@ -63,6 +82,7 @@ const ttsLimiter = rateLimit({
 // undefined 桶。
 const commentsLimiter = rateLimit({
   ...commonOptions,
+  store: makeStore(),
   windowMs: 10 * 60 * 1000,
   limit: 20,
   keyGenerator: (req) => req.userId,
@@ -73,6 +93,7 @@ const commentsLimiter = rateLimit({
 // 操作，額度可以嚴一點，不影響一般訪客。
 const syncLimiter = rateLimit({
   ...commonOptions,
+  store: makeStore(),
   windowMs: 60 * 60 * 1000,
   limit: 5,
   keyGenerator: (req) => req.userId,
@@ -88,6 +109,7 @@ const syncLimiter = rateLimit({
 // 是互補而非重複。
 const bossLimiter = rateLimit({
   ...commonOptions,
+  store: makeStore(),
   windowMs: 60 * 1000,
   limit: 60,
 });
@@ -100,9 +122,60 @@ const bossLimiter = rateLimit({
 // 驗證互補——後者讓身分不可偽造，前者限制單一來源的操作頻率。
 const reactionsLimiter = rateLimit({
   ...commonOptions,
+  store: makeStore(),
   windowMs: 60 * 1000,
   limit: 30,
   keyGenerator: aiOrIpKeyGenerator,
 });
 
-module.exports = { loginLimiter, aiLimiter, ttsLimiter, commentsLimiter, syncLimiter, bossLimiter, reactionsLimiter };
+// 會寄出 Email 的兩個端點：POST /auth/forgot-password 與
+// POST /auth/resend-verification。兩者先前完全沒有限流。
+//
+// 為什麼這是安全問題而不只是「少一道保險」：兩者都以請求 body 的 email 決定
+// 收件人，而且都刻意做了防帳號枚舉（不論帳號存不存在都回同一句話）。沒有限流
+// 時，攻擊者只要知道某人的註冊信箱，就能無限次觸發寄信到那個信箱 —— 收件人被
+// 灌爆，而寄件方（本站的 SMTP 帳號）會因為大量發信被判定為濫用，連帶讓真正的
+// 驗證信進垃圾桶。這是一個「用別人的信箱當受害者」的攻擊，不是自傷。
+//
+// 以 IP 計量：這兩個端點在呼叫時都還沒有身分。額度取 15 分鐘 5 次 —— 正常使用
+// 者一次就夠，重試兩三次已是極限；5 次留給誤觸與同一個 NAT 後面的多位訪客。
+const emailDispatchLimiter = rateLimit({
+  ...commonOptions,
+  store: makeStore(),
+  windowMs: 15 * 60 * 1000,
+  limit: 5,
+});
+
+// POST /auth/register 先前也沒有限流。它同樣會寄出一封驗證信，而且每一次成功
+// 呼叫都在 users 表留下一列。額度比寄信端點再寬一點（同一個 NAT 後面可能有多位
+// 訪客同時註冊），但仍遠低於腳本化註冊所需的量。
+const registerLimiter = rateLimit({
+  ...commonOptions,
+  store: makeStore(),
+  windowMs: 60 * 60 * 1000,
+  limit: 10,
+});
+
+// POST /auth/reset-password 帶著一個 token 換新密碼。token 是 crypto.randomUUID()
+// （122 bits），暴力猜測不可行，因此這道限流不是為了擋猜測，而是為了讓「拿著
+// 一堆猜測值連續打」這件事本身有成本，並與其他端點的處置保持一致。
+const passwordResetLimiter = rateLimit({
+  ...commonOptions,
+  store: makeStore(),
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+});
+
+// POST /api/leaderboard 先前沒有任何限流，而它是一個免登入、每次呼叫都在
+// leaderboard 表插入一列的端點。驗證擋得住不合理的分數與暱稱，擋不住
+// 「合法但無限多」的寫入 —— 資料庫是 Neon，儲存與運算都計費。
+// 額度取每分鐘 20 次：一局遊戲結束才送一次，真人遠達不到。
+const leaderboardLimiter = rateLimit({
+  ...commonOptions,
+  store: makeStore(),
+  windowMs: 60 * 1000,
+  limit: 20,
+  keyGenerator: aiOrIpKeyGenerator,
+});
+
+module.exports = { _resetAllLimitersForTests, loginLimiter, aiLimiter, ttsLimiter, commentsLimiter, syncLimiter, bossLimiter, reactionsLimiter, emailDispatchLimiter, registerLimiter, passwordResetLimiter, leaderboardLimiter };

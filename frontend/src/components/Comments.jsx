@@ -23,7 +23,6 @@ export default function Comments({ type, id, actions }) {
   const { isAuthenticated, user, accessToken, silentRefresh, isAdmin } = useAuthStore()
   const [comments, setComments] = useState([])
   const [loading, setLoading] = useState(true)
-  const [name, setName] = useState('')
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -59,10 +58,16 @@ export default function Comments({ type, id, actions }) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
+        // 欄位名必須是 type / id。先前送的是 target_type / target_id，而後端
+        // controller 讀的一直是 type / id（GET 也用 ?type=&id=），因此每一次
+        // 發送留言都被擋在「缺少必要欄位」的 400 —— 這個功能在修補前是全站
+        // 都送不出去的。
+        //
+        // author_name 不再送出：後端改為依 user_id 自己查 display_name。
+        // 先前那個欄位由請求端決定，任何已登入的使用者都能以任意名字發言。
         body: JSON.stringify({
-          target_type: type,
-          target_id: id,
-          author_name: name || user?.display_name || 'Anonymous',
+          type,
+          id,
           content: text
         })
       })
@@ -148,13 +153,12 @@ export default function Comments({ type, id, actions }) {
       {/* Input area */}
       {isAuthenticated ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
-          <input
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder={user?.display_name || "你的名字（選填）"}
-            maxLength={50}
-            style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#eee', fontSize: 14, outline: 'none' }}
-          />
+          {/* 名字輸入框已移除。後端現在一律以帳號的 display_name 作為留言者
+              名稱（避免任何人以任意名字發言），因此這個輸入框不管填什麼都不會
+              生效 —— 留著一個看得到、打得進去、卻毫無作用的欄位比拿掉更糟。 */}
+          <p style={{ fontSize: 12, color: '#666', margin: 0 }}>
+            以 <span style={{ color: 'var(--accent, #d4f029)' }}>{user?.display_name || '你的帳號'}</span> 的身分留言
+          </p>
           <textarea
             value={text}
             onChange={e => setText(e.target.value)}

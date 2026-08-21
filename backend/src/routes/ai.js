@@ -697,6 +697,9 @@ router.post('/interview/questions', optionalAuthenticate, aiLimiter, async (req,
 // 這裡刻意比出題更捨得等:使用者已經打完五段字,讓他重打的代價遠高於多等十幾秒(D-20)。
 const SCORE_ATTEMPT_MS = 18000
 const ANSWER_MAX_CHARS = 500
+// 題目文字長度上限。題目由請求端帶回（見 /interview/score 內的說明），
+// 先前完全沒有上限。
+const QUESTION_MAX_CHARS = 300
 
 router.post('/interview/score', optionalAuthenticate, aiLimiter, async (req, res) => {
   const startedAt = Date.now()
@@ -725,6 +728,16 @@ router.post('/interview/score', optionalAuthenticate, aiLimiter, async (req, res
     }
     if (answer.length > ANSWER_MAX_CHARS) {
       return res.status(400).json({ success: false, error: `單題作答不得超過 ${ANSWER_MAX_CHARS} 字`, code: 'ANSWER_TOO_LONG' })
+    }
+    // it.text 是題目文字。它由請求端送回來（前端把 /interview/questions 拿到的
+    // 題目原封不動帶回），先前只檢查「是非空字串」而沒有長度上限 —— answer 有
+    // 500 字上限，題目卻沒有，因此單一請求可以用 body 上限（100kb）內的任意長度
+    // 灌進送往 Gemini 的 prompt。aiLimiter 擋得住次數，擋不住單次大小。
+    //
+    // 上限取 QUESTION_MAX_CHARS：/interview/questions 的 maxOutputTokens 是 1024，
+    // 五題平均下來單題遠低於此，300 字已經寬鬆得多。
+    if (it.text.length > QUESTION_MAX_CHARS) {
+      return res.status(400).json({ success: false, error: '題目內容不正確', code: 'INVALID_INPUT' })
     }
     shaped.push({ type: it.type, text: it.text, skipped, answer })
   }

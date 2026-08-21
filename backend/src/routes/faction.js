@@ -17,7 +17,9 @@ router.get('/results', async (req, res) => {
     )
     res.json({ success: true, data: result.rows || [] })
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message })
+    console.error('[Faction] 讀取戰績失敗:', err.stack || err.message)
+    // 不回傳 err.message：pg 的錯誤訊息會帶上主機位址、連接埠與 SQL 片段。
+    res.status(500).json({ success: false, message: '讀取戰績失敗' })
   }
 })
 
