@@ -154,7 +154,7 @@
 | **AI / 語音** | Google Gemini · Stability AI · Edge TTS (`msedge-tts`) |
 | **認證 / 安全** | Passport.js (Google, GitHub, Facebook, LINE, Local) · JWT 雙 Token · bcrypt · Helmet |
 | **寄信** | Nodemailer (SMTP) |
-| **測試** | Vitest — 後端 430 個測試 · node:test — 前端 43 個測試 |
+| **測試** | Vitest — 後端 564 個測試 · node:test — 前端 292 個測試 |
 
 ### ☁️ 部署
 
@@ -286,7 +286,7 @@ cp backend/.env.example backend/.env
 
 | 變數 | 說明 |
 |------|------|
-| `DATABASE_URL` | PostgreSQL 連線字串（Neon） |
+| `DATABASE_URL` | PostgreSQL 連線字串（Neon）。**結尾請用 `?sslmode=verify-full`** —— `require` 在 pg v9 之後會變成「加密但不驗證伺服器身分」，而連線字串永遠覆蓋程式端的 ssl 設定 |
 | `GEMINI_API_KEY` | Google Gemini AI API Key |
 | `STABILITY_API_KEY` | Stability AI 繪圖 API Key |
 | `GITHUB_TOKEN` | GitHub Personal Access Token（讀取 Repo 資訊） |
@@ -297,6 +297,11 @@ cp backend/.env.example backend/.env
 | `LINE_CHANNEL_*` | LINE Login 憑證 |
 | `FACEBOOK_APP_*` | Facebook Login 憑證 |
 | `SMTP_*` | SMTP 寄信設定（Gmail App Password） |
+| `ADMIN_EMAIL` | 管理員信箱。**只有這個信箱在完成 Email 驗證的當下**才會被授予 admin 角色（不分大小寫比對） |
+| `INTERNAL_PROXY_KEY` | 後端與 Vercel 的 `api/google-proxy` 之間的共用密鑰。**未設定時 proxy 直接回 503**，不會放行 |
+| `PROXY_ALLOWED_ORIGINS` | 選填。允許直接呼叫 proxy 的來源白名單（逗號分隔）。留空 = 不發任何 CORS 標頭 |
+| `DB_ALLOW_SELF_SIGNED` | 選填，僅供本機對自簽憑證的資料庫測試。設為 `true` 才生效，且在 `NODE_ENV=production` 下一律無效 |
+| `SMTP_ALLOW_SELF_SIGNED` | 選填，同上，用於 SMTP |
 
 ### 4. 初始化資料庫
 
