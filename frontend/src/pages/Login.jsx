@@ -47,18 +47,33 @@ export default function Login({ mode }) {
   // 任務 2：記住我
   const [rememberMe, setRememberMe] = useState(false)
 
-  // 任務 2：頁面載入時讀取 localStorage
+  // 「記住我」只記住帳號，絕不記住密碼。
+  //
+  // 先前這裡存的是 { email, password }，也就是把使用者的明文密碼永久寫進
+  // localStorage。那份資料沒有期限、開發者工具打開就看得到，而且任何一個
+  // 出現在本網域上的 XSS 都能一次讀走它 —— 密碼重用的情況下，波及範圍還會
+  // 擴及使用者在其他網站的帳號。
+  //
+  // 「保持登入」本來就不需要留著密碼：後端在登入時已經發出 httpOnly 的
+  // refresh_token cookie（backend/src/utils/jwt.js 的 setRefreshTokenCookie），
+  // 那份憑證 JavaScript 讀不到，而且撤銷得掉。
   useEffect(() => {
     if (!isRegister) {
       try {
         const saved = localStorage.getItem('remembered_credentials')
         if (saved) {
-          const { email, password } = JSON.parse(saved)
-          setForm(f => ({ ...f, email: email || '', password: password || '' }))
+          const parsed = JSON.parse(saved)
+          setForm(f => ({ ...f, email: parsed.email || '' }))
           setRememberMe(true)
+          // 清掉舊版留下的明文密碼。已經勾過「記住我」的使用者不會自己回頭去
+          // 清 localStorage，所以這件事必須由程式在下一次進到登入頁時自動完成。
+          if ('password' in parsed) {
+            localStorage.setItem('remembered_credentials', JSON.stringify({ email: parsed.email || '' }))
+          }
         }
       } catch (e) {
-        // 忽略損壞的資料
+        // 損壞的資料視同沒有，並且順手清掉 —— 它有可能是舊版寫入的、含密碼的內容。
+        localStorage.removeItem('remembered_credentials')
       }
     }
     
@@ -111,9 +126,9 @@ export default function Login({ mode }) {
         const data = await res.json()
         if (!res.ok) { setError(data.error || '登入失敗'); return }
 
-        // 任務 2：根據記住我狀態儲存或清除 localStorage
+        // 只存 email。密碼絕不落地 —— 見本檔上方 useEffect 的說明。
         if (rememberMe) {
-          localStorage.setItem('remembered_credentials', JSON.stringify({ email: form.email, password: form.password }))
+          localStorage.setItem('remembered_credentials', JSON.stringify({ email: form.email }))
         } else {
           localStorage.removeItem('remembered_credentials')
         }
@@ -354,7 +369,7 @@ export default function Login({ mode }) {
                     </svg>
                   )}
                 </span>
-                記住帳號密碼
+                記住我的帳號
               </label>
             </div>
           )}
