@@ -122,9 +122,28 @@ const _resetBackfillGuardForTests = () => {
  */
 const getProjects = async (req, res, next) => {
   try {
-    const forceSync = req.query.sync === 'true';
-
-    if (!forceSync) {
+    // ?sync=true 的快取繞道已移除。
+    //
+    // 這條路由是公開的（routes/projects.js:8，沒有 authenticate、沒有限流），
+    // 而 forceSync 會直接跳過快取呼叫 fetchUserRepos()——那個函式對每個 repo
+    // 各發兩次 GitHub API 請求（languages + readme），加上列表本身，以目前 15
+    // 個公開 repo 計算是一次匿名 HTTP 請求換 31 次 GitHub API 呼叫，外加 15 次
+    // 循序的資料庫 UPSERT。
+    //
+    // GitHub 未驗證請求的上限是 60 次/小時：兩個請求就打爆，之後專案頁只能靠
+    // stale-cache 撐著。設了 GITHUB_TOKEN 也只是把門檻推到約 160 個請求。
+    // 每個請求還會佔著連線跑 31 次逐一等待、逾時各 8 秒的外部呼叫。
+    //
+    // 同樣的能力在 POST /api/projects/sync 上是 authenticate + requireAdmin +
+    // syncLimiter。也就是一個受保護的操作，另外開了一個完全不設防的入口。
+    //
+    // 前端已經沒有任何地方使用這個參數（D-12 起訪客就不再從瀏覽器觸發同步，
+    // 已全域搜尋確認），因此直接移除而不是加限流——沒有呼叫端的能力，最安全
+    // 的狀態是不存在。管理員要強制同步請走 POST /api/projects/sync。
+    //
+    // 快取未命中時仍會落到下方的 GitHub 同步，那條路徑是必要且自限的：
+    // 同步成功之後快取就熱了，一小時內不會再打。
+    {
       // 查詢資料庫中 1 小時內更新的快取資料
       const cacheResult = await query(`
         SELECT ${PROJECT_COLUMNS}
@@ -153,11 +172,9 @@ const getProjects = async (req, res, next) => {
           data: completedRows,
         });
       }
-    } else {
-      console.log('[Projects] 偵測到強制同步請求 (sync=true)');
     }
 
-    // 快取不存在、已過期或強制同步，呼叫 GitHub API
+    // 快取不存在或已過期，呼叫 GitHub API
     console.log('[Projects] 正在呼叫 GitHub API...');
     let repos = [];
     try {
