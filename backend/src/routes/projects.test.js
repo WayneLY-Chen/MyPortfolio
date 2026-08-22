@@ -212,3 +212,49 @@ describe('PUT /api/projects/:id (D-02 — was previously unauthenticated)', () =
     assertNoUpdateWasIssued();
   });
 });
+
+// ---------------------------------------------------------------------------
+// GET /api/projects?sync=true 的快取繞道已移除
+//
+// 這條路由是公開的（沒有 authenticate、沒有限流），而 forceSync 會跳過快取
+// 直接呼叫 fetchUserRepos() —— 那個函式對每個 repo 各發兩次 GitHub API 請求，
+// 以 15 個公開 repo 計算是一次匿名 HTTP 請求換 31 次 GitHub API 呼叫。
+// GitHub 未驗證請求的上限是 60 次/小時，兩個請求就打爆。
+//
+// 同樣的能力在 POST /api/projects/sync 上是 authenticate + requireAdmin +
+// syncLimiter —— 一個受保護的操作另外開了一個完全不設防的入口。
+describe('GET /api/projects：?sync=true 不得繞過快取', () => {
+  it('帶 sync=true 時仍然走快取，不呼叫 GitHub', async () => {
+    // 快取命中：回一列且 language_stats 齊全
+    query.mockResolvedValueOnce({
+      rows: [{ id: 1, name: 'demo', language_stats: { JavaScript: 100 }, readme: 'x' }],
+    });
+
+    const res = await request(buildApp()).get('/api/projects?sync=true');
+
+    expect(res.status).toBe(200);
+    expect(res.body.source, 'sync=true 不該繞過快取').toBe('cache');
+    expect(fetchUserRepos, '不該呼叫 GitHub API').not.toHaveBeenCalled();
+  });
+
+  it('不帶參數時的既有行為不變（快取命中就回快取）', async () => {
+    query.mockResolvedValueOnce({
+      rows: [{ id: 1, name: 'demo', language_stats: { JavaScript: 100 }, readme: 'x' }],
+    });
+
+    const res = await request(buildApp()).get('/api/projects');
+
+    expect(res.body.source).toBe('cache');
+    expect(fetchUserRepos).not.toHaveBeenCalled();
+  });
+
+  it('快取真的沒東西時仍會同步 —— 那條路徑是必要且自限的', async () => {
+    query.mockResolvedValueOnce({ rows: [] }); // 快取未命中
+    fetchUserRepos.mockResolvedValueOnce([]);  // GitHub 回空
+    query.mockResolvedValue({ rows: [] });
+
+    await request(buildApp()).get('/api/projects');
+
+    expect(fetchUserRepos, '快取未命中時應該要同步').toHaveBeenCalled();
+  });
+});
