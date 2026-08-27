@@ -19,6 +19,7 @@
 // 前綴是唯一的隔離手段。不使用 Tailwind 工具類、不使用圖示庫、零新增 npm 套件。
 
 import { useEffect, useReducer, useRef, useState } from 'react'
+import ThinkingOrbs from '../ui/ThinkingOrbs'
 import {
   ACTION_TYPES,
   INITIAL_STATE,
@@ -306,9 +307,11 @@ export default function InterviewTab() {
         }
 
         /* ── 載入狀態(D-29)──────────────────────────────────────────────
-           .ai-spinner 是 FunPage.jsx 既有的 36px accent 圓環,面試分頁是它的子孫節點,
-           直接沿用不複製一份。實測出題 1.8–7.3 秒、極端值到 65 秒,評分 2.5–6.7 秒,
-           所以狀態文字要一進來就在,不能延遲顯示 —— 這段時間全靠它撐住注意力。 */
+           轉圈圈換成 <ThinkingOrbs>(components/ui/ThinkingOrbs.jsx)。實測出題
+           1.8–7.3 秒、極端值到 65 秒,評分 2.5–6.7 秒 —— 這段時間全靠載入畫面撐住
+           注意力,而單環轉圈圈撐不了 60 秒。狀態文字仍要一進來就在,不能延遲顯示。
+           球本身 aria-hidden(不給 label),因為底下這行 .iv-loading-text 已經在講
+           同一件事,唸兩次反而吵。 */
         .iv-loading {
           display: flex;
           flex-direction: column;
@@ -774,7 +777,7 @@ export default function InterviewTab() {
 
       {state.phase === 'loading_questions' && (
         <div className="iv-flow-column iv-loading">
-          <div className="ai-spinner" />
+          <ThinkingOrbs size={44} />
           <p className="iv-loading-text">{t.loadingQuestions}</p>
         </div>
       )}
@@ -787,14 +790,14 @@ export default function InterviewTab() {
         (rescoring ? (
           <div className="iv-results iv-flow-column">
             <div className="iv-loading">
-              <div className="ai-spinner" />
+              <ThinkingOrbs size={44} />
               <p className="iv-loading-text">{t.loadingScore}</p>
             </div>
             <PreservedAnswers questions={state.questions} answers={state.answers} language={state.language} />
           </div>
         ) : (
           <div className="iv-flow-column iv-loading">
-            <div className="ai-spinner" />
+            <ThinkingOrbs size={44} />
             <p className="iv-loading-text">{t.loadingScore}</p>
           </div>
         ))}

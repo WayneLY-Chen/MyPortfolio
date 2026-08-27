@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { API_URL } from '../config/api'
 import { guestSessionHeaders } from '../config/guestSession'
+import ThinkingOrbs from './ui/ThinkingOrbs'
 
 // ─── hex → "r, g, b" helper ───────────────────────────────────────────────────
 function hexToRgb(hex) {
@@ -618,7 +619,10 @@ export default function AIAssistant() {
     // Placeholder while fetching
     setChatHistory((prev) => [
       ...prev,
-      { role: 'ai', content: 'Wobot 正在思考...', showButtons: false },
+      // thinking 旗標讓泡泡改渲染 <ThinkingOrbs> 而不是這行字。文字本身留著當
+      // fallback,也給無障礙工具一個可讀的狀態。成功與失敗兩條路徑都會用全新物件
+      // 覆寫這一則(content: ''),旗標會跟著消失,不必另外清。
+      { role: 'ai', content: 'Wobot 正在思考...', showButtons: false, thinking: true },
     ])
 
     try {
@@ -1022,7 +1026,14 @@ export default function AIAssistant() {
                       wordBreak: 'break-word',
                     }}
                   >
-                    <SimpleMarkdown text={msg.content} color={ACCENT} />
+                    {msg.thinking ? (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                        <ThinkingOrbs size={26} label={msg.content} />
+                        <span style={{ opacity: 0.75 }}>{msg.content}</span>
+                      </span>
+                    ) : (
+                      <SimpleMarkdown text={msg.content} color={ACCENT} />
+                    )}
 
                     {/* Typing cursor */}
                     {msg.role === 'ai' && idx === chatHistory.length - 1 && isAiTyping && (

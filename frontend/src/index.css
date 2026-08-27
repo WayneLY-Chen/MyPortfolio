@@ -29,6 +29,22 @@
     margin: 0;
     padding: 0;
   }
+
+  /* ── 換行平衡 ──
+     大標題最後一行只剩一個字(俗稱吊字)是全站最常見的排版瑕疵,而修法是原生的:
+       text-wrap: balance —— 讓瀏覽器把各行長度盡量拉平,只對短文字生效(上限約 6 行),
+       text-wrap: pretty  —— 只修尾行,避免段落最後一行落單,長段落也不吃效能。
+     不支援的瀏覽器直接忽略這兩個值,沒有 fallback 需求,成本 0 KB。
+
+     和上面的重置同理,這段**必須**留在 @layer base 裡:Tailwind v4 有
+     text-balance / text-pretty 兩個工具類,裸寫的 h1 選擇器會永遠蓋過它們,
+     之後想在單一標題上覆寫就會失效,而且不報錯。 */
+  h1, h2, h3, h4 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
 }
 
 html {
@@ -577,4 +593,91 @@ body::after {
     padding: 8px 20px;
     font-size: 12px;
   }
+}
+
+/* ── 思考球 ThinkingOrbs(components/ui/ThinkingOrbs.jsx)──
+   放在全域而不是某個元件的 <style> 裡:InterviewTab、FunPage、AIAssistant 三個
+   互不相干的檔案都要用它,寄生在其中任一個都會變成另外兩個的隱形相依。
+
+   尺寸全部由 --orb-size 推導,所以同一份 CSS 同時服務 28px 的聊天泡泡與 44px 的
+   載入畫面。點的半徑寫在 JSX 的 --orb-tf 裡(rotate + translateX),因為角度是
+   逐顆不同的資料,不是樣式。 */
+.orbs {
+  --orb-size: 36px;
+  position: relative;
+  width: var(--orb-size);
+  height: var(--orb-size);
+  flex-shrink: 0;
+}
+.orbs-ring {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+/* 兩環反向、不同週期。速度刻意不成整數倍,否則兩環會週期性對齊成同一個圖案。 */
+.orbs-ring--1 { animation: orbs-spin 6s linear infinite; }
+.orbs-ring--2 { animation: orbs-spin 4.2s linear infinite reverse; }
+
+.orbs-dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--orb-size) * 0.11);
+  height: calc(var(--orb-size) * 0.11);
+  margin: calc(var(--orb-size) * -0.055) 0 0 calc(var(--orb-size) * -0.055);
+  border-radius: 50%;
+  background: var(--accent);
+  /* transform 由 --orb-tf 提供,animation 只在它後面追加 scale ——
+     直接寫 transform 會把 --orb-tf 的定位蓋掉,點會全部疊在正中央。 */
+  transform: var(--orb-tf);
+  animation: orbs-pulse 1.8s ease-in-out infinite;
+}
+
+/* 子午線:一圈只有上下兩段亮的細環,轉速比兩個點環都快,負責製造「正在推進」的感覺。 */
+.orbs-meridian {
+  position: absolute;
+  inset: calc(var(--orb-size) * 0.14);
+  border-radius: 50%;
+  border: 1px solid rgba(200, 148, 42, 0.18);
+  border-top-color: var(--accent);
+  border-bottom-color: rgba(200, 148, 42, 0.55);
+  animation: orbs-spin 2.4s linear infinite;
+}
+
+@keyframes orbs-spin { to { transform: rotate(360deg); } }
+@keyframes orbs-pulse {
+  0%, 100% { opacity: 0.28; transform: var(--orb-tf) scale(0.72); }
+  50%      { opacity: 1;    transform: var(--orb-tf) scale(1.15); }
+}
+
+/* ── 換頁進度條 RouteProgress(components/ui/RouteProgress.jsx)──
+   z-index 8500:必須低於 8999。body::after 的雜訊層就疊在 8999,任何固定定位的
+   chrome 元素爬到它上面就會跟導覽列產生色差(這個站踩過一次)。 */
+.route-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(200, 148, 42, 0.35), var(--accent));
+  box-shadow: 0 0 10px rgba(200, 148, 42, 0.7);
+  z-index: 8500;
+  pointer-events: none;
+  border-radius: 0 3px 3px 0;
+  transition: width 0.25s ease-out, opacity 0.3s ease-out 0.15s;
+}
+
+/* ── 減少動態 ──
+   專案層級約束,不是加分項:手機發熱、耗電,以及前庭功能障礙的使用者。
+   思考球退化成靜態光暈(仍看得出「在等」),進度條整條不顯示 ——
+   它傳達的資訊本來就只有「剛剛換頁了」,而換頁這件事畫面自己會說。 */
+@media (prefers-reduced-motion: reduce) {
+  .orbs-ring--1,
+  .orbs-ring--2,
+  .orbs-meridian,
+  .orbs-dot {
+    animation: none !important;
+  }
+  .orbs-dot { opacity: 0.55; }
+  .orbs-meridian { border-color: rgba(200, 148, 42, 0.35); }
+  .route-progress { display: none; }
 }
