@@ -232,7 +232,62 @@ export default function InterviewTab() {
         .iv-track-card--selected {
           border-color: var(--accent);
           background: rgba(200, 148, 42, 0.08);
+          /* 跑光需要:overflow 把超出圓角的光帶裁掉,position 給兩個偽元素定位基準。 */
+          position: relative;
+          overflow: hidden;
         }
+        /* ── 邊框跑光 ──
+           光在邊上走,卡片內容一個 px 都不動 —— 這是選它而不是選閃爍或縮放的原因:
+           開場畫面要引導視線到選中的那張卡,但四張卡是並排比較用的,內容一晃就沒法讀。
+
+           兩層偽元素:
+             ::before 是一整片會轉的 conic-gradient(光帶),
+             ::after  是 inset 1.5px 的內層底色,把中間蓋回去,只留邊上那一圈。
+           z-index 必須寫明:偽元素與真實子節點的預設繪製順序是
+           ::before → 子節點 → ::after,不寫的話 ::after 會蓋掉卡片文字。
+
+           尺寸用 aspect-ratio 綁成正方形,邊長 180% 卡片寬。卡片永遠是寬>高,
+           對角線最長 1.41×寬,所以 1.8×寬在任何旋轉角度都蓋得滿;
+           用 width/height 各 200% 則會在轉 90° 時露出角落。 */
+        .iv-track-card--selected::before {
+          content: '';
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          width: 180%;
+          aspect-ratio: 1 / 1;
+          /* translate 是獨立屬性,不會和 animation 的 transform: rotate() 打架 */
+          translate: -50% -50%;
+          background: conic-gradient(
+            from 0deg,
+            transparent 0 62%,
+            rgba(200, 148, 42, 0.35) 72%,
+            rgba(226, 184, 96, 0.95) 84%,
+            #f0d9a0 89%,
+            transparent 94% 100%
+          );
+          animation: iv-beam-spin 3.6s linear infinite;
+          z-index: 0;
+        }
+        .iv-track-card--selected::after {
+          content: '';
+          position: absolute;
+          inset: 1.5px;
+          border-radius: 10.5px;
+          /* 必須不透明,否則光帶會透過整張卡片而不是只留在邊上。
+             第一層是那 8% 的金色染色,第二層是實心底色。 */
+          background:
+            linear-gradient(rgba(200, 148, 42, 0.08), rgba(200, 148, 42, 0.08)),
+            var(--surface);
+          z-index: 1;
+        }
+        /* 文字浮到 ::after 上面 */
+        .iv-track-card--selected .iv-track-card-title,
+        .iv-track-card--selected .iv-track-card-desc {
+          position: relative;
+          z-index: 2;
+        }
+        @keyframes iv-beam-spin { to { transform: rotate(360deg); } }
         /* UI-SPEC §2 的 .iv-track-card h3 / p 值原封搬過來,只是換成 span ——
            heading 與段落是 flow content,包在 <button> 裡對輔助技術是壞的語意
            (會被唸成「標題」再唸成「按鈕」),視覺值一個都沒動。 */
@@ -697,6 +752,10 @@ export default function InterviewTab() {
 
         @media (prefers-reduced-motion: reduce) {
           .iv-track-card { transition: none; }
+          /* 跑光整條收掉,退回原本的靜態金色邊框 —— 選中狀態靠 border-color
+             與 aria-pressed 表達,本來就不依賴動畫。 */
+          .iv-track-card--selected::before,
+          .iv-track-card--selected::after { display: none; }
           .iv-segmented-btn { transition: none; }
           .iv-voice-btn { transition: none; }
           .iv-playing-bar { transition: none; }
