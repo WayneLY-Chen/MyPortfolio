@@ -10,6 +10,7 @@ import YorkieDog from '../components/YorkieDog'
 import { useToast } from '../components/ui/Toast'
 import { AnimatedNumber } from '../components/ui/AnimatedNumber'
 import { Confetti } from '../components/ui/Confetti'
+import ThinkingOrbs from '../components/ui/ThinkingOrbs'
 import { cn } from '../lib/utils'
 import MoneyCalculator from '../components/MoneyCalculator'
 import TodoList from '../components/TodoList'
@@ -1599,7 +1600,7 @@ function AiImageTab() {
       <div className="ai-preview">
         {loading && (
           <div className="ai-loading">
-            <div className="ai-spinner" />
+            <ThinkingOrbs size={44} />
             <p>AI 正在創作中...</p>
           </div>
         )}
