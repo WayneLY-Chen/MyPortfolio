@@ -60,8 +60,23 @@ const savedUser = readCachedUser();
 
 const useAuthStore = create((set, get) => ({
   accessToken: null,
+
+  // user 與 isAuthenticated 是**兩件不同的事**，先前被混為一談：
+  //
+  //   user            —— 顯示用的快取副本，來源是 localStorage。它可能過期、
+  //                      可能被使用者自己改掉，只拿來讓導覽列在 silentRefresh
+  //                      回來之前就有東西可以畫，避免每次進站都閃一下。
+  //   isAuthenticated —— 「伺服器驗證過」這個事實。只有 silentRefresh 真的用
+  //                      refresh cookie 換到 token、而且 /auth/me 也回了使用者
+  //                      資料之後，才會是 true。
+  //
+  // 先前這裡寫的是 isAuthenticated: !!savedUser —— 登入狀態直接由 localStorage
+  // 的 user_cache 有沒有內容決定。任何人在主控台塞一筆 user_cache 進去，UI 就
+  // 顯示已登入。這不會外洩資料（所有 API 都還是要 access token，偽造的快取換不
+  // 到任何東西），但介面會說一件不是真的事，而且會把「還沒驗證完」和「已驗證」
+  // 兩種狀態畫成同一個樣子。
   user: savedUser,
-  isAuthenticated: !!savedUser,
+  isAuthenticated: false,
   isLoading: true,
 
   setAuth: (accessToken, user) => {

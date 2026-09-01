@@ -84,6 +84,18 @@ export default function Login({ mode }) {
       if (errParam === 'oauth_failed') setError('第三方登入失敗，請確認授權或改用 Email 登入。')
       else if (errParam === 'facebook_not_configured') setError('Facebook 登入尚未設定完成。')
       else if (errParam === 'line_not_configured') setError('LINE 登入尚未設定完成。')
+      // auth_failed 由 AuthCallback.jsx 送出：OAuth 那一段其實成功了（provider 已
+      // 授權、後端也發了 refresh cookie），但緊接著的 silentRefresh 沒能換到 token。
+      //
+      // 先前這個代碼沒有對應，會掉到下面的 else 顯示「認證失敗，請重試」——
+      // 那句話對使用者毫無資訊：他不知道是帳密錯了、還是授權被拒、還是伺服器
+      // 出問題，也不知道重試有沒有意義。
+      //
+      // 實務上最常見的原因是後端沒醒著：本專案的 API 跑在 Render 免費方案上，
+      // 閒置會自動休眠，喚醒要 50 秒以上，期間請求會失敗（2026-09-01 就發生過
+      // 連續 6.5 小時的 503）。這種情況「等幾秒再按一次」真的會成功，所以文案
+      // 必須講出這件事，而不是叫人重試就沒了。
+      else if (errParam === 'auth_failed') setError('授權成功了，但沒能建立登入狀態。伺服器可能正在喚醒中，請等幾秒後再試一次。')
       else setError('認證失敗，請重試。')
     }
   }, [isRegister])
