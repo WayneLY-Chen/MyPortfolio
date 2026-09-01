@@ -3,7 +3,6 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
-const session = require('express-session');
 const http = require('http');
 const { migrationsReady, pool } = require('./db');
 
@@ -70,25 +69,26 @@ app.use(express.json());
 // 解析 Cookie
 app.use(cookieParser());
 
-// [Startup] SESSION_SECRET 為必要環境變數：缺少即中止啟動。不再與
-// JWT 存取權杖的密鑰共用備援 —— 兩者屬於不同信任域，共用正是 D-01
-// 要消滅的問題。
-if (!process.env.SESSION_SECRET) {
-  console.error('[Startup] 缺少 SESSION_SECRET 環境變數，伺服器中止啟動');
-  process.exit(1);
-}
-
-app.use(session({
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 10 * 60 * 1000
-  }
-}));
-
+// express-session 已移除（連同它必須的 SESSION_SECRET 啟動檢查）。
+//
+// 它掛在這裡但從來沒有被用到，代價是每次啟動都在 production log 裡噴一行
+// 「MemoryStore is not designed for a production environment, as it will leak
+// memory」——一個沒有人使用的中介層，卻讓真正的警告更難被看見。
+//
+// 移除前逐項查證過，五項全部成立（任何一項不成立都不能拿掉）：
+//   1. 全專案沒有任何一處讀寫 req.session。
+//   2. 沒有 serializeUser / deserializeUser —— passport 不需要把使用者存進 session。
+//   3. 四家 provider 與 local 的 passport.authenticate 全部帶 { session: false }。
+//   4. 這裡只掛 passport.initialize()，沒有 passport.session()。
+//   5. 實測 GET /auth/google 的導轉網址不含 state 參數 —— state 是 passport-oauth2
+//      唯一會寫入 req.session 的功能，沒有它就沒有隱性相依。
+//
+// 本專案的登入狀態完全由 JWT（access token）與 httpOnly 的 refresh cookie 承載，
+// 見 utils/jwt.js 與 routes/auth.js，與 session 無關。
+//
+// 附帶影響：SESSION_SECRET 不再是啟動的必要環境變數。部署環境設了也無妨，
+// 只是不再有任何東西讀它。
+//
 // 初始化 Passport
 app.use(passport.initialize());
 

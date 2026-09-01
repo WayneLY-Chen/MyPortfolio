@@ -20,7 +20,7 @@ const formatDate = (dateStr) => {
 
 export default function Comments({ type, id, actions }) {
   const { addToast } = useToast()
-  const { isAuthenticated, user, accessToken, silentRefresh, isAdmin } = useAuthStore()
+  const { isAuthenticated, user, accessToken, silentRefresh, isAdmin, isLoading } = useAuthStore()
   const [comments, setComments] = useState([])
   const [loading, setLoading] = useState(true)
   const [text, setText] = useState('')
@@ -150,8 +150,12 @@ export default function Comments({ type, id, actions }) {
         留言 ({comments.length})
       </h4>
 
-      {/* Input area */}
-      {isAuthenticated ? (
+      {/* Input area
+          isLoading 期間兩邊都不畫。isAuthenticated 現在一律從 false 開始（見
+          store/authStore.js 的說明），要等 silentRefresh 跟伺服器確認完才會變
+          true —— 若在這段期間就把「請先登入」畫出來，已登入的使用者每次進站都
+          會先看到一次「請先登入」再跳成留言框。留白比閃一下錯的訊息好。 */}
+      {isLoading ? null : isAuthenticated ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 28 }}>
           {/* 名字輸入框已移除。後端現在一律以帳號的 display_name 作為留言者
               名稱（避免任何人以任意名字發言），因此這個輸入框不管填什麼都不會

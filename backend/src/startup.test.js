@@ -105,14 +105,21 @@ describe('Startup gate (REL-01, D-10, D-11)', () => {
   );
 
   it(
-    'rejects startup when SESSION_SECRET is missing: non-zero exit, no banner, [Startup] stderr',
+    'SESSION_SECRET 不再是啟動閘門 —— 缺少它時擋下啟動的是資料庫，不是 [Startup]',
     async () => {
-      // SESSION_SECRET: '' (not omitted — see runBackend's docstring) forces
-      // the child to see it as genuinely empty rather than backfilled from
-      // this machine's real backend/.env. Also supplies a guaranteed-
-      // unreachable DATABASE_URL so that even if the SESSION_SECRET guard
-      // were ever accidentally removed, this case still cannot proceed to a
-      // real database connection.
+      // 這條先前斷言的是「缺少 SESSION_SECRET 就中止啟動」。那個閘門連同
+      // express-session 一起移除了：該中介層從來沒有被使用（沒有任何一處讀寫
+      // req.session、沒有 serializeUser/deserializeUser、所有 passport.authenticate
+      // 都帶 { session: false }、只掛 passport.initialize()、OAuth 導轉不含 state），
+      // 卻讓每次啟動都噴一行 MemoryStore 的生產環境警告。詳見 src/index.js 的說明。
+      //
+      // 沒有 session 就沒有 SESSION_SECRET 的用途，強制要求一個沒人讀的環境變數
+      // 只會讓部署多一個無意義的失敗點。
+      //
+      // 新的斷言仍然帶著壞掉的 DATABASE_URL —— 這個測試環境沒有真的資料庫，
+      // 行程一定會失敗。重點在於**失敗的理由變了**:以前是 [Startup] 擋在最前面，
+      // 現在必須一路走到資料庫才失敗，這正是「session 閘門已經不存在」的證據。
+      // SESSION_SECRET: '' 而不是省略，理由見 runBackend 的說明（dotenv 會回填）。
       const { code, stdout, stderr } = await runBackend({
         DATABASE_URL: BROKEN_DB_URL,
         SESSION_SECRET: '',
@@ -122,7 +129,9 @@ describe('Startup gate (REL-01, D-10, D-11)', () => {
 
       expect(code).not.toBe(0);
       expect(stdout).not.toContain(BANNER_MARKER);
-      expect(stderr).toContain('[Startup]');
+      // 走到資料庫才失敗 = 沒有被 session 閘門提前擋下
+      expect(stderr).toContain('[DB]');
+      expect(stderr).not.toContain('缺少 SESSION_SECRET');
     },
     STARTUP_TIMEOUT_MS + 5000
   );
