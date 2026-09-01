@@ -277,10 +277,43 @@ describe('GET /auth/verify (D-17 second site: admin role granted only at verific
 });
 
 describe('POST /auth/logout', () => {
-  it('returns 401 without an Authorization header (sits behind the authenticate middleware)', async () => {
-    const res = await request(buildApp()).post('/auth/logout');
+  // 這條先前斷言的是「沒有 Authorization header 就回 401」。那個行為本身就是
+  // bug:access token 只活 15 分鐘，使用者在頁面上待久一點再按登出，請求會在
+  // 進到路由本體之前就被擋掉 —— refresh token 沒撤銷、cookie 沒清掉，而前端
+  // 已經把本地狀態清乾淨，人以為自己登出了。下次進站 silentRefresh 拿那張還
+  // 活著的 cookie 一換就又登入了。「登出在最需要它的時候失效」是這裡最嚴重的
+  // 失效模式，所以端點改掛 optionalAuthenticate，斷言也跟著改成新的意圖。
+  it('沒有 Authorization header 也要能登出 —— access token 過期不該讓人登不出去', async () => {
+    query.mockResolvedValueOnce({ rows: [], rowCount: 1 }); // 撤銷 refresh token 的 UPDATE
+    const res = await request(buildApp())
+      .post('/auth/logout')
+      .set('Cookie', ['refresh_token=some-raw-token']);
 
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    // 撤銷是靠 cookie 本身算出來的 hash，不需要另一個有效的 access token
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE refresh_tokens SET revoked_at'),
+      expect.any(Array),
+    );
+  });
+
+  // 清除用的屬性必須與 utils/jwt.js 的 setRefreshTokenCookie 逐項一致。前後端
+  // 不同網域(Vercel / Render)，登出是跨站請求 —— 少了 SameSite=None 的
+  // Set-Cookie 會被瀏覽器當成預設的 Lax 而在跨站情境整個丟棄，結果是伺服器端
+  // 撤銷成功、瀏覽器裡那張 cookie 卻原封不動，而且完全不報錯。
+  it('清除 cookie 的屬性與寫入時一致(HttpOnly / Secure / SameSite=None / Path=/)', async () => {
+    query.mockResolvedValueOnce({ rows: [], rowCount: 1 });
+    const res = await request(buildApp())
+      .post('/auth/logout')
+      .set('Cookie', ['refresh_token=some-raw-token']);
+
+    const clearing = (res.headers['set-cookie'] || []).find((c) => c.startsWith('refresh_token='));
+    expect(clearing).toBeDefined();
+    expect(clearing).toMatch(/HttpOnly/i);
+    expect(clearing).toMatch(/Secure/i);
+    expect(clearing).toMatch(/SameSite=None/i);
+    expect(clearing).toMatch(/Path=\//i);
   });
 
   it('returns 200 and clears the refresh cookie at the root path for a valid access token (D-03)', async () => {

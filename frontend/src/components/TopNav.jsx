@@ -28,7 +28,7 @@ const NAV_LINKS = [
 ]
 
 export default function TopNav() {
-  const { user, clearAuth } = useAuthStore()
+  const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
@@ -304,7 +304,7 @@ export default function TopNav() {
           {user ? (
             <div className="nav-user-info">
               <span className="nav-username">{user.display_name || user.email?.split('@')[0]}</span>
-              <button className="nav-logout" onClick={clearAuth}>登出</button>
+              <button className="nav-logout" onClick={logout}>登出</button>
             </div>
           ) : (
             <a href="/login" className="nav-login" onClick={e => { e.preventDefault(); navigate('/login') }}>登入</a>
