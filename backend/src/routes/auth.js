@@ -5,7 +5,7 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const { query } = require('../db');
 const { generateAccessToken, generateRefreshToken, setRefreshTokenCookie, verifyAccessToken, generateGuestSessionToken } = require('../utils/jwt');
-const { authenticate } = require('../middlewares/authenticate');
+const { authenticate, optionalAuthenticate } = require('../middlewares/authenticate');
 const { loginLimiter, emailDispatchLimiter, registerLimiter, passwordResetLimiter } = require('../middlewares/rateLimiters');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/mailer');
 const {
@@ -474,13 +474,40 @@ router.get('/guest-session', (req, res) => {
 });
 
 // POST /auth/logout
-router.post('/logout', authenticate, async (req, res) => {
+//
+// 刻意用 optionalAuthenticate 而不是 authenticate。
+//
+// access token 只活 15 分鐘(見上方 expires_in: 900)。掛 authenticate 的話,
+// 只要使用者在頁面上待超過 15 分鐘再按登出,這個請求會在進到函式本體之前
+// 就被擋成 401 —— 於是 refresh token 沒被撤銷、cookie 沒被清掉,而前端已經
+// 把本地狀態清乾淨了,使用者以為自己登出了。下次進站 silentRefresh 拿那張
+// 還活著的 cookie 一換,人就又回到登入狀態。「登出在最需要它的時候失效」
+// 是這裡最嚴重的失效模式,必須優先排除。
+//
+// 放寬的代價是什麼:這個端點不再要求證明「你是誰」,只要求你手上有那張
+// refresh cookie。而要撤銷一張憑證,本來就必須先持有它 —— 沒有 cookie 的
+// 請求走到下面只會清一個不存在的 cookie,撤銷不了任何東西。
+//
+// 唯一新增的風險是 CSRF:cookie 是 SameSite=None,第三方站台可以偽造一個
+// 跨站 POST 把使用者登出。這是阻斷級的騷擾(使用者重新登入即可),不會洩漏
+// 任何資料、也拿不到任何憑證 —— 用它換掉「過期就登不出去」是划算的。
+router.post('/logout', optionalAuthenticate, async (req, res) => {
   const rawToken = req.cookies?.refresh_token;
   if (rawToken) {
     const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
     await query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1', [tokenHash]).catch(() => {});
   }
-  res.clearCookie('refresh_token', { path: '/' });
+  // 清除用的屬性必須與 utils/jwt.js 的 setRefreshTokenCookie 逐項一致。
+  // 少了 sameSite:'none' 的話,瀏覽器會把這個 Set-Cookie 當成預設的
+  // SameSite=Lax —— 而本站前後端不同網域(Vercel / Render),登出是一個
+  // 跨站請求,Lax 的 Set-Cookie 在跨站情境會被整個丟棄。結果就是伺服器
+  // 端撤銷成功、瀏覽器裡那張 cookie 卻原封不動,而且完全不報錯。
+  res.clearCookie('refresh_token', {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none',
+    path: '/',
+  });
   return res.json({ success: true, message: '已成功登出' });
 });
 
