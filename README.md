@@ -367,3 +367,15 @@ cd backend && npm test
 💡 歡迎 ⭐ Star 此專案,或到站上右下角找 **Wobot 助理**問問關於我的事!
 
 </div>
+
+---
+
+## 📜 版權
+
+<div align="center">
+
+**© 2026 Wayne Chen. All rights reserved.**
+
+本專案不提供任何開源授權,僅供瀏覽與參考。
+
+</div>
