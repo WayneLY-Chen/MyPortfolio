@@ -35,3 +35,4 @@ backend/migrate.js
 # 開發用的規劃與 AI 助理設定，不進版控
 .planning/
 .claude/
+docs/superpowers/
