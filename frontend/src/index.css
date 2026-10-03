@@ -666,6 +666,58 @@ body::after {
   transition: width 0.25s ease-out, opacity 0.3s ease-out 0.15s;
 }
 
+/* ── 伺服器喚醒提示 ServerWakeNotice(components/ui/ServerWakeNotice.jsx)──
+   底部置中。z-index 8400:低於雜訊層的 8999(爬上去會跟導覽列產生色差),
+   也低於頂部進度條的 8500。Wobot 浮動按鈕固定在右下角 20px,桌機寬度下置中的
+   提示碰不到它;手機寬度會撞到,所以窄螢幕把提示抬到 Wobot 上方。 */
+.wake-notice {
+  /* 置中用 left/right 0 + margin auto + fit-content,不用 left:50% + translateX(-50%)。
+     後者在 fixed 元素上會讓瀏覽器以「左緣到右邊界」那半個視窗當可用寬度去
+     shrink-to-fit,手機上提示被擠成半寬、文字一行只剩四五個字。 */
+  position: fixed;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  width: fit-content;
+  bottom: 20px;
+  z-index: 8400;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 10px 12px 10px 16px;
+  border: 1px solid rgba(200, 148, 42, 0.45);
+  border-radius: 999px;
+  background: rgba(26, 18, 8, 0.94);
+  color: var(--fg);
+  font-size: 13px;
+  line-height: 1.5;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  animation: wake-in 0.3s ease-out;
+}
+.wake-notice-text { flex: 1; }
+.wake-notice-close {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.wake-notice-close:hover { color: var(--fg); background: rgba(255, 255, 255, 0.06); }
+.wake-notice-close:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@keyframes wake-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 640px) {
+  .wake-notice { bottom: 96px; border-radius: 14px; }
+}
+
 /* ── 減少動態 ──
    專案層級約束,不是加分項:手機發熱、耗電,以及前庭功能障礙的使用者。
    思考球退化成靜態光暈(仍看得出「在等」),進度條整條不顯示 ——
@@ -680,4 +732,5 @@ body::after {
   .orbs-dot { opacity: 0.55; }
   .orbs-meridian { border-color: rgba(200, 148, 42, 0.35); }
   .route-progress { display: none; }
+  .wake-notice { animation: none; }
 }
