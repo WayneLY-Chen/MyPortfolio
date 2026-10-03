@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from 'react'
+import { useEffect, useRef, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 
 function Particles() {
@@ -113,7 +113,29 @@ const NAV_LINKS = [
   { label: '功能頁',   href: '/fun',      icon: <IconGame />   },
 ]
 
+// 履歷 PDF 只要丟進 frontend/public/resume.pdf 就會被 Vercel 當靜態檔提供。
+// 按鈕要等確認檔案真的存在才顯示:Vercel(vercel.json 最後那條 catch-all)與
+// vite dev server 對不存在的路徑都回 index.html 的 200,所以光看狀態碼會誤判成
+// 「有檔案」,做出一顆點下去下載到網頁原始碼的按鈕。改看 content-type 才準。
+const RESUME_PATH = '/resume.pdf'
+
+function useResumeAvailable() {
+  const [available, setAvailable] = useState(false)
+  useEffect(() => {
+    let alive = true
+    fetch(RESUME_PATH, { method: 'HEAD', cache: 'no-store' })
+      .then((res) => {
+        const type = res.headers.get('content-type') || ''
+        if (alive && res.ok && type.includes('application/pdf')) setAvailable(true)
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [])
+  return available
+}
+
 export default function Footer() {
+  const hasResume = useResumeAvailable()
   const scrollToTop = (e) => {
     e.preventDefault()
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -176,6 +198,7 @@ export default function Footer() {
           cursor: none;
         }
         .footer-contact-btn:hover { background: var(--accent); color: #000; transform: translateY(-4px); }
+        .footer-cta-row { display: flex; flex-wrap: wrap; gap: 12px; }
         .footer-middle {
           display: grid;
           grid-template-columns: 1fr 1fr;
@@ -272,9 +295,16 @@ export default function Footer() {
         <div className="footer-top">
           <div className="footer-left">
             <h2 className="footer-title">Let's work<br /><span>together.</span></h2>
-            <a href="mailto:qweasd226410@gmail.com" className="footer-contact-btn">
-              Get in touch ↗
-            </a>
+            <div className="footer-cta-row">
+              <a href="mailto:qweasd226410@gmail.com" className="footer-contact-btn">
+                Get in touch ↗
+              </a>
+              {hasResume && (
+                <a href={RESUME_PATH} download="Wayne-Chen-Resume.pdf" className="footer-contact-btn">
+                  Résumé ↓
+                </a>
+              )}
+            </div>
           </div>
         </div>
 
