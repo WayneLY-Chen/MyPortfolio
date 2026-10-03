@@ -41,6 +41,12 @@ export const AUTH_URL = '/auth';
 
 export const SOCKET_URL = API_BASE_URL || window.location.origin;
 
+// 後端存活檢查。ServerWakeNotice 進站時打它:後端在 Render 免費方案上閒置會休眠,
+// 冷啟動要 50 秒以上,這一下同時負責「偵測是否在睡」與「提早把它叫醒」。
+// 本機開發時 API_BASE_URL 為空,會打到 vite 的 /health(回 index.html 的 200),
+// 等同「後端醒著」,提示不會出現 —— 正是 dev 下想要的行為。
+export const HEALTH_URL = `${API_BASE_URL}/health`;
+
 export default {
   API_URL,
   AUTH_URL,
