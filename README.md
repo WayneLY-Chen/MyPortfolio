@@ -256,7 +256,7 @@ MyPortfolio/
 
 ### 前置需求
 
-- **Node.js** >= 18
+- **Node.js** 24.22.1（後端 `backend/.node-version` 鎖定；Vercel 前端用 24.x）
 - **PostgreSQL** 資料庫（推薦使用 [Neon](https://neon.tech/) 免費方案）
 - **API Keys**：Gemini API、Stability AI、GitHub Token
 

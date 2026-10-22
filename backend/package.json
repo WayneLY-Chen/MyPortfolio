@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
+    "dev": "node --watch src/index.js",
     "db:init": "psql $DATABASE_URL -f src/db/schema.sql",
     "db:seed-blog": "node src/db/seed_blog.js",
     "db:seed-knowledge": "node src/db/seed_knowledge.js",
@@ -25,7 +25,7 @@
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
     "msedge-tts": "^2.0.6",
-    "nodemailer": "^9.0.5",
+    "nodemailer": "^10.2.1",
     "passport": "^0.7.0",
     "passport-facebook": "^3.0.0",
     "passport-github2": "^0.1.12",
@@ -36,10 +36,9 @@
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "4.1.10",
-    "nodemon": "^3.1.4",
+    "@vitest/coverage-v8": "4.1.12",
     "socket.io-client": "4.8.3",
     "supertest": "7.2.2",
-    "vitest": "4.1.10"
+    "vitest": "4.1.12"
   }
 }
