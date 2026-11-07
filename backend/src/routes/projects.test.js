@@ -128,6 +128,7 @@ describe('GET /api/projects', () => {
     ];
     query.mockResolvedValueOnce({ rows: cachedRowsMissingStats }); // cache SELECT
     query.mockResolvedValueOnce({}); // upsert INSERT (return value unused)
+    query.mockResolvedValueOnce({ rowCount: 0 }); // is_public visibility UPDATE
     query.mockResolvedValueOnce({ rows: completedRows }); // re-read SELECT
     fetchUserRepos.mockResolvedValueOnce([
       { github_id: 1, name: 'demo-a', language_stats: { JS: 80, CSS: 20 }, updated_at: new Date().toISOString() },
@@ -210,6 +211,66 @@ describe('PUT /api/projects/:id (D-02 — was previously unauthenticated)', () =
 
     expect(res.status).toBe(403);
     assertNoUpdateWasIssued();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GitHub 上轉為私人的 repo 要從列表消失
+//
+// fetchUserRepos 只回公開 repo，但 upsertProjects 過去只新增/更新，從不處理
+// 「這次沒回來的 repo」，讀取又撈整張表 —— 轉私人的 repo（Roster）就永遠留著。
+describe('已轉為私人的 repo 會被隱藏', () => {
+  const visibilityCalls = () =>
+    query.mock.calls.filter(([sql]) => /UPDATE\s+projects\s+SET\s+is_public/i.test(sql));
+
+  it('同步成功時，用這次拿到的 github_id 清單更新 is_public', async () => {
+    query.mockResolvedValue({ rows: [] });
+    fetchUserRepos.mockResolvedValueOnce([
+      { github_id: 11, name: 'public-a', language_stats: {} },
+      { github_id: 22, name: 'public-b', language_stats: {} },
+    ]);
+
+    const res = await request(buildApp())
+      .post('/api/projects/sync')
+      .set('Authorization', `Bearer ${adminToken()}`);
+
+    expect(res.status).toBe(200);
+    expect(visibilityCalls()).toHaveLength(1);
+    expect(visibilityCalls()[0][1]).toEqual([[11, 22]]);
+  });
+
+  it('GitHub 回傳 0 筆時不動公開狀態 —— 不能把整份清單誤判成私人', async () => {
+    query.mockResolvedValue({ rows: [] });
+    fetchUserRepos.mockResolvedValueOnce([]);
+
+    await request(buildApp())
+      .post('/api/projects/sync')
+      .set('Authorization', `Bearer ${adminToken()}`);
+
+    expect(visibilityCalls()).toHaveLength(0);
+  });
+
+  it('GitHub 失敗時不動公開狀態', async () => {
+    query.mockResolvedValue({ rows: [] });
+    fetchUserRepos.mockRejectedValueOnce(new Error('GitHub API 錯誤 403'));
+
+    await request(buildApp())
+      .post('/api/projects/sync')
+      .set('Authorization', `Bearer ${adminToken()}`);
+
+    expect(visibilityCalls()).toHaveLength(0);
+  });
+
+  it('讀取路徑的每一條 SELECT 都只撈 is_public = TRUE', async () => {
+    query.mockResolvedValueOnce({ rows: [] }); // 快取未命中
+    fetchUserRepos.mockRejectedValueOnce(new Error('GitHub 掛了')); // 走 stale-cache
+    query.mockResolvedValue({ rows: [] });
+
+    await request(buildApp()).get('/api/projects');
+
+    const selects = query.mock.calls.map(([sql]) => sql).filter((sql) => /^\s*SELECT/i.test(sql));
+    expect(selects.length).toBeGreaterThanOrEqual(2);
+    selects.forEach((sql) => expect(sql).toMatch(/is_public\s*=\s*TRUE/i));
   });
 });
 

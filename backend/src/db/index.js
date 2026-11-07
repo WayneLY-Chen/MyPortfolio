@@ -50,6 +50,8 @@ const runMigrations = async () => {
   await pool.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS language_stats JSONB DEFAULT '{}'::jsonb;`);
   await pool.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS image_url TEXT;`);
   await pool.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS readme TEXT;`);
+  // GitHub 上轉為私人（或刪除）的 repo 不再出現在公開清單，同步時標成 false 隱藏，不刪資料列
+  await pool.query(`ALTER TABLE projects ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT TRUE;`);
   // Email 驗證欄位
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token TEXT;`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_expires_at TIMESTAMPTZ;`);
