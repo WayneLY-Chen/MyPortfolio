@@ -3,6 +3,10 @@ require('dotenv').config();
 
 const GITHUB_USERNAME = 'WayneLY-Chen';
 const GITHUB_API_URL = `https://api.github.com/users/${GITHUB_USERNAME}/repos`;
+// GitHub 每頁最多 100 筆。上限頁數只是防呆（避免 API 行為異常時無限迴圈），
+// 1,000 個公開 repo 遠超實際需求；真的撞到上限就整次失敗，不回傳不完整的清單
+const REPOS_PER_PAGE = 100;
+const MAX_REPO_PAGES = 10;
 
 /**
  * 建立 GitHub API 的請求標頭
@@ -85,24 +89,36 @@ const fetchRepoReadme = async (repoName) => {
  * @throws {Error} GitHub API 失敗時拋出錯誤
  */
 const fetchUserRepos = async () => {
-  let repos;
+  const repos = [];
   try {
     console.log(`[GitHub] 正在從 API 取得 ${GITHUB_USERNAME} 的 Repo...`);
 
-    const response = await axios.get(GITHUB_API_URL, {
-      params: {
-        sort: 'pushed',
-        per_page: 100,
-        type: 'public',
-      },
-      headers: buildHeaders(),
-      timeout: 10000,
-    });
+    // 逐頁抓到不滿一頁為止。呼叫端會用這份清單判斷哪些 repo 已轉私人，
+    // 所以任何一頁失敗都必須讓整次失敗（throw），絕不能回傳只抓到一半的清單
+    for (let page = 1; ; page++) {
+      if (page > MAX_REPO_PAGES) {
+        throw new Error(`公開 Repo 超過 ${MAX_REPO_PAGES * REPOS_PER_PAGE} 個，已達分頁上限`);
+      }
 
-    repos = response.data;
+      const response = await axios.get(GITHUB_API_URL, {
+        params: {
+          sort: 'pushed',
+          per_page: REPOS_PER_PAGE,
+          page,
+          type: 'public',
+        },
+        headers: buildHeaders(),
+        timeout: 10000,
+      });
+
+      const batch = Array.isArray(response.data) ? response.data : [];
+      repos.push(...batch);
+      if (batch.length < REPOS_PER_PAGE) break;
+    }
+
     console.log(`[GitHub] 成功取得 ${repos.length} 個 Repo`);
   } catch (err) {
-    let message = '[GitHub] 網路錯誤';
+    let message = `網路錯誤: ${err.message}`;
     if (err.response) {
       message = `GitHub API 錯誤 ${err.response.status}: ${err.response.data?.message || err.message}`;
       if (err.response.status === 403) {
