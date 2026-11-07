@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS projects (
   forks INTEGER DEFAULT 0,
   topics TEXT[],
   language_stats JSONB DEFAULT '{}'::jsonb,
+  is_public BOOLEAN NOT NULL DEFAULT TRUE,
   updated_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT NOW()
 );

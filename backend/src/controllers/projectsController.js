@@ -50,6 +50,20 @@ const upsertProjects = async (repos) => {
   }
 
   console.log(`[Projects] 成功寫入 ${repos.length} 筆專案資料`);
+
+  // fetchUserRepos 只回公開 repo，所以這次沒回來的就是轉私人或已刪除的 —— 標成隱藏。
+  // 不刪資料列：自訂封面/描述保留，之後改回公開就會自動恢復顯示。
+  // 只有同步成功且至少拿到一筆才會走到這裡（上方的早退與呼叫端的 throw），
+  // GitHub 失敗或回空不會把整份清單誤判成私人。
+  const publicIds = repos.map((repo) => repo.github_id);
+  const visibility = await query(
+    `UPDATE projects SET is_public = (github_id = ANY($1::bigint[]))
+     WHERE github_id IS NOT NULL AND is_public IS DISTINCT FROM (github_id = ANY($1::bigint[]))`,
+    [publicIds]
+  );
+  if (visibility?.rowCount) {
+    console.log(`[Projects] 更新 ${visibility.rowCount} 筆專案的公開狀態`);
+  }
 };
 
 // 共用的專案欄位清單與重新讀取查詢，供 getProjects 的各個 fallback 分支
@@ -58,6 +72,7 @@ const PROJECT_COLUMNS = 'id, name, description, readme, image_url, url, homepage
 const fetchAllProjectsFromDb = () => query(`
   SELECT ${PROJECT_COLUMNS}
   FROM projects
+  WHERE is_public = TRUE
   ORDER BY updated_at DESC NULLS LAST
 `);
 
@@ -148,8 +163,9 @@ const getProjects = async (req, res, next) => {
       const cacheResult = await query(`
         SELECT ${PROJECT_COLUMNS}
         FROM projects
-        WHERE created_at > NOW() - INTERVAL '${CACHE_DURATION_HOURS} hours'
-           OR (SELECT MAX(created_at) FROM projects) > NOW() - INTERVAL '${CACHE_DURATION_HOURS} hours'
+        WHERE is_public = TRUE
+          AND (created_at > NOW() - INTERVAL '${CACHE_DURATION_HOURS} hours'
+           OR (SELECT MAX(created_at) FROM projects) > NOW() - INTERVAL '${CACHE_DURATION_HOURS} hours')
         ORDER BY updated_at DESC NULLS LAST
       `);
 

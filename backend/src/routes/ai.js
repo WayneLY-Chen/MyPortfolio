@@ -323,7 +323,7 @@ router.post('/chat', optionalAuthenticate, resolveGuestSession, aiLimiter, async
     // --- 動態抓取實時專案資料庫資料 ---
     let projectsContext = '\n目前資料庫中的最新專案清單：\n'
     try {
-      const pResult = await query('SELECT name, description, topics FROM projects ORDER BY updated_at DESC')
+      const pResult = await query('SELECT name, description, topics FROM projects WHERE is_public = TRUE ORDER BY updated_at DESC')
       if (pResult.rows && pResult.rows.length > 0) {
         pResult.rows.forEach((p, idx) => {
           const techStack = (p.topics && Array.isArray(p.topics)) ? ` (技術：${p.topics.join(', ')})` : ''
